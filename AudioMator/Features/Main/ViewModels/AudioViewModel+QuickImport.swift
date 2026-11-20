@@ -463,6 +463,7 @@ extension AudioViewModel {
         }
         let start = ContinuousClock.now
         var publishedRowCount = 0
+        var newlyAcceptedFiles: [AudioFile] = []
         var failures: [QuickImportPendingFailure] = []
 
         for outcome in outcomes {
@@ -540,6 +541,7 @@ extension AudioViewModel {
                 }
 
                 quickImportBookkeeping.metrics.acceptedCount += 1
+                newlyAcceptedFiles.append(acceptedFile)
                 publishedRowCount += 1
             } else if let reason = outcome.failureReason {
                 failures.append(
@@ -565,6 +567,13 @@ extension AudioViewModel {
         }
 
         guard publishedRowCount > 0 else { return }
+
+        if !newlyAcceptedFiles.isEmpty {
+            syncAcceptedObservationsToOtherSources(
+                newlyAcceptedFiles,
+                includeQuickImport: false
+            )
+        }
 
         rebuildVisibleFiles()
         let duration = start.duration(to: ContinuousClock.now)
@@ -742,6 +751,7 @@ extension AudioViewModel {
         }
         let generation = refreshGeneration ?? makeFileModelRefreshGeneration()
         var parentEvidenceByPath: [String: QuickImportParentEvidence] = [:]
+        var newlyAcceptedFiles: [AudioFile] = []
         var publishedAnything = false
 
         for file in incoming {
@@ -816,10 +826,15 @@ extension AudioViewModel {
                     }
                 }
             }
+            newlyAcceptedFiles.append(accepted)
             publishedAnything = true
         }
 
         if publishedAnything {
+            syncAcceptedObservationsToOtherSources(
+                newlyAcceptedFiles,
+                includeQuickImport: false
+            )
             rebuildVisibleFiles()
         }
     }

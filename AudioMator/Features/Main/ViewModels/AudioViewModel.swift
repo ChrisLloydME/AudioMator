@@ -1401,6 +1401,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     func committedFile(withID id: AudioFile.ID) -> AudioFile? {
         if let pending = pendingMetadataReloadsByID[id]?.file { return pending }
         if let file = quickImportFilesByID[id] { return file }
+        for folder in watchedFolders {
+            if let file = watchedFolderFiles[folder.id]?.first(where: { $0.id == id }) {
+                return file
+            }
+        }
         for folderID in watchedFolderFiles.keys {
             if let file = watchedFolderFiles[folderID]?.first(where: { $0.id == id }) {
                 return file
@@ -1450,6 +1455,52 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         }
         pendingMetadataReloadsByID.removeAll(keepingCapacity: true)
         publishAcceptedFiles(reloadedFiles)
+    }
+
+    /// Propagates newly accepted observations to every other source collection
+    /// that already contains the same stable file ID without resurrecting
+    /// removed memberships or performing main-actor path work.
+    func syncAcceptedObservationsToOtherSources(
+        _ acceptedFiles: [AudioFile],
+        includeQuickImport: Bool,
+        excludingWatchedFolderID: UUID? = nil
+    ) {
+        guard !acceptedFiles.isEmpty else { return }
+        let hasQuickImportTargets = includeQuickImport && !quickImportFilesByID.isEmpty
+        let hasOtherWatchedFolders = watchedFolderFiles.keys.contains { $0 != excludingWatchedFolderID }
+        guard hasQuickImportTargets || hasOtherWatchedFolders else { return }
+
+        var acceptedByID: [AudioFile.ID: AudioFile] = [:]
+        acceptedByID.reserveCapacity(acceptedFiles.count)
+        for file in acceptedFiles {
+            acceptedByID[file.id] = file
+        }
+
+        if hasQuickImportTargets {
+            var didUpdateQuickImport = false
+            for (id, file) in acceptedByID where quickImportFilesByID[id] != nil {
+                quickImportFilesByID[id] = file
+                didUpdateQuickImport = true
+            }
+            if didUpdateQuickImport {
+                quickImportFiles = quickImportFiles.map { acceptedByID[$0.id] ?? $0 }
+            }
+        }
+
+        if hasOtherWatchedFolders {
+            for folderID in watchedFolderFiles.keys where folderID != excludingWatchedFolderID {
+                guard let folderFiles = watchedFolderFiles[folderID], !folderFiles.isEmpty else { continue }
+                var didUpdateFolder = false
+                let updatedFolderFiles = folderFiles.map { existing -> AudioFile in
+                    guard let updated = acceptedByID[existing.id] else { return existing }
+                    didUpdateFolder = true
+                    return updated
+                }
+                if didUpdateFolder {
+                    watchedFolderFiles[folderID] = updatedFolderFiles
+                }
+            }
+        }
     }
 
     private func publishAcceptedFiles(_ reloadedFiles: [AudioFile], rebuildVisible: Bool = true) {
@@ -1693,6 +1744,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         }
 
         let previousIDs = Set((watchedFolderFiles[id] ?? []).map(\.id))
+        var newlyAcceptedFiles: [AudioFile] = []
         let refreshedList: [AudioFile] = entries.compactMap { entry in
             if failedKeys.contains(entry.key), let previous = previousFilesByKey[entry.key] {
                 // A failed read is not a newer observation of metadata. Keep an
@@ -1700,11 +1752,21 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
                 return loadedFile(withID: previous.id) ?? previous
             }
             guard let file = refreshedFilesByKey[entry.key] else { return nil }
-            return acceptFileObservation(file, generation: refreshGeneration)
-                ?? loadedFile(withID: file.id)
+            if let accepted = acceptFileObservation(file, generation: refreshGeneration) {
+                newlyAcceptedFiles.append(accepted)
+                return accepted
+            }
+            return loadedFile(withID: file.id)
                 ?? previousFilesByKey[entry.key]
         }
         watchedFolderFiles[id] = refreshedList
+        if !newlyAcceptedFiles.isEmpty {
+            syncAcceptedObservationsToOtherSources(
+                newlyAcceptedFiles,
+                includeQuickImport: true,
+                excludingWatchedFolderID: id
+            )
+        }
         let removedIDs = previousIDs.subtracting(refreshedList.map(\.id))
         if !removedIDs.isEmpty {
             revokeCommitPermitsForRemovedSourceFiles(removedIDs)

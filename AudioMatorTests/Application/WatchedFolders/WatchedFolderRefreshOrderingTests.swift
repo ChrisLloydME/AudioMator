@@ -207,6 +207,171 @@ nonisolated final class WatchedFolderRefreshOrderingTests: XCTestCase {
     }
 
     @MainActor
+    func testWatchedFolderRescanSyncsQuickImportAndAllowsStrictWriteOnDualMembershipFLAC() async throws {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorDualSourceFLAC-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: rootURL) }
+
+        let flacURL = rootURL.appendingPathComponent("dual.flac")
+        try FileManager.default.copyItem(at: try bundledFLACFixtureURL(), to: flacURL)
+
+        let suite = "AudioMatorDualSourceFLAC.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WatchedFolderStore(userDefaults: defaults)
+        let folder = try store.makeFolder(from: rootURL)
+        store.saveFolders([folder])
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: rootURL.appendingPathComponent("issues.json")),
+            conflictPolicyDefaults: defaults
+        )
+        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+
+        // Load into Quick Import first so Quick Import owns an earlier V1 observation.
+        viewModel.setSidebarSelection(.quickImport)
+        viewModel.importQuickFiles(from: [flacURL])
+        let loadedQuickImport = try await waitUntil { viewModel.quickImportFiles.count == 1 }
+        XCTAssertTrue(loadedQuickImport)
+        let trackID = try XCTUnwrap(viewModel.quickImportFiles.first?.id)
+        let v1Fingerprint = try XCTUnwrap(viewModel.quickImportFiles.first?.fileFingerprint)
+
+        // Wait for initial watched-folder scan to populate the same file ID.
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        let loadedWatched = try await waitUntil { viewModel.files.first?.id == trackID }
+        XCTAssertTrue(loadedWatched)
+
+        // Mutate the real FLAC externally on disk so disk advances to V2.
+        _ = try pipeline.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["TITLE": ["External V2"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+
+        // Rescan the watched folder while Quick Import still holds V1.
+        viewModel.scheduleWatchedFolderRescan(for: folder.id, debounceMilliseconds: 0)
+        let rescannedToV2 = try await waitUntil {
+            viewModel.files.first?.title == "External V2"
+        }
+        XCTAssertTrue(rescannedToV2)
+
+        let freshWatchedFile = try XCTUnwrap(viewModel.files.first)
+        XCTAssertNotEqual(freshWatchedFile.fileFingerprint, v1Fingerprint)
+        XCTAssertEqual(
+            viewModel.committedFile(withID: trackID)?.fileFingerprint,
+            freshWatchedFile.fileFingerprint,
+            "committedFile(withID:) must reflect the fresh watched-folder observation even when Quick Import also holds the file"
+        )
+        XCTAssertEqual(
+            viewModel.quickImportFilesByID[trackID]?.title,
+            "External V2",
+            "Quick Import membership must stay synchronized with the accepted watched-folder observation"
+        )
+        XCTAssertTrue(viewModel.quickImportDiagnostics().consistencyIssues.isEmpty)
+
+        // Strict write built from the fresh watched-folder review must succeed on disk.
+        viewModel.setSelectedAudioIDs([trackID])
+        let capture = try XCTUnwrap(viewModel.captureConfirmedSelectionAction())
+        viewModel.executeConfirmedCreateMuseAmpIDs(capture)
+
+        let finishedStrictWrite = try await waitUntil {
+            viewModel.metadataSaveProgress == nil
+                && (viewModel.committedFile(withID: trackID)?.comment.contains("\"albumID\"") == true)
+        }
+        XCTAssertTrue(finishedStrictWrite, "Strict write against fresh watched-folder review should succeed")
+
+        let reloadedFromDisk = try await pipeline.loadAudioFile(at: flacURL, id: trackID)
+        XCTAssertEqual(reloadedFromDisk.title, "External V2")
+        XCTAssertTrue(reloadedFromDisk.comment.contains("\"albumID\""))
+        XCTAssertTrue(reloadedFromDisk.comment.contains("\"trackID\""))
+    }
+
+    @MainActor
+    func testWatchedFolderRescanSyncsOverlappingWatchedFoldersAndAllowsStrictWrite() async throws {
+        let parentURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorOverlapWatched-\(UUID().uuidString)", isDirectory: true)
+        let childURL = parentURL.appendingPathComponent("Album", isDirectory: true)
+        try FileManager.default.createDirectory(at: childURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: parentURL) }
+
+        let flacURL = childURL.appendingPathComponent("overlap.flac")
+        try FileManager.default.copyItem(at: try bundledFLACFixtureURL(), to: flacURL)
+
+        let suite = "AudioMatorOverlapWatched.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = WatchedFolderStore(userDefaults: defaults)
+        let parentFolder = try store.makeFolder(from: parentURL)
+        let childFolder = try store.makeFolder(from: childURL)
+        store.saveFolders([parentFolder, childFolder])
+
+        let pipeline = TagLibAudioMetadataPipeline()
+        let viewModel = AudioViewModel(
+            watchedFolderStore: store,
+            fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
+            metadataPipeline: pipeline,
+            saveIssueLogStore: SaveIssueLogStore(fileURL: parentURL.appendingPathComponent("issues.json")),
+            conflictPolicyDefaults: defaults
+        )
+        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+
+        // Ensure both folders complete their initial scan of V1.
+        viewModel.setSidebarSelection(.watchedFolder(parentFolder.id))
+        let loadedParent = try await waitUntil { viewModel.files.count == 1 }
+        XCTAssertTrue(loadedParent)
+        let trackID = try XCTUnwrap(viewModel.files.first?.id)
+
+        viewModel.setSidebarSelection(.watchedFolder(childFolder.id))
+        let loadedChild = try await waitUntil { viewModel.files.first?.id == trackID }
+        XCTAssertTrue(loadedChild)
+
+        // Mutate the FLAC externally and rescan only the child watched folder.
+        _ = try pipeline.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["TITLE": ["Child Rescan V2"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+
+        viewModel.scheduleWatchedFolderRescan(for: childFolder.id, debounceMilliseconds: 0)
+        let childRescanned = try await waitUntil {
+            viewModel.files.first?.title == "Child Rescan V2"
+        }
+        XCTAssertTrue(childRescanned)
+
+        XCTAssertEqual(viewModel.committedFile(withID: trackID)?.title, "Child Rescan V2")
+
+        // Strict write from the child watched-folder review must not be rejected by an older parent-folder copy.
+        viewModel.setSelectedAudioIDs([trackID])
+        let capture = try XCTUnwrap(viewModel.captureConfirmedSelectionAction())
+        viewModel.executeConfirmedCreateMuseAmpIDs(capture)
+
+        let finishedStrictWrite = try await waitUntil {
+            viewModel.metadataSaveProgress == nil
+                && (viewModel.committedFile(withID: trackID)?.comment.contains("\"albumID\"") == true)
+        }
+        XCTAssertTrue(finishedStrictWrite)
+
+        // Sibling parent folder must also reflect the synchronized latest observation.
+        viewModel.setSidebarSelection(.watchedFolder(parentFolder.id))
+        XCTAssertEqual(viewModel.files.first?.title, "Child Rescan V2")
+        XCTAssertTrue(viewModel.files.first?.comment.contains("\"albumID\"") == true)
+        XCTAssertTrue(viewModel.files.first?.comment.contains("\"trackID\"") == true)
+    }
+
+    private func bundledFLACFixtureURL() throws -> URL {
+        let bundle = Bundle(for: WatchedFolderRefreshOrderingTests.self)
+        return try XCTUnwrap(
+            bundle.url(forResource: "testAudioFile.flac", withExtension: nil, subdirectory: "Fixtures/Audio")
+                ?? bundle.url(forResource: "testAudioFile.flac", withExtension: nil)
+        )
+    }
+
+    @MainActor
     private func waitUntil(
         timeout: Duration = .seconds(3),
         _ condition: @escaping @MainActor () -> Bool

@@ -1,6 +1,5 @@
-import SwiftUI
 import AppKit
-
+import SwiftUI
 
 struct MetadataFieldEntrySheet: View {
     let context: MetadataFieldEditorContext
@@ -50,12 +49,12 @@ struct MetadataFieldEntrySheet: View {
     private var descriptionText: String {
         switch context.mode {
         case .add:
-            return L10n.string("Choose an AudioMator field or enter a custom field name. Add one value at a time; a blank value is a real value.")
+            return L10n.string("Choose an AudioMator field or enter a custom field name.")
         case .edit:
             if context.isMixed {
                 return L10n.string("Selected files currently contain different values. Add the replacement values; saving replaces the whole value list on every selected file.")
             }
-            return L10n.string("Each value in the list is one exact raw value. A line break inside a value stays inside that value.")
+            return L10n.string("A line break stays inside the value you are editing.")
         }
     }
 
@@ -127,27 +126,13 @@ struct MetadataFieldEntrySheet: View {
 
             Divider()
 
-            HStack {
-                Button("Add Value") {
-                    draft.addValue()
-                }
-
-                Button("Remove Value") {
-                    guard let selectedElementID = draft.selectedElementID else { return }
-                    _ = draft.removeValue(id: selectedElementID)
-                }
-                .disabled(draft.elements.count <= 1 || draft.selectedElementID == nil)
-                .help(
-                    draft.elements.count <= 1
-                        ? L10n.string("The last value can’t be removed from the list. Use Delete Field to remove the entire field.")
-                        : L10n.string("Remove the selected value.")
-                )
-
+            HStack(spacing: 8) {
                 Spacer()
 
                 Button("Cancel") {
                     dismiss()
                 }
+                .keyboardShortcut(.cancelAction)
 
                 Button(context.mode == .add ? "Add" : "Save") {
                     commit()
@@ -157,110 +142,71 @@ struct MetadataFieldEntrySheet: View {
             }
         }
         .padding(20)
-        .frame(width: 920, height: 640)
+        .frame(width: 860)
+        .frame(minHeight: 540)
     }
 
     private var valueEditorArea: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text(draft.elements.count == 1
-                    ? L10n.string("Value")
-                    : L10n.string("Values") + " (\(draft.elements.count))")
-                    .font(.headline)
-
-                Spacer()
-
-                Text("Hidden characters are shown while editing.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            HStack(alignment: .top, spacing: 14) {
-                valueList
-                    .frame(width: 300)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(editorTitle)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    MetadataFieldValueEditor(
-                        text: selectedTextBinding,
-                        placeholder: context.isMixed
-                            ? L10n.string("Type the value to apply to all selected files.")
-                            : L10n.string("Enter the metadata value"),
-                        minimumHeight: 330
-                    )
+            HStack(spacing: 8) {
+                if draft.elements.count > 1 {
+                    valuePicker
+                } else {
+                    Text("Value")
+                        .font(.headline)
                 }
-                .frame(maxWidth: .infinity)
-            }
-        }
-    }
 
-    private var valueList: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ScrollView {
-                VStack(spacing: 4) {
-                    ForEach(Array(draft.elements.enumerated()), id: \.element.id) { index, element in
-                        valueListRow(index: index, element: element)
+                Spacer(minLength: 12)
+
+                Button("Add Value") {
+                    draft.addValue()
+                }
+
+                if draft.elements.count > 1 {
+                    Button("Remove Value") {
+                        guard let selectedElementID = draft.selectedElementID else { return }
+                        draft.removeValue(id: selectedElementID)
                     }
                 }
-                .padding(6)
             }
-            .frame(minHeight: 330, alignment: .top)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.55), lineWidth: 1)
-            )
 
-            if draft.elements.count <= 1 {
-                Text("Use Delete Field to remove the entire field.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            MetadataFieldValueEditor(
+                text: selectedTextBinding,
+                placeholder: context.isMixed
+                    ? L10n.string("Type the value to apply to all selected files.")
+                    : L10n.string("Enter the metadata value")
+            )
+            .accessibilityLabel("Metadata Value")
+
+            Text("Hidden characters are shown while editing.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func valueListRow(index: Int, element: MetadataFieldValueElement) -> some View {
-        let isSelected = draft.selectedElementID == element.id
-        let displayText = element.text.isEmpty
-            ? L10n.string("(Empty value)")
-            : MetadataRawValueDisplay.compactElementText(element.text)
-
-        return Button {
-            draft.select(element.id)
-        } label: {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text("\(index + 1)")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20, alignment: .trailing)
-
-                Text(displayText)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(element.text.isEmpty ? .secondary : .primary)
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+    private var valuePicker: some View {
+        let selection = Binding(
+            get: { draft.selectedElementID },
+            set: { id in
+                if let id { draft.select(id) }
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isSelected ? Color.accentColor.opacity(0.16) : Color.clear)
-            )
-            .contentShape(Rectangle())
+        )
+        return Picker("Value", selection: selection) {
+            ForEach(Array(draft.elements.enumerated()), id: \.element.id) { index, element in
+                Text("\(index + 1). \(valuePreview(element.text))")
+                    .tag(Optional(element.id))
+            }
         }
-        .buttonStyle(.plain)
+        .pickerStyle(.menu)
+        .fixedSize()
     }
 
-    private var editorTitle: String {
-        guard let index = draft.selectedElementIndex else {
-            return L10n.string("Value")
-        }
-        return L10n.string("Value") + " \(index + 1)"
+    private func valuePreview(_ text: String) -> String {
+        guard !text.isEmpty else { return MetadataRawValueDisplay.emptyValuePlaceholder }
+        let limit = 32
+        let prefix = text.prefix(limit)
+        let preview = MetadataRawValueDisplay.compactElementText(String(prefix))
+        return prefix.endIndex == text.endIndex ? preview : preview + "…"
     }
 
     private var selectedTextBinding: Binding<String> {

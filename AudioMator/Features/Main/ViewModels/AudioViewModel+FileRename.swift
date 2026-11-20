@@ -188,7 +188,10 @@ extension AudioViewModel {
         }
 
         switch execution.outcome {
-        case .committed(_, let moves, _):
+        case .committed(_, let moves, let diagnostics):
+            if diagnostics.contains(.journalCleanupDeferred) {
+                await refreshRenameJournalRecovery()
+            }
             let warnings = await readBackMovedFiles(execution.receipts)
             issueWarnings.append(contentsOf: warnings)
             _ = moves
@@ -309,13 +312,13 @@ extension AudioViewModel {
             return receipts
 
         case .unresolved(let operationID, _, _):
-            renameJournalFileIDsByOperation[operationID, default: []].formUnion(
-                prepared.entries.map(\.fileID)
+            // Block every affected ID and path synchronously while the union
+            // reservation is still held so no queued metadata writer can slip
+            // through between reservation release and async classification.
+            registerUnresolvedRenameJournalBlocks(
+                operationID: operationID,
+                preparedEntries: prepared.entries
             )
-            for entry in prepared.entries {
-                attachRenameJournalDecisionIfNeeded(fileID: entry.fileID, url: entry.originalURL)
-                attachRenameJournalDecisionIfNeeded(fileID: entry.fileID, url: entry.intendedURL)
-            }
             return []
 
         default:

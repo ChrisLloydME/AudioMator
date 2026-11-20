@@ -67,9 +67,15 @@ extension AudioViewModel {
         }
 
         // 3. Register the permit before queueing so cancellation can revoke it
-        //    synchronously; unregister on operation exit.
+        //    synchronously; unregister on operation exit. Conflict-aware drafts
+        //    allow revision-only refreshes at the same path so the conflict
+        //    resolver can evaluate merge/prefer-disk policies.
         let operationID = UUID()
-        let permit = metadataCommitPermits.register(target: target, operationID: operationID)
+        let permit = metadataCommitPermits.register(
+            target: target,
+            allowsChangedRevision: draft != nil,
+            operationID: operationID
+        )
         defer { metadataCommitPermits.unregister(fileID: target.id, operationID: operationID) }
 
         let executor = MetadataFileMutationExecutor(
@@ -133,12 +139,15 @@ extension AudioViewModel {
     }
 
     /// Pre-prompt eligibility classification. Returns a localized rejection or nil.
-    private func reviewedWriteEligibilityFailure(
+    func reviewedWriteEligibilityFailure(
         for target: ReviewedMetadataTarget,
         allowsChangedRevision: Bool
     ) -> String? {
         guard isTagWriteSupportedExtension(target.url.pathExtension) else {
             return String(localized: "AudioMator doesn't support saving metadata to this file format.")
+        }
+        if isRenameJournalBlocked(url: target.url) {
+            return RenameJournalRecoveryError(fileName: target.url.lastPathComponent).errorDescription
         }
         if hasRecoveryDecision(for: target.id) {
             return AudioFileFingerprintValidationError.recoveryRequired(
@@ -155,6 +164,26 @@ extension AudioViewModel {
             return String(localized: "The file changed since it was reviewed. Close and reopen the tool, then review the current values before applying changes.")
         }
         return nil
+    }
+
+    /// Returns only the URLs of reviewed writes that are executable, non-no-op,
+    /// and currently eligible so ineligible/rejected rows never trigger folder
+    /// authorization prompts.
+    func prePromptDirectoryAccessURLs(
+        for writes: [ReviewedMetadataWrite],
+        allowsChangedRevision: Bool = false
+    ) -> [URL] {
+        writes.compactMap { write in
+            guard write.projection.isExecutable,
+                  !write.isNoOp,
+                  reviewedWriteEligibilityFailure(
+                    for: write.target,
+                    allowsChangedRevision: allowsChangedRevision
+                  ) == nil else {
+                return nil
+            }
+            return write.target.url
+        }
     }
 
     private static func unsupportedReviewedWriteMessage(for fields: Set<MetadataFieldKey>) -> String {

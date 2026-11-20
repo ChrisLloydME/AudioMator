@@ -180,9 +180,100 @@ nonisolated final class ReviewedMetadataWriteExecutionTests: XCTestCase {
         )
         let target = ReviewedMetadataTarget(verified: fixture)
         guard let target else { return XCTFail("Expected a coherent fixture observation") }
-        _ = viewModel.metadataCommitPermits.register(target: target, operationID: UUID())
+        let permit = viewModel.metadataCommitPermits.register(target: target, operationID: UUID())
         viewModel.revokeCommitPermitsIfObservationIncompatible(fixture)
         XCTAssertEqual(viewModel.metadataCommitPermits.activePermitCount, 1)
+        XCTAssertNil(permit.rejection, "Equal observation republish must not revoke a pending permit")
+        XCTAssertEqual(permit.admit(), .admitted)
+    }
+
+    @MainActor
+    func testConflictAwareDraftPermitSurvivesRevisionOnlyObservationAndRevokesOnPathOrRecoveryChange() throws {
+        let v1 = try XCTUnwrap(AudioFileTestFactory.fixtureFileVersion)
+        let v2 = try XCTUnwrap(AudioFileTestFactory.secondaryFixtureFileVersion)
+        XCTAssertNotEqual(v1, v2)
+
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingReviewedPipeline(reloadFile: nil))
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("draft-permit.mp3")
+        let original = AudioFileTestFactory.makeObserved(
+            url: url,
+            title: "Original",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: url, fileSize: 100),
+            metadataFileVersion: v1
+        )
+        guard let target = ReviewedMetadataTarget(verified: original) else {
+            return XCTFail("Expected a coherent fixture observation")
+        }
+
+        let draftPermit = viewModel.metadataCommitPermits.register(
+            target: target,
+            allowsChangedRevision: true,
+            operationID: UUID()
+        )
+        let strictPermit = viewModel.metadataCommitPermits.register(
+            target: target,
+            allowsChangedRevision: false,
+            operationID: UUID()
+        )
+
+        // Revision-only observation at the same path/ID must revoke strict
+        // permits while leaving conflict-aware draft permits eligible for merge.
+        let revised = AudioFileTestFactory.makeObserved(
+            id: original.id,
+            url: url,
+            title: "Externally Edited",
+            fileFingerprint: AudioFileTestFactory.fingerprint(for: url, fileSize: 120),
+            metadataFileVersion: v2
+        )
+        viewModel.revokeCommitPermitsIfObservationIncompatible(revised)
+        XCTAssertNotNil(strictPermit.rejection, "Strict permit must revoke on changed disk revision")
+        XCTAssertNil(draftPermit.rejection, "Conflict-aware draft permit must survive revision-only refresh for conflict resolution")
+
+        // A recovery-required observation at the same path must still revoke the draft permit.
+        let recoveryBlocked = original.projectingDisplay(to: url)
+        viewModel.revokeCommitPermitsIfObservationIncompatible(recoveryBlocked)
+        XCTAssertNotNil(draftPermit.rejection, "Recovery-required observation must revoke conflict-aware draft permit")
+    }
+
+    @MainActor
+    func testProgressTokenOwnershipPreventsOldOperationFromClearingNewerProgress() {
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: RecordingReviewedPipeline(reloadFile: nil))
+        let firstToken = viewModel.beginMetadataSaveProgress(
+            title: "First",
+            subtitle: "track1.mp3",
+            totalUnitCount: 2
+        )
+        let secondToken = viewModel.beginMetadataSaveProgress(
+            title: "Second",
+            subtitle: "track2.mp3",
+            totalUnitCount: 3
+        )
+        viewModel.endMetadataSaveProgress(token: firstToken)
+        XCTAssertEqual(viewModel.metadataSaveProgress?.title, "Second")
+        viewModel.endMetadataSaveProgress(token: secondToken)
+        XCTAssertNil(viewModel.metadataSaveProgress)
+    }
+
+    @MainActor
+    func testProjectMetadataWriteRejectsUnsupportedAdvisoryAndAcceptsUnknownExtensionNoOp() throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+        var unsupportedAdvisory = MetadataEditPayload(
+            SingleFileEditModel(from: AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/a.m4a")))
+        )
+        unsupportedAdvisory.unsupportedAdvisoryImport = "999"
+        let advisoryProjection = try pipeline.projectMetadataWrite(.semantic(unsupportedAdvisory), fileExtension: "m4a")
+        guard case .rejected = advisoryProjection.validation else {
+            return XCTFail("Expected unsupported advisory import to reject during projection")
+        }
+
+        let unknownFile = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/a.unknownext"))
+        let emptyNoOp = MetadataEditPayload(
+            SingleFileEditModel(from: unknownFile),
+            comparedTo: unknownFile
+        )
+        let noOpProjection = try pipeline.projectMetadataWrite(.semantic(emptyNoOp), fileExtension: "unknownext")
+        XCTAssertTrue(noOpProjection.isExecutable)
+        XCTAssertTrue(noOpProjection.isNoOp)
     }
 
     // MARK: - S8 provider / MuseAmp / erase migrations

@@ -15,9 +15,11 @@ nonisolated struct RenameJournalRecoveryEntryPresentation: Identifiable, Equatab
 nonisolated struct RenameJournalRecoveryOperationPresentation: Identifiable, Equatable, Sendable {
     let id: UUID
     let phaseTitle: String
+    let isPrepared: Bool
     let statusTitle: String
     let entries: [RenameJournalRecoveryEntryPresentation]
     let canRestore: Bool
+    let canAuthorizeAndRestore: Bool
     let canAcknowledge: Bool
     let missingDirectoryURLs: [URL]
     let detailText: String?
@@ -104,6 +106,9 @@ extension AudioViewModel {
                 isBusy: false,
                 isRefreshing: false
             )
+            if presentStartupWarning {
+                presentRenameJournalStartupWarningIfNeeded()
+            }
             return
         }
 
@@ -170,12 +175,40 @@ extension AudioViewModel {
         !renameJournalPathBlocks.isDisjoint(with: FileSystemPathSemantics.reservationKeys(for: url))
     }
 
+    /// Synchronously activates journal path blocks and `.journalPending`
+    /// recovery decisions while the rename union reservation is still held.
+    func registerUnresolvedRenameJournalBlocks(
+        operationID: UUID,
+        preparedEntries: [PreparedRenameEntry]
+    ) {
+        let load = renameJournalStore.loadManifests()
+        applyRenameJournalLoad(load)
+
+        renameJournalFileIDsByOperation[operationID, default: []].formUnion(
+            preparedEntries.map(\.fileID)
+        )
+        for entry in preparedEntries {
+            for url in [entry.originalURL, entry.temporaryURL, entry.intendedURL] {
+                for key in FileSystemPathSemantics.reservationKeys(for: url) {
+                    renameJournalPathBlocks.insert(key)
+                    renameJournalOperationByPathKey[key] = operationID
+                }
+            }
+        }
+        applyRenameJournalPendingDecisions(
+            fileIDs: preparedEntries.map(\.fileID),
+            operationID: operationID
+        )
+    }
+
     // MARK: Explicit restore
 
     func restoreRenameJournalOperation(id: UUID) async -> RenameJournalOperationActionResult {
         guard renameJournalActionInProgress == nil else {
             return .busy(String(localized: "Another rename recovery action is already in progress."))
         }
+        renameJournalActionInProgress = id
+        defer { renameJournalActionInProgress = nil }
 
         let load = renameJournalStore.loadManifests()
         applyRenameJournalLoad(load)
@@ -189,12 +222,32 @@ extension AudioViewModel {
         let candidateURLs = renameJournalCandidateURLs(for: manifest)
         let fileSystem = renameFileSystem
         let journal = renameJournalStore
-        let classification: RenameJournalClassification?
-        classification = await Task.detached(priority: .userInitiated) {
-            RenameTransactionService(fileSystem: fileSystem, journal: journal)
-                .classify([manifest])
-                .first
-        }.value
+        var classification: RenameJournalClassification? = await withSecurityScopedAccessForQuickImportURLs(candidateURLs) {
+            await Task.detached(priority: .userInitiated) {
+                RenameTransactionService(fileSystem: fileSystem, journal: journal)
+                    .classify([manifest])
+                    .first
+            }.value
+        }
+
+        guard let initialClassification = classification else {
+            return .failure(String(localized: "The rename record couldn't be checked. Choose Retry."))
+        }
+
+        // If any recorded folder is currently unavailable, request scoped
+        // access first and re-classify before deciding whether restore can run.
+        if initialClassification.status == .preparedUnavailable {
+            if let accessFailure = ensureMutationDirectoryAccess(for: candidateURLs) {
+                return .failure(accessFailure)
+            }
+            classification = await withSecurityScopedAccessForQuickImportURLs(candidateURLs) {
+                await Task.detached(priority: .userInitiated) {
+                    RenameTransactionService(fileSystem: fileSystem, journal: journal)
+                        .classify([manifest])
+                        .first
+                }.value
+            }
+        }
 
         guard let classification else {
             return .failure(String(localized: "The rename record couldn't be checked. Choose Retry."))
@@ -212,9 +265,6 @@ extension AudioViewModel {
         if let accessFailure = ensureMutationDirectoryAccess(for: candidateURLs) {
             return .failure(accessFailure)
         }
-
-        renameJournalActionInProgress = id
-        defer { renameJournalActionInProgress = nil }
 
         let outcome: RenameRestoreOutcome
         do {
@@ -369,12 +419,13 @@ extension AudioViewModel {
         }
         didPresentRenameJournalStartupWarning = true
 
-        let hasPrepared = renameJournalRecovery.operations.contains { $0.canRestore }
+        let hasPrepared = renameJournalRecovery.operations.contains { $0.isPrepared }
+            || (renameJournalRecovery.operations.isEmpty && !renameJournalRecovery.issues.isEmpty)
         presentMetadataWriteHUD(
             style: .warning,
             title: String(localized: "Interrupted Rename Needs Attention"),
             subtitle: hasPrepared
-                ? String(localized: "A rename was interrupted before it finished. No files were changed automatically. Open Settings > Folders, then Rename Recovery to review the recorded locations and restore the original names.")
+                ? String(localized: "A rename was interrupted before it finished or has a recovery record that needs inspection. No files were changed automatically. Open Settings > Folders, then Rename Recovery to review the recorded locations and restore the original names.")
                 : String(localized: "A finished rename record needs review. Open Settings > Folders, then Rename Recovery to inspect or remove it. No files are moved automatically."),
             summary: String(localized: "Rename Recovery")
         )
@@ -386,7 +437,7 @@ extension AudioViewModel {
         for entry in manifest.entries {
             for urlString in [entry.originalURL, entry.temporaryURL, entry.intendedURL] {
                 guard let url = URL(string: urlString) else { continue }
-                let key = FileSystemPathSemantics.key(for: url)
+                let key = FileSystemPathSemantics.directoryEntryKey(for: url)
                 guard seen.insert(key).inserted else { continue }
                 urls.append(url)
             }
@@ -458,9 +509,11 @@ extension AudioViewModel {
             phaseTitle: manifest.phase == .prepared
                 ? String(localized: "Interrupted")
                 : String(localized: "Completed"),
+            isPrepared: manifest.phase == .prepared,
             statusTitle: renameJournalStatusTitle(classification.status),
             entries: entries,
             canRestore: manifest.phase == .prepared && restorableStatuses.contains(classification.status),
+            canAuthorizeAndRestore: manifest.phase == .prepared && classification.status == .preparedUnavailable,
             canAcknowledge: acknowledgeableStatuses.contains(classification.status),
             missingDirectoryURLs: uniqueMissingDirectories,
             detailText: classification.issueCodes.isEmpty

@@ -21,9 +21,13 @@ nonisolated struct MetadataCommitPermitKey: Hashable, Sendable {
 final class MetadataCommitPermitRegistry {
     private struct Entry {
         let permit: MetadataCommitPermit
-        /// Present for strict reviewed writes; used to decide whether a published
-        /// observation is the same reviewed observation or an incompatible one.
+        /// Present for reviewed writes; used to decide whether a published
+        /// observation is compatible with the queued write.
         let target: ReviewedMetadataTarget?
+        /// True for conflict-aware Inspector/Raw draft writes, which stay
+        /// eligible for policy-driven conflict resolution when only the
+        /// observed disk revision changes (same path/ID, no recovery block).
+        let allowsChangedRevision: Bool
     }
 
     private var entriesByKey: [MetadataCommitPermitKey: Entry] = [:]
@@ -36,20 +40,35 @@ final class MetadataCommitPermitRegistry {
     /// Registers one reviewed file for an operation, returning the existing permit
     /// on retry.
     @discardableResult
-    func register(target: ReviewedMetadataTarget, operationID: UUID) -> MetadataCommitPermit {
-        register(fileID: target.id, target: target, operationID: operationID)
+    func register(
+        target: ReviewedMetadataTarget,
+        allowsChangedRevision: Bool = false,
+        operationID: UUID
+    ) -> MetadataCommitPermit {
+        register(
+            fileID: target.id,
+            target: target,
+            allowsChangedRevision: allowsChangedRevision,
+            operationID: operationID
+        )
     }
 
     /// Registers one file for an operation without a strict target (conflict-aware
     /// drafts or tests that only need admission).
     @discardableResult
     func register(fileID: AudioFile.ID, operationID: UUID) -> MetadataCommitPermit {
-        register(fileID: fileID, target: nil, operationID: operationID)
+        register(
+            fileID: fileID,
+            target: nil,
+            allowsChangedRevision: true,
+            operationID: operationID
+        )
     }
 
     private func register(
         fileID: AudioFile.ID,
         target: ReviewedMetadataTarget?,
+        allowsChangedRevision: Bool,
         operationID: UUID
     ) -> MetadataCommitPermit {
         let key = MetadataCommitPermitKey(fileID: fileID, operationID: operationID)
@@ -57,7 +76,11 @@ final class MetadataCommitPermitRegistry {
             return existing.permit
         }
         let permit = MetadataCommitPermit()
-        entriesByKey[key] = Entry(permit: permit, target: target)
+        entriesByKey[key] = Entry(
+            permit: permit,
+            target: target,
+            allowsChangedRevision: allowsChangedRevision
+        )
         keysByOperationID[operationID, default: []].insert(key)
         return permit
     }
@@ -101,14 +124,21 @@ final class MetadataCommitPermitRegistry {
 
     /// Revokes permits whose reviewed observation no longer matches a published
     /// observation. Republishing an equal observation (same path, fingerprint and
-    /// revision) does not revoke.
+    /// revision) does not revoke. Conflict-aware draft permits tolerate a coherent
+    /// revision-only update at the same path so the conflict resolver can apply
+    /// merge/prefer-disk policies, while still revoking on path changes or
+    /// recovery-required states.
     func revokeIncompatibleObservation(
         _ file: AudioFile,
         reason: MetadataCommitPermit.PrecommitRejection
     ) {
         for (key, entry) in entriesByKey where key.fileID == file.id {
             guard let target = entry.target else { continue }
-            if !target.matches(observation: file) {
+            if entry.allowsChangedRevision {
+                if !target.associates(with: file) || file.requiresMetadataRefreshBeforeWriting {
+                    entry.permit.revoke(reason: reason)
+                }
+            } else if !target.matches(observation: file) {
                 entry.permit.revoke(reason: reason)
             }
         }

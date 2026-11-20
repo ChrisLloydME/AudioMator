@@ -311,6 +311,105 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
     }
 
     @MainActor
+    func testSixFileBatchRenameReadbackSucceedsAcrossFourLaneLimiter() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorBatchReadback-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let fixtureURL = try XCTUnwrap(
+            Bundle(for: RenameRefreshSafetyTests.self).url(forResource: "testAudioFile", withExtension: "flac")
+                ?? Bundle(for: RenameRefreshSafetyTests.self).url(forResource: "testAudioFile", withExtension: "mp3")
+        )
+        let ext = fixtureURL.pathExtension
+        let pipeline = RenameReadbackPipeline(mode: .real)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+
+        var originals: [AudioFile] = []
+        var receipts: [FileRenameMoveReceipt] = []
+        for index in 0..<6 {
+            let sourceURL = tempDir.appendingPathComponent("source-\(index).\(ext)")
+            let destURL = tempDir.appendingPathComponent("dest-\(index).\(ext)")
+            try FileManager.default.copyItem(at: fixtureURL, to: sourceURL)
+            let original = try await TagLibAudioMetadataPipeline().loadAudioFile(at: sourceURL, id: UUID())
+            try FileManager.default.moveItem(at: sourceURL, to: destURL)
+            let identity = try FileEntryIdentityCapture.capture(at: destURL)
+            originals.append(original)
+            receipts.append(
+                FileRenameMoveReceipt(
+                    moveID: FileMoveID(),
+                    fileID: original.id,
+                    sourceURL: sourceURL,
+                    destinationURL: destURL,
+                    entryIdentity: identity
+                )
+            )
+        }
+
+        viewModel.mergeQuickImportFiles(originals)
+        viewModel.publishMovePlaceholders(receipts)
+        let warnings = await viewModel.readBackMovedFiles(receipts)
+
+        XCTAssertTrue(warnings.isEmpty, "All 6 files must wait for a free readback lane and succeed: \(warnings)")
+        XCTAssertEqual(viewModel.files.count, 6)
+        for receipt in receipts {
+            let moved = try XCTUnwrap(viewModel.committedFile(withID: receipt.fileID))
+            XCTAssertEqual(moved.url, receipt.destinationURL)
+            XCTAssertFalse(moved.requiresMetadataRefreshBeforeWriting)
+            XCTAssertNotNil(moved.observation)
+            XCTAssertFalse(viewModel.hasRecoveryDecision(for: receipt.fileID))
+        }
+    }
+
+    @MainActor
+    func testUnresolvedRenameBlocksAffectedPathsBeforeReleasingReservation() async throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AudioMatorUnresolvedBlock-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let sourceURL = tempDir.appendingPathComponent("track.flac")
+        let destURL = tempDir.appendingPathComponent("renamed.flac")
+        let fixtureURL = try XCTUnwrap(
+            Bundle(for: RenameRefreshSafetyTests.self).url(forResource: "testAudioFile", withExtension: "flac")
+                ?? Bundle(for: RenameRefreshSafetyTests.self).url(forResource: "testAudioFile", withExtension: "mp3")
+        )
+        try FileManager.default.copyItem(at: fixtureURL, to: sourceURL)
+        let loaded = try await TagLibAudioMetadataPipeline().loadAudioFile(at: sourceURL, id: UUID())
+        let journalDir = tempDir.appendingPathComponent("journal", isDirectory: true)
+        let journalStore = LocalRenameJournalStore(directoryURL: journalDir)
+        let viewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: RenameReadbackPipeline(mode: .real),
+            renameJournalStore: journalStore
+        )
+        viewModel.mergeQuickImportFiles([loaded])
+
+        let operationID = UUID()
+        let entry = PreparedRenameEntry(
+            index: 0,
+            fileID: loaded.id,
+            originalURL: sourceURL,
+            temporaryURL: RenameStagingName.url(for: sourceURL, operationID: operationID, index: 0),
+            intendedURL: destURL,
+            expectedSourceFingerprint: try XCTUnwrap(loaded.fileFingerprint)
+        )
+        viewModel.registerUnresolvedRenameJournalBlocks(
+            operationID: operationID,
+            preparedEntries: [entry]
+        )
+
+        XCTAssertTrue(viewModel.isRenameJournalBlocked(url: sourceURL))
+        XCTAssertTrue(viewModel.isRenameJournalBlocked(url: destURL))
+        XCTAssertTrue(viewModel.hasRecoveryDecision(for: loaded.id))
+        var edit = SingleFileEditModel(from: loaded)
+        edit.title = "Should be blocked"
+        let result = await viewModel.persistReviewedEditForTest(edit, to: loaded, comparedTo: loaded)
+        guard case .failure = result else {
+            return XCTFail("Queued write must fail once unresolved journal blocks are registered")
+        }
+    }
+
+    @MainActor
     func testReadbackAcrossSamePathReplacementStaysBlocked() async throws {
         let environment = try makeEnvironment()
         defer { MetadataTestTokens.removeFixtureCopy(at: environment.sourceURL) }

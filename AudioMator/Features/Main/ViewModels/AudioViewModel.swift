@@ -166,6 +166,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     @Published var metadataWriteHUD: MetadataWriteHUD?
     @Published var artworkLookupSession: ArtworkLookupSession?
     @Published var metadataSaveProgress: MetadataSaveProgress?
+    var metadataSaveProgressToken: UUID?
 
     @Published var isReloadingSelectedFiles = false
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
@@ -246,6 +247,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     var renameJournalRefreshGeneration: UInt64 = 0
 
     let moveReadbackTimeout: Duration
+    var mutationDirectoryAccessRequester: ((URL) -> String?)?
     var lastMetadataProgressPublication = ContinuousClock.now
 
     convenience init() {
@@ -503,7 +505,13 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         if preservingSessionID != nil, var session = inspectorDraft {
             session.baselinesByID = baselinesByID
             session.setTargets(targetIDs, baselines: baselinesByID)
-            session.advanceGenerationAfterTransition()
+            if reason == .cleanRefresh {
+                // Clean refresh on an untouched selection updates displayed
+                // baselines without cancelling an in-flight artwork handoff.
+                session.advanceEditGenerationOnly()
+            } else {
+                session.advanceGenerationAfterTransition()
+            }
             inspectorDraft = session
             inspectorPendingReview = nil
         } else {
@@ -554,9 +562,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         }
     }
 
-    /// Resumes the captured draft against the currently available observations.
-    /// Only the original captured target IDs are restored; values are never
-    /// transferred to surviving/new targets.
+    /// Resumes the captured draft while preserving its original conflict
+    /// baselines. Only the original captured target IDs are restored; values are
+    /// never transferred to surviving/new targets, and a same-path replacement
+    /// stays subject to ordinary conflict and audio-identity checks on Save.
     @discardableResult
     func resumeInspectorPendingReview() -> Bool {
         guard let session = inspectorDraft,
@@ -566,17 +575,37 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         guard capturedTargets.count == session.targetIDs.count else { return false }
 
         selectedAudioIDs = Set(session.targetIDs).filter { visibleFilesByID[$0] != nil }
-        inspectorEditSourceFilesByID = Dictionary(
-            uniqueKeysWithValues: capturedTargets.map { ($0.id, $0) }
-        )
+        // Preserve the original captured conflict baselines so a same-path
+        // replacement at the resumed UUID cannot bypass MetadataConflictResolver.
+        inspectorEditSourceFilesByID = session.baselinesByID
         var resumed = session
         resumed.pendingReview = nil
-        resumed.baselinesByID = inspectorEditSourceFilesByID
         resumed.noteEditMutation()
         inspectorDraft = resumed
         inspectorPendingReview = nil
         completedInspectorEditsByID = resumed.completedByID
         return true
+    }
+
+    func captureInspectorDiscardConfirmationToken() -> InspectorDiscardConfirmationToken? {
+        guard let identity = inspectorDraft?.identity else { return nil }
+        return InspectorDiscardConfirmationToken(identity: identity)
+    }
+
+    func isInspectorDiscardConfirmationCurrent(_ token: InspectorDiscardConfirmationToken) -> Bool {
+        inspectorDraft?.identity == token.identity
+    }
+
+    func removingWatchedFoldersAffectsUnsavedInspectorEdits(ids: Set<UUID>) -> Bool {
+        guard hasUnsavedInspectorChanges, let session = inspectorDraft else { return false }
+        let targetIDs = Set(session.targetIDs)
+        var removedFileIDs: Set<UUID> = []
+        for folderID in ids {
+            if let folderFiles = watchedFolderFiles[folderID] {
+                removedFileIDs.formUnion(folderFiles.map(\.id))
+            }
+        }
+        return !targetIDs.isDisjoint(with: removedFileIDs)
     }
 
     func discardInspectorPendingReview() {
@@ -707,8 +736,29 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     /// Ends an Inspector save capture. The caller has recorded every outcome.
-    func finishInspectorSave() {
+    /// When a multi-file batch finishes with verified readbacks across all
+    /// targets, reapplies any newer live edits onto the verified readbacks so
+    /// normalized values and artwork states stay synchronized.
+    func finishInspectorSave(didCompleteAllMultiTargets: Bool = false) {
         guard var session = inspectorDraft else { return }
+        let receipt = session.saveReceipt
+        if didCompleteAllMultiTargets,
+           let receipt,
+           receipt.targetIDs.count > 1,
+           session.unverifiedReadbackIDs.isEmpty,
+           let representativeID = receipt.targetIDs.first,
+           let representativeReadback = session.baselinesByID[representativeID] {
+            session.completedByID = [:]
+            completedInspectorEditsByID = [:]
+            inspectorDraft = session
+            applyInspectorReadbackToLiveDraft(
+                targetID: representativeID,
+                readback: representativeReadback,
+                receipt: receipt,
+                session: session
+            )
+            session = inspectorDraft ?? session
+        }
         session.saveReceipt = nil
         inspectorDraft = session
         if !session.unverifiedReadbackIDs.isEmpty, hasUnsavedInspectorChanges {
@@ -1602,7 +1652,8 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             }
         }
 
-        watchedFolderFiles[id] = entries.compactMap { entry in
+        let previousIDs = Set((watchedFolderFiles[id] ?? []).map(\.id))
+        let refreshedList: [AudioFile] = entries.compactMap { entry in
             if failedKeys.contains(entry.key), let previous = previousFilesByKey[entry.key] {
                 // A failed read is not a newer observation of metadata. Keep an
                 // accepted pending commit rather than invalidating it with a fallback.
@@ -1612,6 +1663,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             return acceptFileObservation(file, generation: refreshGeneration)
                 ?? loadedFile(withID: file.id)
                 ?? previousFilesByKey[entry.key]
+        }
+        watchedFolderFiles[id] = refreshedList
+        let removedIDs = previousIDs.subtracting(refreshedList.map(\.id))
+        if !removedIDs.isEmpty {
+            revokeCommitPermitsForRemovedSourceFiles(removedIDs)
         }
         watchedFolderMetadataReadFailureCounts[id] = loadResult.outcomes.filter {
             $0.failureReason != nil
@@ -1686,7 +1742,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
                 return
             }
 
-            if !hasUnsavedInspectorChanges {
+            if !session.isSaveInFlight, !hasUnsavedInspectorChanges {
                 reconstructInspectorDraft(
                     preservingSessionID: session.id,
                     baselines: selectedFiles,
@@ -1837,6 +1893,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     private func requestMutationDirectoryAccess(for directoryURL: URL) -> String? {
+        if let mutationDirectoryAccessRequester {
+            return mutationDirectoryAccessRequester(directoryURL)
+        }
+
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 
@@ -2069,16 +2129,28 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     /// teardown) without re-adding the folder. A moved folder keeps its recorded
     /// URL until the user reauthorizes it explicitly.
     private func ensureWatchedFolderAccess(_ folder: WatchedFolder) -> Bool {
-        if securityScopedFolderURLs[folder.id] != nil { return true }
+        if let activeURL = securityScopedFolderURLs[folder.id] {
+            if FileManager.default.fileExists(atPath: activeURL.path) {
+                return true
+            }
+            activeURL.stopAccessingSecurityScopedResource()
+            securityScopedFolderURLs.removeValue(forKey: folder.id)
+        }
         if folder.url.startAccessingSecurityScopedResource() {
-            securityScopedFolderURLs[folder.id] = folder.url
-            return true
+            if FileManager.default.fileExists(atPath: folder.url.path) {
+                securityScopedFolderURLs[folder.id] = folder.url
+                return true
+            }
+            folder.url.stopAccessingSecurityScopedResource()
         }
         if let restored = watchedFolderStore.loadFolders().first(where: { $0.id == folder.id }),
            restored.url.standardizedFileURL == folder.url.standardizedFileURL,
            restored.url.startAccessingSecurityScopedResource() {
-            securityScopedFolderURLs[folder.id] = restored.url
-            return true
+            if FileManager.default.fileExists(atPath: restored.url.path) {
+                securityScopedFolderURLs[folder.id] = restored.url
+                return true
+            }
+            restored.url.stopAccessingSecurityScopedResource()
         }
         // Non-security-scoped URLs (tests, non-sandboxed builds) and scopes macOS
         // grants transparently still work; let the scan surface a degraded state
@@ -2239,7 +2311,7 @@ extension AudioViewModel {
         _ receipt: FileRenameMoveReceipt,
         limiter: MoveReadbackLaneLimiter
     ) async -> String? {
-        guard await limiter.acquire() else {
+        guard let leaseID = await limiter.acquire() else {
             return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed but hasn’t been checked at its new location yet. Choose Reload from Disk from its context menu.")
         }
 
@@ -2247,14 +2319,22 @@ extension AudioViewModel {
         let pipeline = metadataPipeline
         let coordinator = fileMutationCoordinator
         let timeout = moveReadbackTimeout
+        let scopedLease = MoveReadbackScopedAccessLease(urls: [receipt.destinationURL])
+        let reservationAcquired = MoveReadbackSignal()
 
-        // The worker owns the lane and the destination reservation until the
-        // underlying read actually unwinds. The orchestration below may time out
-        // first and return a warning; the late result can never publish.
-        let worker = Task.detached(priority: .userInitiated) { [limiter, receipt, pipeline, coordinator, timeout] () async -> Result<AudioFile, MoveReadbackFailure> in
-            defer { Task { await limiter.release() } }
+        // The worker owns the lane, scoped access lease, and destination
+        // reservation until the underlying read actually unwinds. The read
+        // deadline starts only after the destination reservation is acquired;
+        // a timed-out worker cannot publish and stays counted as overdue until
+        // it unwinds.
+        let worker = Task.detached(priority: .userInitiated) { [limiter, leaseID, receipt, pipeline, coordinator, scopedLease, reservationAcquired] () async -> Result<AudioFile, MoveReadbackFailure> in
+            defer {
+                scopedLease.release()
+                Task { await limiter.release(leaseID) }
+            }
             do {
                 return try await coordinator.withExclusiveAccess(to: [receipt.destinationURL]) {
+                    reservationAcquired.signal()
                     let before = try? FileEntryIdentityCapture.capture(at: receipt.destinationURL)
                     guard let before,
                           before.isSameDirectoryEntry(as: receipt.entryIdentity) else {
@@ -2262,14 +2342,8 @@ extension AudioViewModel {
                     }
                     let loaded: AudioFile
                     do {
-                        loaded = try await withAsyncTimeout(
-                            timeout,
-                            operationName: String(localized: "Reloading the renamed file"),
-                            priority: .userInitiated
-                        ) {
-                            try await pipeline.loadAudioFile(at: receipt.destinationURL, id: receipt.fileID)
-                        }
-                    } catch is AsyncOperationTimedOutError {
+                        loaded = try await pipeline.loadAudioFile(at: receipt.destinationURL, id: receipt.fileID)
+                    } catch is CancellationError {
                         return .failure(.timedOut)
                     } catch {
                         return .failure(.readFailed((error as NSError).localizedDescription))
@@ -2283,13 +2357,19 @@ extension AudioViewModel {
                     return .success(loaded)
                 }
             } catch is CancellationError {
+                reservationAcquired.signal()
                 return .failure(.readFailed(String(localized: "Reading the renamed file was cancelled.")))
             } catch {
+                reservationAcquired.signal()
                 return .failure(.readFailed((error as NSError).localizedDescription))
             }
         }
 
-        guard let outcome = await Self.waitForMoveReadback(worker, timeout: timeout + .seconds(2)) else {
+        await reservationAcquired.wait()
+
+        guard let outcome = await Self.waitForMoveReadback(worker, timeout: timeout) else {
+            await limiter.markOverdue(leaseID)
+            worker.cancel()
             return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but checking its metadata timed out. Choose Reload from Disk from its context menu before editing.")
         }
 
@@ -2314,17 +2394,12 @@ extension AudioViewModel {
         _ task: Task<Result<AudioFile, MoveReadbackFailure>, Never>,
         timeout: Duration
     ) async -> Result<AudioFile, MoveReadbackFailure>? {
-        await withTaskGroup(of: Result<AudioFile, MoveReadbackFailure>?.self) { group in
-            group.addTask {
+        do {
+            return try await withAsyncTimeout(timeout, operationName: "Move readback") {
                 await task.value
             }
-            group.addTask {
-                try? await Task.sleep(for: timeout)
-                return nil
-            }
-            let first = await group.next() ?? nil
-            group.cancelAll()
-            return first
+        } catch {
+            return nil
         }
     }
 
@@ -2371,20 +2446,129 @@ extension AudioViewModel {
 }
 
 private actor MoveReadbackLaneLimiter {
-    private var inUse = 0
+    private var activeLeaseIDs: Set<UUID> = []
+    private var overdueLeaseIDs: Set<UUID> = []
+    private var waiters: [CheckedContinuation<UUID?, Never>] = []
     private let maximum: Int
 
     init(maximum: Int) {
-        self.maximum = maximum
+        self.maximum = max(1, maximum)
     }
 
-    func acquire() -> Bool {
-        guard inUse < maximum else { return false }
-        inUse += 1
-        return true
+    func acquire() async -> UUID? {
+        if activeLeaseIDs.count < maximum {
+            let id = UUID()
+            activeLeaseIDs.insert(id)
+            return id
+        }
+        if overdueLeaseIDs.count >= maximum {
+            return nil
+        }
+        return await withCheckedContinuation { continuation in
+            if activeLeaseIDs.count < maximum {
+                let id = UUID()
+                activeLeaseIDs.insert(id)
+                continuation.resume(returning: id)
+            } else if overdueLeaseIDs.count >= maximum {
+                continuation.resume(returning: nil)
+            } else {
+                waiters.append(continuation)
+            }
+        }
+    }
+
+    func markOverdue(_ leaseID: UUID) {
+        guard activeLeaseIDs.contains(leaseID) else { return }
+        overdueLeaseIDs.insert(leaseID)
+        if overdueLeaseIDs.count >= maximum {
+            let pending = waiters
+            waiters.removeAll()
+            for waiter in pending {
+                waiter.resume(returning: nil)
+            }
+        }
+    }
+
+    func release(_ leaseID: UUID) {
+        guard activeLeaseIDs.remove(leaseID) != nil else { return }
+        overdueLeaseIDs.remove(leaseID)
+        if !waiters.isEmpty, activeLeaseIDs.count < maximum {
+            let next = waiters.removeFirst()
+            let newLeaseID = UUID()
+            activeLeaseIDs.insert(newLeaseID)
+            next.resume(returning: newLeaseID)
+        }
+    }
+}
+
+/// One-shot signal used to start the readback deadline only after the worker
+/// enters its destination reservation.
+private nonisolated final class MoveReadbackSignal: @unchecked Sendable {
+    private let lock = NSLock()
+    private var didSignal = false
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+
+    func signal() {
+        let pending = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            guard !didSignal else { return [] }
+            didSignal = true
+            let list = continuations
+            continuations.removeAll()
+            return list
+        }
+        for continuation in pending {
+            continuation.resume()
+        }
+    }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let alreadySignaled = lock.withLock { () -> Bool in
+                if didSignal {
+                    return true
+                }
+                continuations.append(continuation)
+                return false
+            }
+            if alreadySignaled {
+                continuation.resume()
+            }
+        }
+    }
+}
+
+/// Holds security-scoped access for a single readback worker until the worker
+/// unwinds (even after a timeout warning has already returned to the caller).
+private nonisolated final class MoveReadbackScopedAccessLease: @unchecked Sendable {
+    private let lock = NSLock()
+    private var accessedURLs: [URL]
+
+    init(urls: [URL]) {
+        var accessed: [URL] = []
+        var seen: Set<String> = []
+        let candidates = urls + urls.map { $0.deletingLastPathComponent() }
+        for url in candidates {
+            let key = FileSystemPathSemantics.key(for: url)
+            guard seen.insert(key).inserted else { continue }
+            if url.startAccessingSecurityScopedResource() {
+                accessed.append(url)
+            }
+        }
+        self.accessedURLs = accessed
     }
 
     func release() {
-        inUse = max(0, inUse - 1)
+        let toStop = lock.withLock { () -> [URL] in
+            let current = accessedURLs
+            accessedURLs = []
+            return current
+        }
+        for url in toStop.reversed() {
+            url.stopAccessingSecurityScopedResource()
+        }
+    }
+
+    deinit {
+        release()
     }
 }

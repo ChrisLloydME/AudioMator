@@ -150,33 +150,47 @@ extension AudioViewModel {
             return outcome(cancelledBeforeAnyStart: false)
         }
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Applying LRCLIB Lyrics",
             subtitle: "Preparing \(entries.count) files...",
             totalUnitCount: entries.count
         )
 
-        // Pre-authorize the captured target folders once, like the previous bulk
-        // path, but only after a cancellation checkpoint so a session that ended
-        // before the handoff never asks for folder access.
-        let targetURLs = entries.compactMap { $0.write?.target.url }
+        // Pre-authorize the captured target folders once, only for currently
+        // eligible executable writes, and only after a cancellation checkpoint
+        // so a session that ended before the handoff never asks for folder access.
+        let targetURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.write })
         if !targetURLs.isEmpty {
             if Task.isCancelled {
                 didCancel = true
                 summary.recordCancelledFiles(entries.map(\.fileName))
-                endMetadataSaveProgress()
+                endMetadataSaveProgress(token: progressToken)
                 return outcome(cancelledBeforeAnyStart: true)
             }
             if !prepareMetadataMutationDirectoryAccess(for: targetURLs) {
                 for entry in entries {
+                    let message: String
+                    if let rejection = entry.rejection {
+                        message = rejection.message
+                    } else if let write = entry.write,
+                              let eligibilityFailure = reviewedWriteEligibilityFailure(
+                                for: write.target,
+                                allowsChangedRevision: false
+                              ) {
+                        message = eligibilityFailure
+                    } else if entry.write == nil {
+                        message = unreviewedLyricsEntryMessage
+                    } else {
+                        message = String(localized: "Access to the file’s folder wasn’t granted, so this file wasn’t changed.")
+                    }
                     summary.failureIssues.append(
                         BatchMetadataWriteIssue(
                             fileName: entry.fileName,
-                            messages: [String(localized: "Access to the file’s folder wasn’t granted, so this file wasn’t changed.")]
+                            messages: [message]
                         )
                     )
                 }
-                endMetadataSaveProgress()
+                endMetadataSaveProgress(token: progressToken)
                 presentBatchMetadataOperationSummary(summary)
                 return outcome(cancelledBeforeAnyStart: false)
             }
@@ -191,7 +205,7 @@ extension AudioViewModel {
             }
 
             let entry = entries[index]
-            updateMetadataSaveProgress(subtitle: entry.fileName, completedUnitCount: index)
+            updateMetadataSaveProgress(token: progressToken, subtitle: entry.fileName, completedUnitCount: index)
 
             guard let write = entry.write else {
                 let message = entry.rejection?.message ?? unreviewedLyricsEntryMessage
@@ -235,24 +249,25 @@ extension AudioViewModel {
         }
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: "Finishing...",
             completedUnitCount: didCancel ? max(index, 0) : entries.count
         )
-        endMetadataSaveProgress()
+        endMetadataSaveProgress(token: progressToken)
 
         // Report the real outcome whenever anything committed or genuinely failed.
         // A session that ended before any write started stays silent: the user has
         // left the tool and there is no started commit to report.
-        let outcomeValue = outcome(cancelledBeforeAnyStart: false)
+        let outcomeValue = outcome(
+            cancelledBeforeAnyStart: didCancel && succeededCount == 0 && summary.failureIssues.isEmpty
+        )
         if shouldPresentBulkOutcome(outcomeValue) {
             presentBatchMetadataOperationSummary(summary)
         }
 
-        if summary.failureIssues.isEmpty,
-           summary.allSuccessfulFilesRefreshed,
-           !hasUnsavedInspectorChanges,
+        if !appliedEntries.isEmpty,
            selectedAudioIDs.contains(where: { id in appliedEntries.contains { $0.fileID == id } }) {
-            updateEditForSelection()
+            refreshInspectorDraftAfterAcceptedPublication()
         }
 
         return outcomeValue
@@ -265,18 +280,14 @@ extension AudioViewModel {
         return !outcome.didCancel
     }
 
-    /// Interim AM-06/F3-b handoff: only refresh a clean, selected draft after this
-    /// file's committed reload. The provider/MuseAmp/erase routes use the same
-    /// conditional clean-refresh shape until the shared draft-session handoff lands.
     private func presentPostCommitInspectorRefreshIfClean(
         targetID: AudioFile.ID,
         refreshedFileModel: Bool
     ) {
         guard refreshedFileModel,
-              selectedAudioIDs.contains(targetID),
-              !hasUnsavedInspectorChanges else {
+              selectedAudioIDs.contains(targetID) else {
             return
         }
-        updateEditForSelection()
+        refreshInspectorDraftAfterAcceptedPublication()
     }
 }

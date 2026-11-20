@@ -5,15 +5,18 @@ extension AudioViewModel {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
 
-        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite?.target.url }) else { return }
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.reviewedWrite })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Applying MusicBrainz Tags",
             subtitle: "Preparing \(entries.count) files...",
             totalUnitCount: entries.count
         )
-        defer { endMetadataSaveProgress() }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
@@ -54,9 +57,11 @@ extension AudioViewModel {
         }
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: "Finishing...",
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             refreshInspectorDraftAfterAcceptedPublication()
@@ -69,15 +74,18 @@ extension AudioViewModel {
         guard !entries.isEmpty, metadataSaveProgress == nil else { return }
         guard canStartExternalFileMutation() else { return }
 
-        guard prepareMetadataMutationDirectoryAccess(for: entries.compactMap { $0.reviewedWrite?.target.url }) else { return }
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: entries.compactMap { $0.reviewedWrite })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count)
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Applying iTunes Tags",
             subtitle: "Preparing \(entries.count) files...",
             totalUnitCount: entries.count
         )
-        defer { endMetadataSaveProgress() }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
         let outcomes = await executeBoundedMetadataPlan(fileNames: entries.map(\.fileName)) { index in
             let entry = entries[index]
@@ -118,9 +126,11 @@ extension AudioViewModel {
         }
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: "Finishing...",
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             refreshInspectorDraftAfterAcceptedPublication()

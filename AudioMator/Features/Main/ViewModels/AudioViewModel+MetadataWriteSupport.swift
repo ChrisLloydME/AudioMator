@@ -92,12 +92,15 @@ extension AudioViewModel {
         return false
     }
 
+    @discardableResult
     func beginMetadataSaveProgress(
         title: String,
         subtitle: String,
         totalUnitCount: Int
-    ) {
+    ) -> UUID {
         flushPendingMetadataReloads()
+        let token = UUID()
+        metadataSaveProgressToken = token
         lastMetadataProgressPublication = .now
         metadataSaveProgress = MetadataSaveProgress(
             title: title,
@@ -105,12 +108,15 @@ extension AudioViewModel {
             completedUnitCount: 0,
             totalUnitCount: max(totalUnitCount, 1)
         )
+        return token
     }
 
     func updateMetadataSaveProgress(
+        token: UUID? = nil,
         subtitle: String,
         completedUnitCount: Int
     ) {
+        if let token, metadataSaveProgressToken != token { return }
         guard let current = metadataSaveProgress else { return }
         // Each progress publication invalidates the window. Bound that work for
         // fast batch writes while always publishing the final completed count.
@@ -125,11 +131,13 @@ extension AudioViewModel {
         )
     }
 
-    func endMetadataSaveProgress() {
+    func endMetadataSaveProgress(token: UUID? = nil) {
+        if let token, metadataSaveProgressToken != token { return }
         // Publish every accepted reload before reporting batch completion,
         // including partial failures and cancellation.
         flushPendingMetadataReloads()
         metadataSaveProgress = nil
+        metadataSaveProgressToken = nil
     }
 }
 

@@ -143,6 +143,38 @@ nonisolated final class RenameJournalRecoveryTests: XCTestCase {
         XCTAssertFalse(symlinkKeys.isDisjoint(with: targetKeys))
     }
 
+    @MainActor
+    func testRestoreRenameJournalOperationAuthorizesUnavailableFolderThenRestores() async throws {
+        let crash = try makeStagedCrashState()
+        let gatedFS = InitiallyUnavailableRenameFileSystem(base: fileSystem)
+        let viewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            renameFileSystem: gatedFS,
+            renameJournalStore: store
+        )
+        var requestedDirectories: [URL] = []
+        viewModel.mutationDirectoryAccessRequester = { directoryURL in
+            requestedDirectories.append(directoryURL)
+            gatedFS.unlock()
+            return nil
+        }
+
+        await viewModel.refreshRenameJournalRecovery()
+        let presentation = try XCTUnwrap(viewModel.renameJournalRecovery.operations.first)
+        XCTAssertTrue(presentation.isPrepared)
+        XCTAssertFalse(presentation.canRestore)
+        XCTAssertTrue(presentation.canAuthorizeAndRestore, "Unavailable prepared records must expose explicit Authorize & Restore")
+        XCTAssertEqual(presentation.missingDirectoryURLs.count, 1)
+
+        let result = await viewModel.restoreRenameJournalOperation(id: crash.manifest.operationID)
+        guard case .success = result else {
+            return XCTFail("Expected unavailable folder to authorize then restore cleanly, got \(result)")
+        }
+        XCTAssertFalse(requestedDirectories.isEmpty, "Restore must request folder access before failing on .preparedUnavailable")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: crash.originalURL.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: crash.stagingURL.path))
+    }
+
     // MARK: - Helpers
 
     @MainActor
@@ -280,6 +312,76 @@ nonisolated final class RenameJournalRecoveryTests: XCTestCase {
         try store.markCommitted(committed)
         try FileManager.default.moveItem(at: originalURL, to: intendedURL)
         return CommittedState(intendedURL: intendedURL, originalURL: originalURL)
+    }
+}
+
+/// Simulates a sandboxed folder that cannot be read until explicit folder
+/// authorization succeeds.
+private nonisolated final class InitiallyUnavailableRenameFileSystem: RenameFileSystem, @unchecked Sendable {
+    let base: LocalRenameFileSystem
+    private let lock = NSLock()
+    private var unlocked = false
+
+    init(base: LocalRenameFileSystem) {
+        self.base = base
+    }
+
+    func unlock() {
+        lock.withLock { unlocked = true }
+    }
+
+    private var isUnlocked: Bool { lock.withLock { unlocked } }
+
+    func fileExists(at url: URL) -> Bool { isUnlocked ? base.fileExists(at: url) : false }
+    func fingerprint(at url: URL) throws -> AudioFileFingerprint {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.fingerprint(at: url)
+    }
+    func entryIdentity(at url: URL) throws -> RenameEntryIdentity {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.entryIdentity(at: url)
+    }
+    func entryIdentityIfPresent(at url: URL) throws -> RenameEntryIdentity? {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.entryIdentityIfPresent(at: url)
+    }
+    func linkTarget(at url: URL) -> String? { isUnlocked ? base.linkTarget(at: url) : nil }
+    func volumeIdentifier(forDirectoryAt url: URL) -> String? {
+        isUnlocked ? base.volumeIdentifier(forDirectoryAt: url) : nil
+    }
+    func volumeSupportsExclusiveRename(forDirectoryAt url: URL) throws -> Bool {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.volumeSupportsExclusiveRename(forDirectoryAt: url)
+    }
+    func openDirectory(at url: URL) throws -> RenameDirectoryHandle {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.openDirectory(at: url)
+    }
+    func directoryIdentity(_ handle: RenameDirectoryHandle) throws -> RenameDirectoryIdentity {
+        try base.directoryIdentity(handle)
+    }
+    func authorizedPathStillIdentifiesDirectory(_ handle: RenameDirectoryHandle) -> Bool {
+        isUnlocked && base.authorizedPathStillIdentifiesDirectory(handle)
+    }
+    func entryIdentity(named name: String, in handle: RenameDirectoryHandle) throws -> RenameEntryIdentity? {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.entryIdentity(named: name, in: handle)
+    }
+    func actualEntryName(inDirectoryAt url: URL, matching name: String) throws -> String? {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        return try base.actualEntryName(inDirectoryAt: url, matching: name)
+    }
+    func exclusiveMove(
+        named sourceName: String,
+        to destinationName: String,
+        in handle: RenameDirectoryHandle
+    ) throws {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        try base.exclusiveMove(named: sourceName, to: destinationName, in: handle)
+    }
+    func syncDirectory(_ handle: RenameDirectoryHandle) throws {
+        guard isUnlocked else { throw RenameFileSystemError.io(code: EACCES) }
+        try base.syncDirectory(handle)
     }
 }
 #endif

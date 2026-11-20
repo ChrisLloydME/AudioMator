@@ -187,6 +187,10 @@ nonisolated struct InspectorDraftSession {
         editGeneration &+= 1
     }
 
+    mutating func advanceEditGenerationOnly() {
+        editGeneration &+= 1
+    }
+
     mutating func advanceGenerationAfterTransition() {
         editGeneration &+= 1
         artworkGeneration &+= 1

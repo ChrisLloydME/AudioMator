@@ -175,11 +175,10 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
         switch intent {
         case .semantic(let payload):
             let requested = payload.requestedFields
-            guard extensionIsWritable else {
+            if payload.unsupportedAdvisoryImport != nil {
                 return MetadataWriteProjection(
                     requestedFields: requested,
-                    unsupportedFields: requested,
-                    validation: .unsupported(requested)
+                    validation: .rejected(String(localized: "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option."))
                 )
             }
             if let message = payload.numberPairValidationMessage {
@@ -192,6 +191,22 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                 return MetadataWriteProjection(
                     requestedFields: requested,
                     validation: .rejected(message)
+                )
+            }
+            if requested.isEmpty {
+                return MetadataWriteProjection(
+                    requestedFields: [],
+                    effectiveFields: [],
+                    componentOperations: [],
+                    validation: .executable,
+                    isEncoderNoOp: true
+                )
+            }
+            guard extensionIsWritable else {
+                return MetadataWriteProjection(
+                    requestedFields: requested,
+                    unsupportedFields: requested,
+                    validation: .unsupported(requested)
                 )
             }
             // Missing capability information is unsupported for every requested

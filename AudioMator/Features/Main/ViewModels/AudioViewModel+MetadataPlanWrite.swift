@@ -18,16 +18,18 @@ extension AudioViewModel {
             return nil
         }
 
-        let targetURLs = entries.map { $0.write.target.url }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
+        let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
+        if !targetURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
+        }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: String(localized: "Writing Filename Metadata"),
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
         )
-        defer { endMetadataSaveProgress() }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
         // Each entry carries the frozen reviewed write captured from the reviewed
         // file. The strict executor revalidates the captured target/revision inside
@@ -73,9 +75,11 @@ extension AudioViewModel {
         summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: String(localized: "Finishing..."),
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))
@@ -103,16 +107,18 @@ extension AudioViewModel {
             return nil
         }
 
-        let targetURLs = entries.map { $0.write.target.url }
-        guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
+        let targetURLs = prePromptDirectoryAccessURLs(for: entries.map(\.write))
+        if !targetURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: targetURLs) else { return nil }
+        }
         var summary = BatchMetadataOperationSummary(totalTargets: entries.count + skippedIssues.count)
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: progressTitle,
             subtitle: String(localized: "Preparing \(entries.count) files..."),
             totalUnitCount: entries.count
         )
-        defer { endMetadataSaveProgress() }
+        defer { endMetadataSaveProgress(token: progressToken) }
 
         // Exchange text/CSV and field-transfer entries both carry a frozen
         // ReviewedMetadataWrite. The strict executor validates the captured target
@@ -158,9 +164,11 @@ extension AudioViewModel {
         summary.skippedIssues.append(contentsOf: skippedIssues)
 
         updateMetadataSaveProgress(
+            token: progressToken,
             subtitle: String(localized: "Finishing..."),
             completedUnitCount: entries.count
         )
+        endMetadataSaveProgress(token: progressToken)
 
         if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
             refreshInspectorDraftAfterPlanWrite(capturedTargetIDs: Set(entries.map(\.fileID)))

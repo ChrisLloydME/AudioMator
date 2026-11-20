@@ -803,6 +803,116 @@ nonisolated final class LRCLIBLyricsTests: XCTestCase {
         XCTAssertEqual(store.appliedCandidateID, eligibleCandidate.id)
     }
 
+    @MainActor
+    func testCancelSearchAndRestartedSearchIgnoreSupersededCompletion() async throws {
+        let directory = try LRCLIBLyricsTestSupport.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = try LRCLIBLyricsTestSupport.makeObservedFile(
+            named: "cancel-search.mp3",
+            directory: directory,
+            title: "Cancel Me",
+            artist: "Artist"
+        )
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 401,
+            track: "Cancel Me",
+            artist: "Artist",
+            duration: nil,
+            syncedLyrics: "[00:01.00]Late result"
+        )
+        let firstSearchGate = LRCLIBTestGate(isOpen: false)
+        let client = LRCLIBGatedClient(
+            perCallGates: [firstSearchGate, LRCLIBTestGate(isOpen: true)],
+            candidatesByTrackName: ["Cancel Me": [candidate]]
+        )
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [file])
+
+        store.searchCurrentFile()
+        try await LRCLIBLyricsTestSupport.waitUntil(deadlineSeconds: 3) {
+            client.queryCount >= 1
+        }
+        XCTAssertEqual(store.searchState, .searching)
+
+        // Explicit cancelSearch() cancels the active search and marks the row cancelled.
+        store.cancelSearch()
+        XCTAssertEqual(store.searchState, .cancelled)
+        firstSearchGate.open()
+        try await Task.sleep(for: .milliseconds(30))
+        XCTAssertEqual(store.searchState, .cancelled, "Superseded search completion must not overwrite cancelled state")
+
+        // Restarting search on the same row succeeds after cancellation.
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+        XCTAssertEqual(store.searchState, .loaded)
+        XCTAssertEqual(store.rankedCandidates.first?.candidate.id, candidate.id)
+    }
+
+    @MainActor
+    func testExplicitReseedAfterRevisionChangeSucceedsAndPreservesInspectorDraftSession() async throws {
+        let flacURL = try MetadataTestTokens.makeFixtureCopy(fileExtension: "flac")
+        defer { MetadataTestTokens.removeFixtureCopy(at: flacURL) }
+        let base = TagLibAudioMetadataPipeline()
+        _ = try base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["TITLE": ["Reseed Track"], "ARTIST": ["Reseed Artist"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+        let original = try await MetadataTestTokens.makeVerifiedAudioFile(at: flacURL)
+        let candidate = LRCLIBLyricsTestSupport.makeCandidate(
+            id: 501,
+            track: "Reseed Track",
+            artist: "Reseed Artist",
+            duration: original.duration > 0 ? original.duration : nil,
+            syncedLyrics: "[00:02.00]Fresh lyrics"
+        )
+        let client = LRCLIBGatedClient(candidatesByTrackName: ["Reseed Track": [candidate]])
+        let pipeline = LRCLIBRealReadbackPipeline()
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        viewModel.mergeQuickImportFiles([original])
+        viewModel.setSelectedAudioIDs([original.id])
+        let draftSessionBefore = viewModel.inspectorDraftIdentity?.sessionID
+
+        let store = LRCLIBLyricsBrowserStore(client: client)
+        store.seed(from: [original])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+
+        // Modify the file on disk and publish the reloaded revision.
+        _ = try base.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["ALBUM": ["Updated Album"]]),
+            to: flacURL,
+            expectedVersion: nil
+        )
+        let updated = try await MetadataTestTokens.makeVerifiedAudioFile(at: flacURL, id: original.id)
+        _ = viewModel.replaceLoadedFile(
+            updated,
+            refreshGeneration: viewModel.makeFileModelRefreshGeneration(),
+            deferVisibleRefresh: false
+        )
+
+        // Old intent from pre-edit seed must fail closed; explicit reseed succeeds.
+        XCTAssertTrue(store.startManualApply(writer: viewModel))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+        XCTAssertEqual(pipeline.rawWrites.count, 0, "Stale seed must not write after revision changed")
+
+        store.seed(from: [updated])
+        store.searchCurrentFile()
+        try await waitForSearchToFinish(store)
+        XCTAssertTrue(store.startManualApply(writer: viewModel))
+        try await LRCLIBLyricsTestSupport.waitForOperationToDrain(store)
+
+        XCTAssertEqual(pipeline.rawWrites.count, 1)
+        let persisted = try base.rawMetadataValueMap(for: flacURL)
+        XCTAssertEqual(persisted["LYRICS"], ["[00:02.00]Fresh lyrics"])
+        XCTAssertEqual(persisted["ALBUM"], ["Updated Album"])
+        XCTAssertEqual(
+            viewModel.inspectorDraftIdentity?.sessionID,
+            draftSessionBefore,
+            "Clean post-commit refresh must preserve the Inspector draft session instead of rotating it via updateEditForSelection()"
+        )
+    }
+
     // MARK: - Helpers
 
     @MainActor

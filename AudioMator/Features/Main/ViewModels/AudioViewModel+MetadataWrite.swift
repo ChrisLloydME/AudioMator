@@ -83,7 +83,14 @@ extension AudioViewModel {
         }
 
         guard editSourceFileID == id else {
-            updateEditForSelection()
+            if !hasUnsavedInspectorChanges {
+                refreshInspectorDraftAfterAcceptedPublication()
+            } else {
+                presentMetadataWriteFailure(
+                    for: fileNameForInspectorTarget(id) ?? String(localized: "This file"),
+                    reason: Self.inspectorSourceUnavailableMessage
+                )
+            }
             return
         }
 
@@ -109,7 +116,7 @@ extension AudioViewModel {
             return
         }
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Saving Metadata",
             subtitle: plan.fileName,
             totalUnitCount: 1
@@ -118,10 +125,11 @@ extension AudioViewModel {
         Task(priority: .userInitiated) {
             let result = await self.executeInspectorWritePlan(plan, publication: .immediate)
             self.updateMetadataSaveProgress(
+                token: progressToken,
                 subtitle: plan.fileName,
                 completedUnitCount: 1
             )
-            self.endMetadataSaveProgress()
+            self.endMetadataSaveProgress(token: progressToken)
 
             switch result {
             case .success(let success):
@@ -162,6 +170,12 @@ extension AudioViewModel {
         let completedEdits = completedInspectorEditsByID
         let editSnapshot = multiEdit
         guard let receipt = captureInspectorSaveReceipt() else { return }
+        var didStartSaveTask = false
+        defer {
+            if !didStartSaveTask {
+                finishInspectorSave()
+            }
+        }
         let sessionID = receipt.identity.sessionID
         let sessionTargetIDs = receipt.targetIDs
 
@@ -201,13 +215,28 @@ extension AudioViewModel {
             )
         }
         guard !plans.isEmpty else { return }
-        guard prepareMetadataMutationDirectoryAccess(for: plans.map(\.url)) else { return }
+        let executableURLs = plans.compactMap { plan -> URL? in
+            switch plan.route {
+            case .draft(let draft):
+                guard draft.write.projection.isExecutable, !draft.write.isNoOp else { return nil }
+                return plan.url
+            case .strict(let write):
+                guard write.projection.isExecutable, !write.isNoOp else { return nil }
+                return plan.url
+            case .rejected:
+                return nil
+            }
+        }
+        if !executableURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: executableURLs) else { return }
+        }
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Saving Metadata",
             subtitle: "Preparing \(plans.count) files…",
             totalUnitCount: plans.count
         )
+        didStartSaveTask = true
 
         Task(priority: .userInitiated) {
             self.isInspectorBatchSaveActive = true
@@ -219,11 +248,12 @@ extension AudioViewModel {
             await MetadataBatchExecutor.execute(count: plans.count) { index in
                 let plan = plans[index]
                 return await self.executeInspectorWritePlan(plan, publication: .batched)
-            } onCompletion: { index, result in
+            } onCompletion: { (index: Int, result: MetadataWriteExecutionResult) in
                 let plan = plans[index]
                 completedCount += 1
                 resultsByIndex[index] = result
                 self.updateMetadataSaveProgress(
+                    token: progressToken,
                     subtitle: plan.fileName,
                     completedUnitCount: completedCount
                 )
@@ -270,12 +300,17 @@ extension AudioViewModel {
             }
 
             self.updateMetadataSaveProgress(
+                token: progressToken,
                 subtitle: "Finishing…",
                 completedUnitCount: plans.count
             )
-            self.endMetadataSaveProgress()
+            self.endMetadataSaveProgress(token: progressToken)
 
-            self.finishInspectorSave()
+            let didCompleteAllMultiTargets = summary.failureIssues.isEmpty
+                && summary.cancelledCount == 0
+                && summary.succeeded > 0
+                && summary.allSuccessfulFilesRefreshed
+            self.finishInspectorSave(didCompleteAllMultiTargets: didCompleteAllMultiTargets)
             self.presentBatchMetadataOperationSummary(summary)
         }
     }

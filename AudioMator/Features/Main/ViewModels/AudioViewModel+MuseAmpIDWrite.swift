@@ -29,9 +29,12 @@ extension AudioViewModel {
                 write: ReviewedMetadataWriteFactory.semanticWrite(edit: edit, comparedTo: file)
             )
         }
-        guard prepareMetadataMutationDirectoryAccess(for: plannedWrites.compactMap { $0.write?.target.url }) else { return }
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedWrites.compactMap { $0.write })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        }
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Creating MuseAmp IDs",
             subtitle: "Preparing \(plannedWrites.count) files...",
             totalUnitCount: plannedWrites.count
@@ -42,6 +45,7 @@ extension AudioViewModel {
 
             for (index, planned) in plannedWrites.enumerated() {
                 self.updateMetadataSaveProgress(
+                    token: progressToken,
                     subtitle: planned.fileName,
                     completedUnitCount: index
                 )
@@ -83,10 +87,11 @@ extension AudioViewModel {
             }
 
             self.updateMetadataSaveProgress(
+                token: progressToken,
                 subtitle: "Finishing...",
                 completedUnitCount: plannedWrites.count
             )
-            self.endMetadataSaveProgress()
+            self.endMetadataSaveProgress(token: progressToken)
 
             if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
                 self.refreshInspectorDraftAfterAcceptedPublication()

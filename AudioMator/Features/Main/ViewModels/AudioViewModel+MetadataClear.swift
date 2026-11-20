@@ -72,9 +72,12 @@ extension AudioViewModel {
         let plannedTargets = targetFiles.map {
             ReviewedMetadataWriteFactory.eraseAllWrite(for: $0)
         }
-        guard prepareMetadataMutationDirectoryAccess(for: plannedTargets.compactMap { $0?.target.url }) else { return }
+        let prePromptURLs = prePromptDirectoryAccessURLs(for: plannedTargets.compactMap { $0 })
+        if !prePromptURLs.isEmpty {
+            guard prepareMetadataMutationDirectoryAccess(for: prePromptURLs) else { return }
+        }
 
-        beginMetadataSaveProgress(
+        let progressToken = beginMetadataSaveProgress(
             title: "Clearing Metadata",
             subtitle: "Preparing \(targetFiles.count) files...",
             totalUnitCount: targetFiles.count
@@ -85,6 +88,7 @@ extension AudioViewModel {
 
             for (index, file) in targetFiles.enumerated() {
                 self.updateMetadataSaveProgress(
+                    token: progressToken,
                     subtitle: file.url.lastPathComponent,
                     completedUnitCount: index
                 )
@@ -126,10 +130,11 @@ extension AudioViewModel {
             }
 
             self.updateMetadataSaveProgress(
+                token: progressToken,
                 subtitle: "Finishing...",
                 completedUnitCount: targetFiles.count
             )
-            self.endMetadataSaveProgress()
+            self.endMetadataSaveProgress(token: progressToken)
 
             if summary.failureIssues.isEmpty && summary.allSuccessfulFilesRefreshed {
                 self.refreshInspectorDraftAfterAcceptedPublication()

@@ -139,9 +139,13 @@ extension AudioViewModel {
             case .cancelled:
                 failedTargetIDs.insert(plan.targetID)
                 summary.recordCancelledFiles([plan.fileName])
+                didCancelUnprocessed = true
             }
         }
 
+        if metadataSaveProgress == nil {
+            flushPendingMetadataReloads()
+        }
         presentBatchMetadataOperationSummary(summary)
 
         return MetadataEditorApplyOutcome(
@@ -255,8 +259,12 @@ extension AudioViewModel {
             }
             patch = capturedPatch
         } else {
+            let changedValues = submitted.filter { original[$0.key] != $0.value }
+            if changedValues.values.contains(where: \.isEmpty) {
+                return plan(.rejected(Self.rawEmptyValueListMessage))
+            }
             patch = RawMetadataPatch(
-                valuesToSet: submitted.filter { original[$0.key] != $0.value },
+                valuesToSet: changedValues,
                 removingKeys: Set(original.keys).subtracting(submitted.keys)
             )
         }

@@ -233,18 +233,62 @@ nonisolated final class WatchedFolderRefreshOrderingTests: XCTestCase {
         )
         viewModel.mutationDirectoryAccessRequester = { _ in nil }
 
-        // Load into Quick Import first so Quick Import owns an earlier V1 observation.
-        viewModel.setSidebarSelection(.quickImport)
-        viewModel.importQuickFiles(from: [flacURL])
-        let loadedQuickImport = try await waitUntil { viewModel.quickImportFiles.count == 1 }
-        XCTAssertTrue(loadedQuickImport)
-        let trackID = try XCTUnwrap(viewModel.quickImportFiles.first?.id)
-        let v1Fingerprint = try XCTUnwrap(viewModel.quickImportFiles.first?.fileFingerprint)
-
-        // Wait for initial watched-folder scan to populate the same file ID.
+        // Deliver an admitted Quick Import read after a newer watched read of
+        // the same entry. The import must keep its membership without
+        // publishing the older observation.
+        let importGeneration = viewModel.makeFileModelRefreshGeneration()
+        let trackID = try XCTUnwrap(viewModel.prepareStableIDEntries(for: [flacURL]).first?.id)
+        let oldImport = try await pipeline.loadAudioFile(at: flacURL, id: trackID)
         viewModel.setSidebarSelection(.watchedFolder(folder.id))
         let loadedWatched = try await waitUntil { viewModel.files.first?.id == trackID }
         XCTAssertTrue(loadedWatched)
+        let watched = try XCTUnwrap(viewModel.files.first)
+        XCTAssertGreaterThan(viewModel.fileModelRefreshGeneration(for: trackID), importGeneration)
+        let requestID = UUID()
+        let taskID = UUID()
+        let generation = viewModel.quickImportGeneration
+        let sequence = viewModel.quickImportBookkeeping.allocateSequence()
+        let authorizationEpoch = viewModel.quickImportBookkeeping.leases.beginAuthorizationEpoch()
+        viewModel.quickImportBookkeeping.requests[requestID] = QuickImportRequestState(
+            requestID: requestID, sequence: sequence, generation: generation,
+            refreshGeneration: importGeneration, taskID: taskID, authorizationEpoch: authorizationEpoch
+        )
+        let candidates = await AudioViewModel.prepareQuickImportCandidates(
+            urls: [flacURL], requestID: requestID, sequence: sequence,
+            provider: viewModel.quickImportEnvironment.identityProvider
+        )
+        let admitted = viewModel.admitQuickImportCandidates(candidates, requestID: requestID, generation: generation)
+        let entry = try XCTUnwrap(admitted.first)
+        let input = AudioFileLoadInput(
+            index: 0, url: entry.candidate.identity.operationalURL, id: trackID, previousFile: nil,
+            expected: QuickImportObservationExpectation(
+                operationalURL: entry.candidate.identity.operationalURL,
+                canonicalPath: entry.candidate.identity.canonicalPath,
+                entryIdentity: entry.candidate.identity.fileIdentity
+            )
+        )
+        viewModel.publishQuickImportBatch(
+            [AudioFileLoadOutcome(input: input, file: oldImport, failureReason: nil)],
+            admitted: admitted, requestID: requestID, generation: generation, refreshGeneration: importGeneration
+        )
+        viewModel.finishQuickImportRequest(requestID: requestID, taskID: taskID, generation: generation, cancelled: false)
+        XCTAssertEqual(viewModel.quickImportFiles.map(\.snapshotID), [watched.snapshotID])
+        let v1Fingerprint = try XCTUnwrap(viewModel.quickImportFiles.first?.fileFingerprint)
+
+        // A disjoint progressive import must do one membership lookup and
+        // update no watched rows. The watched file remains in the index.
+        let unrelated = try MetadataTestTokens.makeFixtureCopy()
+        defer { MetadataTestTokens.removeFixtureCopy(at: unrelated) }
+        let beforeDisjointImport = viewModel.quickImportDiagnostics().metrics
+        viewModel.setSidebarSelection(.quickImport)
+        viewModel.importQuickFiles(from: [unrelated])
+        let loadedUnrelated = try await waitUntil { viewModel.quickImportFiles.count == 2 }
+        XCTAssertTrue(loadedUnrelated)
+        let afterDisjointImport = viewModel.quickImportDiagnostics().metrics
+        XCTAssertEqual(afterDisjointImport.watchedObservationLookups, beforeDisjointImport.watchedObservationLookups + 1)
+        XCTAssertEqual(afterDisjointImport.watchedObservationRowsUpdated, beforeDisjointImport.watchedObservationRowsUpdated)
+        viewModel.setSidebarSelection(.watchedFolder(folder.id))
+        XCTAssertEqual(viewModel.files.map(\.id), [trackID])
 
         // Mutate the real FLAC externally on disk so disk advances to V2.
         _ = try pipeline.writeRawMetadataPatch(
@@ -289,6 +333,15 @@ nonisolated final class WatchedFolderRefreshOrderingTests: XCTestCase {
         XCTAssertEqual(reloadedFromDisk.title, "External V2")
         XCTAssertTrue(reloadedFromDisk.comment.contains("\"albumID\""))
         XCTAssertTrue(reloadedFromDisk.comment.contains("\"trackID\""))
+
+        // A stopped folder must lose its reverse-index entries. Reimporting a
+        // previously shared track must not update any removed watched row.
+        viewModel.removeWatchedFolders(ids: [folder.id])
+        let beforeReimport = viewModel.quickImportDiagnostics().metrics
+        viewModel.mergeQuickImportFiles([reloadedFromDisk])
+        let afterReimport = viewModel.quickImportDiagnostics().metrics
+        XCTAssertEqual(afterReimport.watchedObservationLookups, beforeReimport.watchedObservationLookups + 1)
+        XCTAssertEqual(afterReimport.watchedObservationRowsUpdated, beforeReimport.watchedObservationRowsUpdated)
     }
 
     @MainActor

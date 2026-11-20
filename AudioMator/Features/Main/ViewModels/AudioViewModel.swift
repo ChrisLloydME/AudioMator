@@ -212,6 +212,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     let quickImportEnvironment: QuickImportEnvironment
     var quickImportBookkeeping: QuickImportBookkeeping
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
+    private var watchedFolderRowOffsetsByFileID: [AudioFile.ID: [UUID: [Int]]] = [:]
     var activeSidebarSelection: SidebarSelection = .quickImport
     // Session-wide stable-ID promise: selecting the same path again reuses the
     // existing UUID, including after remove/clear (documented in USER_GUIDE).
@@ -1148,7 +1149,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         let removedFileIDs = Set(existingIDs.flatMap { watchedFolderFiles[$0]?.map(\.id) ?? [] })
         for id in existingIDs {
             stopWatchingFolder(id: id)
-            watchedFolderFiles[id] = nil
+            setWatchedFolderFiles(nil, for: id)
             watchedFolderScanFailureCounts[id] = nil
             watchedFolderMetadataReadFailureCounts[id] = nil
             folderScanTokens[id] = nil
@@ -1447,21 +1448,18 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     /// Source-membership lookup independent of the visible sidebar projection.
-    /// Minimal F3-a seam; F3 replaces the linear scans with its membership index.
     func committedFile(withID id: AudioFile.ID) -> AudioFile? {
         if let pending = pendingMetadataReloadsByID[id]?.file { return pending }
         if let file = quickImportFilesByID[id] { return file }
+        guard let offsetsByFolder = watchedFolderRowOffsetsByFileID[id] else { return nil }
         for folder in watchedFolders {
-            if let file = watchedFolderFiles[folder.id]?.first(where: { $0.id == id }) {
+            if let offset = offsetsByFolder[folder.id]?.first,
+               let file = watchedFolderFiles[folder.id]?[offset] {
                 return file
             }
         }
-        for folderID in watchedFolderFiles.keys {
-            if let file = watchedFolderFiles[folderID]?.first(where: { $0.id == id }) {
-                return file
-            }
-        }
-        return nil
+        guard let (folderID, offsets) = offsetsByFolder.first, let offset = offsets.first else { return nil }
+        return watchedFolderFiles[folderID]?[offset]
     }
 
     /// Stable IDs currently present in the authoritative source collections.
@@ -1470,9 +1468,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     /// per captured target, which would otherwise be quadratic in batch size.
     func committedSourceFileIDs() -> Set<AudioFile.ID> {
         var ids = Set(quickImportFilesByID.keys)
-        for files in watchedFolderFiles.values {
-            ids.formUnion(files.map(\.id))
-        }
+        ids.formUnion(watchedFolderRowOffsetsByFileID.keys)
         return ids
     }
 
@@ -1486,15 +1482,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             quickImportFilesByID[replacement.id] = replacement
             updated = true
         }
-        for folderID in watchedFolderFiles.keys {
-            guard var folderFiles = watchedFolderFiles[folderID],
-                  let index = folderFiles.firstIndex(where: { $0.id == replacement.id })
-            else { continue }
-            folderFiles[index] = replacement
-            watchedFolderFiles[folderID] = folderFiles
-            updated = true
-        }
-        return updated
+        return updateWatchedFolderRows(for: replacement) > 0 || updated
     }
 
     func flushPendingMetadataReloads() {
@@ -1517,55 +1505,55 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     ) {
         guard !acceptedFiles.isEmpty else { return }
         let hasQuickImportTargets = includeQuickImport && !quickImportFilesByID.isEmpty
-        let hasOtherWatchedFolders = watchedFolderFiles.keys.contains { $0 != excludingWatchedFolderID }
-        guard hasQuickImportTargets || hasOtherWatchedFolders else { return }
-
         var acceptedByID: [AudioFile.ID: AudioFile] = [:]
-        acceptedByID.reserveCapacity(acceptedFiles.count)
         for file in acceptedFiles {
-            acceptedByID[file.id] = file
+            let updatedRows = updateWatchedFolderRows(for: file, excluding: excludingWatchedFolderID)
+            if !includeQuickImport {
+                quickImportBookkeeping.metrics.watchedObservationLookups += 1
+                quickImportBookkeeping.metrics.watchedObservationRowsUpdated += updatedRows
+            }
+            if hasQuickImportTargets, quickImportFilesByID[file.id] != nil {
+                quickImportFilesByID[file.id] = file
+                acceptedByID[file.id] = file
+            }
         }
+        if !acceptedByID.isEmpty {
+            quickImportFiles = quickImportFiles.map { acceptedByID[$0.id] ?? $0 }
+        }
+    }
 
-        if hasQuickImportTargets {
-            var didUpdateQuickImport = false
-            for (id, file) in acceptedByID where quickImportFilesByID[id] != nil {
-                quickImportFilesByID[id] = file
-                didUpdateQuickImport = true
-            }
-            if didUpdateQuickImport {
-                quickImportFiles = quickImportFiles.map { acceptedByID[$0.id] ?? $0 }
+    /// Only a rescan or removal changes row positions. Duplicate IDs can occur
+    /// for aliased paths, so each membership keeps all its positions.
+    private func setWatchedFolderFiles(_ files: [AudioFile]?, for folderID: UUID) {
+        let previous = watchedFolderFiles[folderID] ?? []
+        for id in Set(previous.map(\.id)) {
+            watchedFolderRowOffsetsByFileID[id]?[folderID] = nil
+            if watchedFolderRowOffsetsByFileID[id]?.isEmpty == true {
+                watchedFolderRowOffsetsByFileID[id] = nil
             }
         }
+        watchedFolderFiles[folderID] = files
+        for (offset, file) in (files ?? []).enumerated() {
+            watchedFolderRowOffsetsByFileID[file.id, default: [:]][folderID, default: []].append(offset)
+        }
+    }
 
-        if hasOtherWatchedFolders {
-            for folderID in watchedFolderFiles.keys where folderID != excludingWatchedFolderID {
-                guard let folderFiles = watchedFolderFiles[folderID], !folderFiles.isEmpty else { continue }
-                var didUpdateFolder = false
-                let updatedFolderFiles = folderFiles.map { existing -> AudioFile in
-                    guard let updated = acceptedByID[existing.id] else { return existing }
-                    didUpdateFolder = true
-                    return updated
-                }
-                if didUpdateFolder {
-                    watchedFolderFiles[folderID] = updatedFolderFiles
-                }
+    @discardableResult
+    private func updateWatchedFolderRows(for file: AudioFile, excluding excludedFolderID: UUID? = nil) -> Int {
+        guard let memberships = watchedFolderRowOffsetsByFileID[file.id] else { return 0 }
+        var updatedRows = 0
+        for (folderID, offsets) in memberships where folderID != excludedFolderID {
+            for offset in offsets {
+                watchedFolderFiles[folderID]?[offset] = file
             }
+            updatedRows += offsets.count
         }
+        return updatedRows
     }
 
     private func publishAcceptedFiles(_ reloadedFiles: [AudioFile], rebuildVisible: Bool = true) {
         guard !reloadedFiles.isEmpty else { return }
-        let reloadedByID = Dictionary(uniqueKeysWithValues: reloadedFiles.map { ($0.id, $0) })
-        quickImportFiles = quickImportFiles.map { reloadedByID[$0.id] ?? $0 }
-        for (id, file) in reloadedByID where quickImportFilesByID[id] != nil {
-            quickImportFilesByID[id] = file
-        }
-
-        for folderID in watchedFolderFiles.keys {
-            guard let folderFiles = watchedFolderFiles[folderID] else { continue }
-            watchedFolderFiles[folderID] = folderFiles.map { reloadedByID[$0.id] ?? $0 }
-        }
-
+        syncAcceptedObservationsToOtherSources(reloadedFiles, includeQuickImport: true)
         if rebuildVisible { rebuildVisibleFiles() }
     }
 
@@ -1812,7 +1800,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             return loadedFile(withID: file.id)
                 ?? previousFilesByKey[entry.key]
         }
-        watchedFolderFiles[id] = refreshedList
+        setWatchedFolderFiles(refreshedList, for: id)
         if !newlyAcceptedFiles.isEmpty {
             syncAcceptedObservationsToOtherSources(
                 newlyAcceptedFiles,
@@ -1840,8 +1828,8 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     /// `id`. The mutation reload itself is the authoritative newer snapshot;
     /// a rescan that captured the pre-mutation epoch must not replace it.
     func invalidateWatchedFolderScans(containingFileID id: AudioFile.ID) {
-        for folderID in watchedFolderFiles.keys {
-            guard watchedFolderFiles[folderID]?.contains(where: { $0.id == id }) == true else { continue }
+        guard let memberships = watchedFolderRowOffsetsByFileID[id] else { return }
+        for folderID in memberships.keys {
             watchedFolderMutationEpochs[folderID, default: 0] &+= 1
         }
     }
@@ -1882,9 +1870,8 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
                 return
             }
 
-            let committedIDs = committedSourceFileIDs()
             let unavailableCapturedIDs = Set(
-                session.targetIDs.filter { !committedIDs.contains($0) }
+                session.targetIDs.filter { quickImportFilesByID[$0] == nil && watchedFolderRowOffsetsByFileID[$0] == nil }
             )
             if !unavailableCapturedIDs.isEmpty,
                isInspectorDraftPayloadDirty || !session.completedByID.isEmpty {

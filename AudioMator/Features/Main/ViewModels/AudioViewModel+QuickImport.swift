@@ -90,6 +90,8 @@ struct QuickImportPendingFailure: Sendable {
 // MARK: - Bookkeeping
 
 struct QuickImportMetrics: Sendable {
+    var watchedObservationLookups = 0
+    var watchedObservationRowsUpdated = 0
     var acceptedCount = 0
     var rejectedStaleCount = 0
     var rejectedReadCount = 0
@@ -481,15 +483,26 @@ extension AudioViewModel {
             }
 
             if let file = outcome.file {
-                guard let acceptedFile = acceptFileObservation(
+                let newObservation = acceptFileObservation(
                     file,
                     generation: refreshGeneration,
                     pathIdentity: candidate.identity
-                ) else {
+                )
+                let acceptedFile: AudioFile
+                if let newObservation {
+                    acceptedFile = newObservation
+                    invalidateWatchedFolderScans(containingFileID: acceptedFile.id)
+                    newlyAcceptedFiles.append(acceptedFile)
+                } else if let current = committedFile(withID: file.id),
+                          Self.verificationFailureReason(for: current, input: outcome.input) == nil {
+                    // A newer source observation may win while this import is
+                    // reading. Keep the admitted membership with that observation
+                    // only if it still describes the entry this request selected.
+                    acceptedFile = current
+                } else {
                     quickImportBookkeeping.leases.release(key: fileLeaseKey, owner: .job(requestID))
                     continue
                 }
-                invalidateWatchedFolderScans(containingFileID: acceptedFile.id)
 
                 let record = QuickImportMembershipRecord(
                     id: acceptedCandidate.fileID,
@@ -541,7 +554,6 @@ extension AudioViewModel {
                 }
 
                 quickImportBookkeeping.metrics.acceptedCount += 1
-                newlyAcceptedFiles.append(acceptedFile)
                 publishedRowCount += 1
             } else if let reason = outcome.failureReason {
                 failures.append(

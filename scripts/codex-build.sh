@@ -12,11 +12,11 @@
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || {
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)" || {
   echo "Unable to resolve the build helper directory." >&2
   exit 1
 }
-ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)" || {
+ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd -P)" || {
   echo "Unable to resolve the repository root." >&2
   exit 1
 }
@@ -37,7 +37,7 @@ cleanup_temp_files() {
     rm -f "${UNTRACKED_PATHS_FILE}"
   fi
 }
-trap cleanup_temp_files EXIT
+trap cleanup_temp_files EXIT INT TERM
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -74,6 +74,9 @@ is_build_relevant_file() {
 record_relevant_file() {
   local path="$1"
 
+  if [[ ${BUILD_RELEVANT_COUNT} -eq 0 ]]; then
+    echo "Build-relevant changes detected:"
+  fi
   BUILD_RELEVANT_COUNT=$((BUILD_RELEVANT_COUNT + 1))
   echo "  ${path}"
 }
@@ -108,8 +111,6 @@ collect_build_relevant_changes() {
     fail_discovery "unable to read untracked paths from Git."
     return 1
   fi
-
-  echo "Build-relevant changes detected:"
 
   # NUL-delimited iteration preserves newlines, leading dashes and trailing
   # spaces in file names on macOS Bash 3.
@@ -178,7 +179,7 @@ has_appicon_crash_signature() {
 
 if [[ ${BUILD_EXIT} -ne 0 ]]; then
   echo
-  if has_appicon_crash_signature; then
+  if [[ ${TEE_EXIT} -eq 0 ]] && has_appicon_crash_signature; then
     echo "Known Codex CLI limitation detected:"
     echo "  actool/ibtoold crashed while compiling AudioMator/AppIcon.icon."
     echo "  This may be an environment-specific false positive, but the build still failed,"

@@ -86,7 +86,7 @@ class CodexBuildPolicyTests(unittest.TestCase):
 
     def setUp(self) -> None:
         self._tempdir = tempfile.TemporaryDirectory(prefix="codex-build-policy-")
-        self.root = Path(self._tempdir.name)
+        self.root = Path(self._tempdir.name).resolve()
         self.call_log = self.root / "calls.log"
         self.call_log.write_text("")
         self.bin_dir = self.root / "stub-bin"
@@ -248,10 +248,15 @@ class CodexBuildPolicyTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("CODEX_BUILD_SKIPPED", result.stdout)
+        self.assertNotIn("Build-relevant changes detected:", result.stdout)
         self.assertNotIn("CODEX_BUILD_COMPLETED", result.stdout)
         self.assertEqual(self.xcodebuild_calls(), [])
         self.assertEqual(self.prune_calls(), [])
-        self.assertEqual(len(self.git_calls()), 3, self.git_calls())
+        git_calls = self.git_calls()
+        self.assertEqual(len(git_calls), 3, git_calls)
+        self.assertIn("rev-parse --verify --quiet HEAD", git_calls[0])
+        self.assertIn("diff --name-only -z --no-renames HEAD --", git_calls[1])
+        self.assertIn("ls-files --others --exclude-standard -z --", git_calls[2])
         self.assertFalse(
             (self.root / ".deriveddata-codex").exists(),
             "skip path must not create build output directories",
@@ -350,16 +355,17 @@ class CodexBuildPolicyTests(unittest.TestCase):
         tracked = (
             b"AudioMator/Resources/Weird/line\nbreak.txt\0"
             b"AudioMator/Resources/Weird/trailing-space .txt\0"
-            b"AudioMator/Resources/Weird/leading-dash.txt\0"
+            b"AudioMator/Resources/Weird/-leading-dash.txt\0"
         )
         self.set_git_output(tracked=tracked, untracked=b"")
 
         result = self.run_helper()
 
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("Build-relevant changes detected:", result.stdout)
         self.assertIn("AudioMator/Resources/Weird/line\nbreak.txt", result.stdout)
         self.assertIn("AudioMator/Resources/Weird/trailing-space .txt", result.stdout)
-        self.assertIn("AudioMator/Resources/Weird/leading-dash.txt", result.stdout)
+        self.assertIn("AudioMator/Resources/Weird/-leading-dash.txt", result.stdout)
         self.assertEqual(len(self.xcodebuild_calls()), 1)
 
     def test_git_discovery_failures_fail_closed_without_xcode(self) -> None:
@@ -469,12 +475,21 @@ class CodexBuildPolicyTests(unittest.TestCase):
         self.assertIn("not valid build evidence", result.stderr)
 
     def test_log_capture_failure_during_failing_build_stays_nonzero(self) -> None:
+        # Seed a stale log containing the AppIcon signature; a failing build
+        # whose tee fails must not misreport the stale log as an AppIcon crash.
+        self.build_log_path().parent.mkdir(parents=True, exist_ok=True)
+        self.build_log_path().write_text(
+            "CompileAssetCatalogVariant\n"
+            "Exception while running actool\n"
+            "The file “AppIcon.icon” couldn’t be opened.\n"
+        )
         self.set_xcode_output(b"error: real compiler failure\n", exit_code=65)
 
         result = self.run_helper(arguments=["--force"], extra_env={"TEE_FAIL": "1"})
 
         self.assertEqual(result.returncode, 65)
         self.assertNotIn("CODEX_BUILD_COMPLETED", result.stdout)
+        self.assertNotIn("Known Codex CLI limitation detected", result.stdout)
 
     def test_unknown_option_exits_usage_without_running_tools(self) -> None:
         result = self.run_helper(arguments=["--bogus"])

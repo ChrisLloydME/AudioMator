@@ -71,4 +71,25 @@ nonisolated enum FileRecoveryClearance: Sendable, Equatable {
     /// Reserved for F2: the journal identified a verified location, or the user
     /// explicitly resolved that operation.
     case verifiedJournalLocation(UUID)
+
+    /// The user explicitly reviewed and accepted a different directory entry
+    /// occupying the path after Reload from Disk surfaced a replacement.
+    /// Clears matching-path `.moveReadbackPending` and `.recoveryLocationUnresolved`
+    /// only when the freshly loaded observation matches `url` and
+    /// `observedIdentity`. Never clears `.journalPending`.
+    case explicitReplacementAcceptance(url: URL, observedIdentity: EntryIdentityKey)
+}
+
+/// One replacement file surfaced by an explicit Reload from Disk when a renamed
+/// or recovery-paused path now holds a different directory entry.
+nonisolated struct PendingReplacementFileReview: Identifiable, Equatable, Sendable {
+    let fileID: AudioFile.ID
+    let url: URL
+    let fileName: String
+    let observedIdentity: EntryIdentityKey
+    let title: String
+    let artist: String
+    let album: String
+
+    nonisolated var id: AudioFile.ID { fileID }
 }

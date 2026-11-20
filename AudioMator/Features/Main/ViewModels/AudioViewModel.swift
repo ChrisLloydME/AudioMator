@@ -245,6 +245,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     let renameJournalStore: any RenameJournalStoring
     @Published var renameJournalRecovery: RenameJournalRecoveryState = .empty
     @Published var renameJournalActionInProgress: UUID?
+    @Published private(set) var pendingReplacementFileReviews: [PendingReplacementFileReview] = []
     var renameJournalManifests: [RenameJournalManifest] = []
     var renameJournalPathBlocks: Set<String> = []
     var renameJournalOperationByPathKey: [String: UUID] = [:]
@@ -1158,6 +1159,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
         persistWatchedFolders()
         revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
+        prunePendingReplacementFileReviews(removingIDs: removedFileIDs)
 
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
         rebuildVisibleFiles()
@@ -1178,6 +1180,60 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     func recoveryDecision(for id: AudioFile.ID) -> FileRecoveryDecision? {
         recoveryDecisionsByID[id]?.first
+    }
+
+    func hasJournalRecoveryDecision(for id: AudioFile.ID) -> Bool {
+        recoveryDecisionsByID[id]?.contains { decision in
+            if case .journalPending = decision { return true }
+            return false
+        } ?? false
+    }
+
+    func hasPendingNonJournalReplacementBlock(for id: AudioFile.ID) -> Bool {
+        guard let decisions = recoveryDecisionsByID[id], !decisions.isEmpty else { return false }
+        guard !hasJournalRecoveryDecision(for: id) else { return false }
+        return decisions.contains { decision in
+            switch decision {
+            case .moveReadbackPending, .recoveryLocationUnresolved:
+                return true
+            case .journalPending:
+                return false
+            }
+        }
+    }
+
+    func makePendingReplacementFileReviewIfNeeded(
+        for file: AudioFile,
+        observation: AudioFile.Observation
+    ) -> PendingReplacementFileReview? {
+        guard hasPendingNonJournalReplacementBlock(for: file.id) else { return nil }
+        let observedIdentity = EntryIdentityKey(fingerprint: observation.fingerprint)
+        guard observedIdentity.device != nil, observedIdentity.inode != nil else { return nil }
+        return PendingReplacementFileReview(
+            fileID: file.id,
+            url: observation.url,
+            fileName: observation.url.lastPathComponent,
+            observedIdentity: observedIdentity,
+            title: file.title,
+            artist: file.artist,
+            album: file.album
+        )
+    }
+
+    func setPendingReplacementFileReviews(_ reviews: [PendingReplacementFileReview]) {
+        pendingReplacementFileReviews = reviews
+    }
+
+    func dismissPendingReplacementFileReviews() {
+        pendingReplacementFileReviews = []
+    }
+
+    func prunePendingReplacementFileReviews(removingIDs ids: Set<AudioFile.ID>) {
+        guard !pendingReplacementFileReviews.isEmpty, !ids.isEmpty else { return }
+        let remainingCommittedIDs = committedSourceFileIDs()
+        pendingReplacementFileReviews.removeAll { review in
+            ids.contains(review.fileID) && !remainingCommittedIDs.contains(review.fileID)
+        }
     }
 
     /// All observations, including scans, must be accepted before publication.
@@ -2484,7 +2540,7 @@ extension AudioViewModel {
             )
             return nil
         case .failure(.destinationChanged):
-            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but a different file now has that name. Metadata editing stays paused until you choose Reload from Disk and review that file.")
+            return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but a different file now has that name. Metadata editing stays paused until you choose Reload from Disk and confirm whether to accept the replacement file.")
         case .failure(.timedOut):
             return String(localized: "“\(receipt.destinationURL.lastPathComponent)” was renamed, but checking its metadata timed out. Choose Reload from Disk from its context menu before editing.")
         case .failure(.readFailed(let detail)):
@@ -2541,6 +2597,24 @@ extension AudioViewModel {
 
         case .verifiedJournalLocation(let operationID):
             decisions.remove(.journalPending(operationID))
+
+        case .explicitReplacementAcceptance(let url, let expectedObservedIdentity):
+            let targetPathKey = FileSystemPathSemantics.key(for: url)
+            let observedPathKey = FileSystemPathSemantics.key(for: observation.url)
+            guard targetPathKey == observedPathKey,
+                  expectedObservedIdentity.matches(observedIdentity) else {
+                return
+            }
+            decisions = decisions.filter { decision in
+                switch decision {
+                case .moveReadbackPending(_, let destinationURL, _):
+                    return FileSystemPathSemantics.key(for: destinationURL) != observedPathKey
+                case .recoveryLocationUnresolved:
+                    return false
+                case .journalPending:
+                    return true
+                }
+            }
         }
 
         recoveryDecisionsByID[id] = decisions.isEmpty ? nil : decisions

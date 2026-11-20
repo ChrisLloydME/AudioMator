@@ -703,6 +703,7 @@ extension AudioViewModel {
         quickImportFiles.removeAll()
         quickImportFilesByID.removeAll()
         revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
+        prunePendingReplacementFileReviews(removingIDs: removedFileIDs)
         activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
         rebuildVisibleFiles()
     }
@@ -714,6 +715,7 @@ extension AudioViewModel {
             quickImportFiles.removeAll { $0.id == id }
             quickImportFilesByID[id] = nil
             revokeCommitPermitsForRemovedSourceFiles([id])
+            prunePendingReplacementFileReviews(removingIDs: [id])
             rebuildVisibleFiles()
             return
         }
@@ -736,6 +738,7 @@ extension AudioViewModel {
         quickImportBookkeeping.leases.release(key: record.identity.parentKey, owner: .membership(id))
 
         revokeCommitPermitsForRemovedSourceFiles([id])
+        prunePendingReplacementFileReviews(removingIDs: [id])
         rebuildVisibleFiles()
     }
 

@@ -38,6 +38,29 @@ struct ContentPane: View {
         )
     }
 
+    private var isReplacementFileAcceptConfirmPresented: Binding<Bool> {
+        Binding(
+            get: { !viewModel.pendingReplacementFileReviews.isEmpty },
+            set: { if !$0 { viewModel.dismissPendingReplacementFileReviews() } }
+        )
+    }
+
+    private var replacementFileReviewMessage: String {
+        let reviews = viewModel.pendingReplacementFileReviews
+        if reviews.count == 1, let review = reviews.first {
+            let details = [review.title, review.artist]
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+                .joined(separator: " — ")
+            if details.isEmpty {
+                return String(localized: "“\(review.fileName)” is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused.")
+            }
+            return String(localized: "“\(review.fileName)” (\(details)) is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused.")
+        }
+        let previewNames = reviews.prefix(3).map(\.fileName).joined(separator: ", ")
+        return String(localized: "\(reviews.count) reloaded paths (\(previewNames)) now contain different files on disk than the ones AudioMator renamed. Accept these replacement files to resume editing them, or keep editing paused.")
+    }
+
     private var currentSidebarSelection: SidebarSelection {
         state.selectedSidebarItem ?? .quickImport
     }
@@ -160,6 +183,22 @@ struct ContentPane: View {
                 } else {
                     Text("Removes the loaded tracks from AudioMator only. Files on disk stay unchanged.")
                 }
+            }
+            .confirmationDialog(
+                viewModel.pendingReplacementFileReviews.count == 1
+                    ? String(localized: "Accept replacement file?")
+                    : String(localized: "Accept replacement files?"),
+                isPresented: isReplacementFileAcceptConfirmPresented,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Accept Replacement")) {
+                    Task { await viewModel.acceptPendingReplacementFiles() }
+                }
+                Button(String(localized: "Keep Editing Paused"), role: .cancel) {
+                    viewModel.dismissPendingReplacementFileReviews()
+                }
+            } message: {
+                Text(replacementFileReviewMessage)
             }
             .onReceive(NotificationCenter.default.publisher(for: .requestClearListConfirmation)) { _ in
                 guard isQuickImportMode, !viewModel.files.isEmpty else { return }

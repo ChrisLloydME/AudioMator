@@ -74,6 +74,7 @@ final class MetadataFilenameToolStore: ObservableObject {
     private var debounceTask: Task<Void, Never>?
     private var workerTask: Task<Void, Never>?
     private var activeDispatch: MetadataFilenameConverterDispatch?
+    private var isRequestingScope = false
     private var settlementWaiters: [CheckedContinuation<Void, Never>] = []
 
     // MARK: – Target resolution cache (one ordered lookup per tracked revision)
@@ -540,24 +541,54 @@ final class MetadataFilenameToolStore: ObservableObject {
 
     /// Captures the exact currently ready plan for dispatch. An applying,
     /// pending, superseded or non-dispatchable plan returns nil.
+    ///
+    /// Folder-access requests may pump the run loop (modal panel). Re-verify
+    /// presentation, mode, input identity and plan readiness afterward so a
+    /// closed, reopened or edited presentation can never dispatch a stale plan.
     func beginDispatch(for mode: MetadataConverterMode) -> MetadataFilenameConverterDispatch? {
+        guard !isApplying, !isRequestingScope else { return nil }
         lastScopeRequestError = nil
-        guard !isApplying, let result = readyResult(for: mode), result.isDispatchable else {
+        guard selectedMode == mode,
+              let initialResult = readyResult(for: mode),
+              initialResult.isDispatchable else {
             return nil
         }
-        if result.requiresWriteScope, let scopeRequester {
-            let urls = result.executableTargetURLs
+        let capturedPresentationID = presentationID
+        let capturedInputID = currentInputID
+
+        if initialResult.requiresWriteScope, let scopeRequester {
+            let urls = initialResult.executableTargetURLs
             guard !urls.isEmpty else { return nil }
-            if let error = scopeRequester(urls) {
-                lastScopeRequestError = error
+            isRequestingScope = true
+            let scopeError = scopeRequester(urls)
+            isRequestingScope = false
+
+            guard presentationID == capturedPresentationID,
+                  currentInputID == capturedInputID,
+                  selectedMode == mode,
+                  !isApplying else {
+                return nil
+            }
+            if let scopeError {
+                lastScopeRequestError = scopeError
                 return nil
             }
         }
+
+        guard presentationID == capturedPresentationID,
+              currentInputID == capturedInputID,
+              selectedMode == mode,
+              !isApplying,
+              let currentResult = readyResult(for: mode),
+              currentResult.isDispatchable else {
+            return nil
+        }
+
         let dispatch = MetadataFilenameConverterDispatch(
             id: UUID(),
-            presentationID: presentationID,
+            presentationID: capturedPresentationID,
             mode: mode,
-            result: result
+            result: currentResult
         )
         activeDispatch = dispatch
         isApplying = true

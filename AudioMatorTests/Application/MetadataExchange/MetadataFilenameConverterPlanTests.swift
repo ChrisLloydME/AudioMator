@@ -864,6 +864,67 @@ nonisolated final class MetadataFilenameConverterPlanTests: XCTestCase {
     }
 
     @MainActor
+    func testBeginDispatchRejectsWhenPresentationClosesDuringScopeRequest() async {
+        let fixture = ConverterTestFixture(fileCount: 1)
+        let worker = ConverterTestPlannerWorker()
+        let store = makeStore(worker: worker)
+        present(fixture, in: store)
+        store.updateTemplate("{{title}}", for: .metadataToFilename)
+        store.selectMode(.metadataToFilename)
+        await settle(store)
+
+        var requestedCount = 0
+        store.setScopeRequester { _ in
+            requestedCount += 1
+            // Simulate closing the converter window while the modal folder panel runs.
+            store.cancelPresentation()
+            return nil
+        }
+
+        let dispatch = store.beginDispatch(for: .metadataToFilename)
+        XCTAssertEqual(requestedCount, 1)
+        XCTAssertNil(dispatch, "Closing the presentation during folder authorization must invalidate dispatch")
+        XCTAssertFalse(store.isApplying, "Store must not enter isApplying after a closed presentation")
+        XCTAssertNil(store.lastScopeRequestError)
+    }
+
+    @MainActor
+    func testBeginDispatchRejectsWhenPresentationChangesOrReentersDuringScopeRequest() async {
+        let fixture = ConverterTestFixture(fileCount: 1)
+        let worker = ConverterTestPlannerWorker()
+        let store = makeStore(worker: worker)
+        present(fixture, in: store)
+        store.updateTemplate("{{fileName}},{{title}}", for: .csvToMetadata)
+        store.setExternalSource("Original Alpha.mp3,Captured Title", for: .csvToMetadata)
+        store.setFirstCSVRowIsHeader(false)
+        store.selectMode(.csvToMetadata)
+        await settle(store)
+
+        // Mutating the template during scope authorization invalidates the ready input.
+        store.setScopeRequester { _ in
+            store.updateTemplate("{{fileName}},{{artist}}", for: .csvToMetadata)
+            return nil
+        }
+        XCTAssertNil(store.beginDispatch(for: .csvToMetadata))
+        XCTAssertFalse(store.isApplying)
+
+        await settle(store)
+
+        // Re-entrant beginDispatch inside scopeRequester must be ignored while outer succeeds once.
+        var reentrantDispatch: MetadataFilenameConverterDispatch?
+        store.setScopeRequester { _ in
+            reentrantDispatch = store.beginDispatch(for: .csvToMetadata)
+            return nil
+        }
+        let outerDispatch = store.beginDispatch(for: .csvToMetadata)
+        XCTAssertNil(reentrantDispatch, "Re-entrant dispatch during scope request must return nil")
+        XCTAssertNotNil(outerDispatch)
+        if let outerDispatch {
+            XCTAssertTrue(store.finishDispatch(outerDispatch))
+        }
+    }
+
+    @MainActor
     func testInactiveModeOptionChangeDoesNotReplanActiveMode() async {
         let fixture = ConverterTestFixture(fileCount: 1)
         let worker = ConverterTestPlannerWorker()

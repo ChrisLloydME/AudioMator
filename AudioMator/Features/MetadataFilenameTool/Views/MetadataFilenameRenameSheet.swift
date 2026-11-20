@@ -833,7 +833,7 @@ struct MetadataFilenameWindowView: View {
             return
         }
 
-        switch selectedConverterMode {
+        switch dispatch.mode {
         case .metadataToFilename:
             applyRename(dispatch: dispatch)
         case .filenameToMetadata:
@@ -854,9 +854,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyRename(dispatch: MetadataFilenameConverterDispatch) {
-        guard let plan = dispatch.result.renamePlan else { return }
+        guard let plan = dispatch.result.renamePlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             let result = await viewModel.renameFiles(using: plan)
             guard store.finishDispatch(dispatch) else { return }
             if result.wasCancelled { return }
@@ -869,9 +873,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyFilenameMetadata(dispatch: MetadataFilenameConverterDispatch) {
-        guard let plan = dispatch.result.filenameMetadataPlan else { return }
+        guard let plan = dispatch.result.filenameMetadataPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             let skipped = plan.rows.compactMap { row -> BatchMetadataWriteIssue? in
                 guard row.writeEntry == nil, row.status != .unchanged else { return nil }
                 return BatchMetadataWriteIssue(
@@ -891,9 +899,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyTextMetadata(dispatch: MetadataFilenameConverterDispatch) {
-        guard let plan = dispatch.result.textImportPlan else { return }
+        guard let plan = dispatch.result.textImportPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan)
@@ -903,9 +915,13 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyCSVMetadata(dispatch: MetadataFilenameConverterDispatch) {
-        guard let plan = dispatch.result.csvImportPlan else { return }
+        guard let plan = dispatch.result.csvImportPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan)
@@ -915,10 +931,14 @@ struct MetadataFilenameWindowView: View {
     }
 
     private func applyFieldTransfer(dispatch: MetadataFilenameConverterDispatch) {
-        guard let plan = dispatch.result.fieldTransferPlan else { return }
+        guard let plan = dispatch.result.fieldTransferPlan else {
+            _ = store.finishDispatch(dispatch)
+            return
+        }
 
         let progressTitle = fieldTransferStore.operation.progressTitle
         Task { @MainActor in
+            guard store.isDispatchCurrent(dispatch) else { return }
             _ = await viewModel.applyMetadataExchangeWriteEntries(
                 plan.writeEntries,
                 skippedIssues: Self.skippedExchangeIssues(for: plan),

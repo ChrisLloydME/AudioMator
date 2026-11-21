@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 // MARK: - Raw field entry draft (E2)
 
@@ -41,6 +42,23 @@ struct MetadataFieldEditorContext: Identifiable {
     let draftGeneration: UInt64
     var displayName: String = ""
     var emptyStartReason: MetadataFieldEmptyStartReason?
+
+    var targets: [MetadataEditorTarget] = []
+
+    func resolvedWriteKey(input: String, selectedMappingKey: String?) -> String {
+        switch mode {
+        case .edit:
+            return key ?? ""
+        case .add:
+            let resolved = selectedMappingKey ?? MetadataFieldSuggestion.resolvedKey(for: input)
+            let dateTitle = MetadataFieldGuide.displayName(for: .standaloneDate)
+            let selectsDate = selectedMappingKey == "STANDALONEDATE"
+                || (input != "DATE" && input.localizedCaseInsensitiveCompare(dateTitle) == .orderedSame)
+            return MetadataDatePickerEligibilityResolver.rawKeyForNewField(
+                resolved, selectedDateSuggestion: selectsDate, targets: targets
+            )
+        }
+    }
 
     var id: String {
         switch mode {

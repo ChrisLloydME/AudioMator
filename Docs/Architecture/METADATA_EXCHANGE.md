@@ -64,7 +64,7 @@ Imports without a locator match records to selected files by selection order. Th
 - ambiguous locator matches,
 - duplicate records for one file,
 - missing or extra records where a one-to-one mapping is required,
-- invalid typed values,
+- invalid typed values (such as non-numeric track/disc numbers or invalid integer store IDs; user-supplied date text passes through without AudioMator date-format checks or rewriting),
 - files changed since preview,
 - unsupported destination fields.
 

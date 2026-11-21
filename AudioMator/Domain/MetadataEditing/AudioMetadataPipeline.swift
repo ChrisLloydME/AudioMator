@@ -99,23 +99,6 @@ struct MetadataEditPayload: Sendable {
         return nil
     }
 
-    /// Validates only the explicitly edited date field against its own shape.
-    /// It never compares one date identity with another or completes a value.
-    nonisolated var dateValidationMessage: String? {
-        let editedDates: [(MetadataFieldKey, String, String)] = [
-            (.year, year, String(localized: "Year")),
-            (.standaloneDate, date, String(localized: "Date")),
-            (.releaseDate, releaseDate, String(localized: "Release Date")),
-            (.originalReleaseDate, originalReleaseDate, String(localized: "Original Release Date")),
-        ]
-        for (field, value, label) in editedDates where changedFields.contains(field) {
-            guard MetadataDateText.validates(value, for: field) else {
-                return label + " " + String(localized: "uses a date format that can’t be saved here. Enter a supported date or clear the field.")
-            }
-        }
-        return nil
-    }
-
     /// Every semantic field this payload will touch. Used by conflict groups
     /// and the all-or-nothing capability preflight.
     nonisolated var requestedFields: Set<MetadataFieldKey> {

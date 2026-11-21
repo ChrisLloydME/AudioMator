@@ -194,3 +194,117 @@ enum MetadataCommitWarning {
         String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
     }
 }
+
+struct InspectorDatePickerScope: Equatable {
+    let ids: Set<AudioFile.ID>
+    let draftIdentity: InspectorDraftIdentity?
+}
+
+extension AudioViewModel {
+    func currentInspectorDatePickerScope() -> InspectorDatePickerScope {
+        InspectorDatePickerScope(
+            ids: selectedAudioIDs,
+            draftIdentity: inspectorDraftIdentity
+        )
+    }
+
+    /// Stages a picker-produced date value into the active Inspector draft only
+    /// while the selection, full draft identity (including edit generation),
+    /// pending-review state, and destination eligibility all still match.
+    @discardableResult
+    func applyInspectorDatePickerValue(
+        _ value: String,
+        for field: InspectorMetadataField,
+        expectedScope: InspectorDatePickerScope,
+        expectedEligibility: MetadataDatePickerEligibility
+    ) -> Bool {
+        guard let key = field.metadataFieldKey,
+              let expectedDraftIdentity = expectedScope.draftIdentity,
+              selectedAudioIDs == expectedScope.ids,
+              inspectorDraftIdentity == expectedDraftIdentity,
+              !hasInspectorPendingReview,
+              MetadataDatePickerEligibilityResolver.inspectorEligibility(
+                  for: key, files: selectedFiles
+              ) == expectedEligibility else {
+            return false
+        }
+
+        if selectedAudioIDs.count == 1,
+           let fileID = selectedAudioIDs.first,
+           let file = selectedFiles.first(where: { $0.id == fileID }) {
+            var model = (editSourceFileID == fileID ? edit : nil) ?? SingleFileEditModel(from: file)
+            switch field {
+            case .year:
+                model.year = value
+            case .date:
+                model.date = value
+            case .releaseDate:
+                model.releaseDate = value
+            case .originalReleaseDate:
+                model.originalReleaseDate = value
+            default:
+                return false
+            }
+            edit = model
+            editSourceFileID = fileID
+            return true
+        }
+
+        if selectedAudioIDs.count > 1, var current = multiEdit {
+            let multiField: MultiFileEditableTextField
+            switch field {
+            case .year:
+                multiField = .year
+            case .date:
+                multiField = .date
+            case .releaseDate:
+                multiField = .releaseDate
+            case .originalReleaseDate:
+                multiField = .originalReleaseDate
+            default:
+                return false
+            }
+            current.setText(value, for: multiField)
+            multiEdit = current
+            return true
+        }
+
+        return false
+    }
+}
+
+/// Annotates a writer rejection with the affected field display name(s) when
+/// the underlying writer error does not already name them. File-level failures
+/// (revision, recovery, membership, conflict, and access errors) keep their
+/// file-level explanation without field annotations.
+nonisolated func annotatingWriteFailureWithFields(
+    _ reason: String,
+    fieldLabels: [String],
+    category: MetadataFileMutationFailureCategory = .writeRejection
+) -> String {
+    guard category == .writeRejection else { return reason }
+    let uniqueLabels = MetadataWriteFailureFieldAnnotation.normalizedUniqueLabels(fieldLabels)
+    guard !uniqueLabels.isEmpty else { return reason }
+    let compoundDateLabels = [
+        MetadataFieldGuide.displayName(for: .releaseDate),
+        MetadataFieldGuide.displayName(for: .originalReleaseDate),
+        MetadataFieldGuide.displayName(for: .itunesPurchaseDate),
+        "Release Date",
+        "Original Release Date",
+        "Purchase Date",
+        "iTunes Purchase Date",
+    ]
+    guard !MetadataWriteFailureFieldAnnotation.namesEveryField(
+        uniqueLabels,
+        in: reason,
+        compoundLabels: compoundDateLabels
+    ) else {
+        return reason
+    }
+
+    let joined = ListFormatter.localizedString(byJoining: uniqueLabels)
+    if uniqueLabels.count == 1 {
+        return "\(reason)\n\(String(localized: "Affected field: \(joined)"))"
+    }
+    return "\(reason)\n\(String(localized: "Affected fields: \(joined)"))"
+}

@@ -187,12 +187,6 @@ struct TagLibAudioMetadataPipeline: AudioMetadataPipeline {
                     validation: .rejected(message)
                 )
             }
-            if let message = payload.dateValidationMessage {
-                return MetadataWriteProjection(
-                    requestedFields: requested,
-                    validation: .rejected(message)
-                )
-            }
             if requested.isEmpty {
                 return MetadataWriteProjection(
                     requestedFields: [],

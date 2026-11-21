@@ -75,16 +75,8 @@ nonisolated extension FileRenameMetadataField {
                 of: #"^\d+(?:\s*/\s*\d+)?$"#,
                 options: .regularExpression
             ) != nil
-        case .year:
-            // YEAR keeps complete stored text, including `2004-07-15`.
-            return MetadataDateText.isPlausibleYear(value)
-        case .date:
-            return MetadataDateText.isPlausibleStandaloneDate(value)
-        case .originalReleaseDate:
-            return MetadataDateText.isPlausibleDate(value)
-        case .releaseDate:
-            return MetadataDateText.isPlausibleDate(value)
-        case .title, .artist, .album, .albumArtist, .composer, .genre,
+        case .year, .date, .originalReleaseDate, .releaseDate,
+                .title, .artist, .album, .albumArtist, .composer, .genre,
                 .comment, .publisher, .copyright, .credits:
             return !value.isEmpty
         }

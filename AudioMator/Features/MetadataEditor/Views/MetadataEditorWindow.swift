@@ -609,7 +609,8 @@ final class MetadataEditorStore: ObservableObject {
             isMixed: false,
             presentationID: presentationID,
             draftGeneration: draftGeneration,
-            emptyStartReason: .newField
+            emptyStartReason: .newField,
+            targets: targets
         )
     }
 
@@ -648,7 +649,8 @@ final class MetadataEditorStore: ObservableObject {
                 presentationID: presentationID,
                 draftGeneration: draftGeneration,
                 displayName: displayName,
-                emptyStartReason: .mixedSelection
+                emptyStartReason: .mixedSelection,
+                targets: targets
             )
         }
 
@@ -663,7 +665,8 @@ final class MetadataEditorStore: ObservableObject {
             presentationID: presentationID,
             draftGeneration: draftGeneration,
             displayName: displayName,
-            emptyStartReason: firstValues.isEmpty ? .existingEmptyArray : nil
+            emptyStartReason: firstValues.isEmpty ? .existingEmptyArray : nil,
+            targets: targets
         )
     }
 

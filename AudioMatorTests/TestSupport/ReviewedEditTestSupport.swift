@@ -34,9 +34,6 @@ extension AudioViewModel {
         if let message = editPayload.numberPairValidationMessage {
             return .failure(message)
         }
-        if let message = editPayload.dateValidationMessage {
-            return .failure(message)
-        }
         let unsupportedFields = unsupportedMetadataWriteFields(
             in: editPayload,
             forFileExtension: file.url.pathExtension

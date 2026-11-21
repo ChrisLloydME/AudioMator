@@ -784,13 +784,21 @@ struct InspectorPane: View {
         case .genre:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.genre))
         case .year:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.year))
+            editableRow(
+                label: field.displayName, text: binding(for: file, keyPath: \.year), dateField: field
+            )
         case .date:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.date))
+            editableRow(
+                label: field.displayName, text: binding(for: file, keyPath: \.date), dateField: field
+            )
         case .releaseDate:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.releaseDate))
+            editableRow(
+                label: field.displayName, text: binding(for: file, keyPath: \.releaseDate), dateField: field
+            )
         case .originalReleaseDate:
-            editableRow(label: field.displayName, text: binding(for: file, keyPath: \.originalReleaseDate))
+            editableRow(
+                label: field.displayName, text: binding(for: file, keyPath: \.originalReleaseDate), dateField: field
+            )
         case .trackNumber:
             editableRow(label: field.displayName, text: trackNumberFieldBinding(for: file))
         case .totalTracks:
@@ -861,25 +869,29 @@ struct InspectorPane: View {
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .year),
-                placeholder: viewModel.multiEdit?.placeholder(for: .year)
+                placeholder: viewModel.multiEdit?.placeholder(for: .year),
+                dateField: field
             )
         case .date:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .date),
-                placeholder: viewModel.multiEdit?.placeholder(for: .date)
+                placeholder: viewModel.multiEdit?.placeholder(for: .date),
+                dateField: field
             )
         case .releaseDate:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .releaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate)
+                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate),
+                dateField: field
             )
         case .originalReleaseDate:
             editableRow(
                 label: field.displayName,
                 text: multiBinding(for: .originalReleaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate)
+                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate),
+                dateField: field
             )
         case .trackNumber:
             editableRow(
@@ -1015,10 +1027,38 @@ struct InspectorPane: View {
     }
 
     @ViewBuilder
+    private func dateButton(for field: InspectorMetadataField, text: Binding<String>) -> some View {
+        if let key = field.metadataFieldKey,
+           let eligibility = MetadataDatePickerEligibilityResolver.inspectorEligibility(for: key, files: selectedFiles) {
+            MetadataDatePickerButton(
+                scope: viewModel.currentInspectorDatePickerScope(),
+                title: field.displayName,
+                value: text.wrappedValue,
+                format: eligibility.destinationFormat,
+                onApply: { scope, value in
+                    viewModel.applyInspectorDatePickerValue(
+                        value,
+                        for: field,
+                        expectedScope: scope,
+                        expectedEligibility: eligibility
+                    )
+                }
+            ) {
+                Image(systemName: "calendar")
+                    .frame(minWidth: 20, minHeight: inspectorRowContentHeight)
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "Choose \(field.displayName)"))
+            .accessibilityLabel(Text("Choose \(field.displayName)"))
+        }
+    }
+
+    @ViewBuilder
     private func editableRow(
         label: String,
         text: Binding<String>,
-        placeholder: String? = nil
+        placeholder: String? = nil,
+        dateField: InspectorMetadataField? = nil
     ) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
@@ -1032,6 +1072,9 @@ struct InspectorPane: View {
                 isInspectorQuickPresented = true
             }
             .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
+            if let dateField {
+                dateButton(for: dateField, text: text)
+            }
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {

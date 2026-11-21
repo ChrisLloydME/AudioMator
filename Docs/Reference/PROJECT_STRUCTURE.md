@@ -46,14 +46,14 @@ Shared, mostly UI-independent support.
 
 | Folder | Responsibility |
 | --- | --- |
-| `Audio/` | Tag-number parsing/text, numeric conversion, format-support core, independent date text parsing and validation |
+| `Audio/` | Tag-number parsing/text, numeric conversion, format-support core, date picker draft, calendar serialization and viewport bounds |
 | `Artwork/` | Artwork image validation and PNG normalization |
 | `Concurrency/` | `withAsyncTimeout` deadline wrapper |
 | `FileSystem/` | Normalized path semantics |
 | `Legal/` | License catalog and bundled license-text loader |
 | `Localization/` | `L10n` helper and window-title table |
 | `Network/` | GitHub request headers, network-service disclosure |
-| `Platform/` | macOS application/window/security-scope adapters |
+| `Platform/` | macOS application, window and security-scope adapters, including the shared search dropdown |
 | `Text/` | Fuzzy string similarity |
 
 `Core` files compiled by the SwiftPM target must remain Foundation-only.
@@ -81,6 +81,7 @@ Feature-owned views, view models, and presentation models.
 | Folder | Responsibility |
 | --- | --- |
 | `Main/` | Main window, sidebar, middle list, Inspector, artwork lookup, track renumber sheet, `AudioViewModel` and write extensions, batch executor, save issue log, operation-result HUD |
+| `DateTimePicker/` | Picker eligibility, native AppKit controls and the date editing sheet shared by the Inspector and Metadata Editor |
 | `MetadataEditor/` | Raw metadata value-map editor window, table, field entry, text utilities |
 | `MetadataFilenameTool/` | Filename & Metadata window, converter modes, previews, templates, field transfer |
 | `OnlineMetadataBrowser/` | Shared online metadata window shell, source picker, embedded web view, virtualized list |
@@ -88,7 +89,7 @@ Feature-owned views, view models, and presentation models.
 | `iTunesBrowser/` | iTunes search/detail/tagging views and stores |
 | `LRCLIBLyricsBrowser/` | LRCLIB lyrics views and store |
 | `MetadataHelp/` | Offline Metadata Field Guide window, Help command and field explanations |
-| `Settings/` | Settings tabs, privacy/acknowledgements/license sheets, release-notes rendering |
+| `Settings/` | Settings tabs and shared grouped-row styling, privacy/acknowledgements/license sheets, release-notes rendering |
 | `Welcome/` | Welcome splash and progress |
 
 Feature folders may contain their own helpers. Do not create a shared abstraction for a single feature.
@@ -117,7 +118,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1056 test functions and 115 `XCTestCase` classes across 115 test files plus 7 `TestSupport` files (122 Swift files total), alongside fixtures.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1065 test functions and 116 `XCTestCase` classes across 116 test files plus 7 `TestSupport` files (123 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -135,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 97 test functions in six `XCTestCase` classes across five source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 119 test functions in seven `XCTestCase` classes across six source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

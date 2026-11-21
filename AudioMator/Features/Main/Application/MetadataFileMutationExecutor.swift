@@ -1,4 +1,5 @@
 import Foundation
+import TagLibAudioMetadata
 
 struct MetadataFileMutationSuccess: Sendable {
     let writeResult: AudioMetadataWriteResult
@@ -7,9 +8,70 @@ struct MetadataFileMutationSuccess: Sendable {
 
 }
 
+nonisolated enum MetadataFileMutationFailureCategory: Equatable, Sendable {
+    /// File-level revision, recovery, membership, conflict, or filesystem/access failure.
+    case fileLevel
+    /// Writer, format, or validation rejection where affected field context applies.
+    case writeRejection
+
+    static func classify(_ error: any Error) -> Self {
+        if error is AudioFileFingerprintValidationError
+            || error is RenameJournalRecoveryError
+            || error is MetadataAudioContentError
+            || error is MetadataConflictError {
+            return .fileLevel
+        }
+        if case TagLibManagerError.fileChanged = error {
+            return .fileLevel
+        }
+        if let cocoaError = error as? CocoaError, isFileLevelCocoaCode(cocoaError.code) {
+            return .fileLevel
+        }
+        if let posixError = error as? POSIXError, isFileLevelPOSIXCode(posixError.code) {
+            return .fileLevel
+        }
+        let nsError = error as NSError
+        if nsError.domain == NSCocoaErrorDomain,
+           isFileLevelCocoaCode(CocoaError.Code(rawValue: nsError.code)) {
+            return .fileLevel
+        }
+        if nsError.domain == NSPOSIXErrorDomain,
+           let code = POSIXErrorCode(rawValue: Int32(nsError.code)),
+           isFileLevelPOSIXCode(code) {
+            return .fileLevel
+        }
+        return .writeRejection
+    }
+
+    private static func isFileLevelCocoaCode(_ code: CocoaError.Code) -> Bool {
+        switch code {
+        case .fileNoSuchFile,
+             .fileReadNoSuchFile,
+             .fileReadNoPermission,
+             .fileWriteNoPermission,
+             .fileWriteVolumeReadOnly,
+             .fileWriteFileExists,
+             .fileLocking,
+             .fileWriteOutOfSpace:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func isFileLevelPOSIXCode(_ code: POSIXErrorCode) -> Bool {
+        switch code {
+        case .ENOENT, .EACCES, .EPERM, .EROFS, .ENOSPC, .EBUSY, .ESTALE:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 enum MetadataFileMutationResult: Sendable {
     case success(MetadataFileMutationSuccess)
-    case failure(String)
+    case failure(String, category: MetadataFileMutationFailureCategory = .writeRejection)
     case cancelled
 }
 
@@ -89,7 +151,7 @@ struct MetadataFileMutationExecutor: Sendable {
                                 case .revoked(.cancelled):
                                     return .cancelled
                                 case .revoked(.ineligible(let reason)):
-                                    return .failure(reason)
+                                    return .failure(reason, category: .fileLevel)
                                 }
                             case .reviewedDraft(_, let permit):
                                 // Identity/revision validation belongs to the
@@ -100,7 +162,7 @@ struct MetadataFileMutationExecutor: Sendable {
                                 case .revoked(.cancelled):
                                     return .cancelled
                                 case .revoked(.ineligible(let reason)):
-                                    return .failure(reason)
+                                    return .failure(reason, category: .fileLevel)
                                 }
                             }
 
@@ -133,7 +195,10 @@ struct MetadataFileMutationExecutor: Sendable {
                         } catch is CancellationError {
                             return .cancelled
                         } catch {
-                            return .failure((error as NSError).localizedDescription)
+                            return .failure(
+                                (error as NSError).localizedDescription,
+                                category: .classify(error)
+                            )
                         }
                     }.value
                 } onCancel: {
@@ -144,7 +209,9 @@ struct MetadataFileMutationExecutor: Sendable {
             permit.revoke(reason: .cancelled)
             return .cancelled
         } catch {
-            return .failure((error as NSError).localizedDescription)
+            // Errors outside the detached writer come from reservation setup or
+            // `validateBeforeWrite` (recovery, membership, and revision checks).
+            return .failure((error as NSError).localizedDescription, category: .fileLevel)
         }
     }
 

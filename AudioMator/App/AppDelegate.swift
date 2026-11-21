@@ -8,10 +8,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let launchedBefore = UserDefaults.standard.bool(forKey: hasLaunchedKey)
 
         if !launchedBefore {
-            if let window = NSApplication.shared.windows.first {
-                window.setContentSize(NSSize(width: 900, height: 600))
-                window.center()
-            }
+            NSApplication.shared.windows.first?.center()
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
         }
     }

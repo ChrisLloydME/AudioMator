@@ -79,7 +79,6 @@ struct AudioMatorApp: App {
                     metadataPipeline: metadataPipeline,
                     onlineMetadataRouter: onlineMetadataRouter
                 )
-                .frame(minWidth: 900, minHeight: 600)
             }
         }
         .commands {
@@ -97,7 +96,8 @@ struct AudioMatorApp: App {
                 }
             }
         }
-        .defaultSize(width: 900, height: 600)
+        .defaultSize(width: 1_360, height: 760)
+        .windowResizability(.contentMinSize)
 
         Window("Metadata Field Guide", id: MetadataFieldGuideView.windowID) {
             MetadataFieldGuideView()

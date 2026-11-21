@@ -181,7 +181,7 @@ All app preferences use `UserDefaults.standard` except when running as the test 
 | `hasCompletedWelcomeSplash` | Welcome completion flag |
 | `completedWelcomeSplashVersion` | Last completed welcome version (currently 3) |
 | `suppressesUnsavedInspectorDiscardWarning` | Discard-warning suppression |
-| `hasLaunchedBefore` | First-launch window sizing flag |
+| `hasLaunchedBefore` | First-launch window centering flag |
 
 ### Files
 

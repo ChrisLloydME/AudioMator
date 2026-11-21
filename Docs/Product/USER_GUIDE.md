@@ -42,6 +42,8 @@ Changing selection or sidebar source can discard an unsaved Inspector draft. If 
 
 Files appear in the middle list with configurable columns. Sorting is available by column, and the list also supports a manual order used by track renumbering. Visible columns, toolbar buttons, and Inspector fields are configured in Settings → Interface; each section has a restore action.
 
+New main windows default to 1,360 × 760 points. The middle list requests at least 680 points of width. To make the window narrower, hide the Inspector.
+
 ## Editing Common Metadata (Inspector)
 
 The right Inspector is a curated common-field editor. Settings → Interface → Inspector Metadata Fields controls its rows for both single and multiple selection. Container-specific fields are not automatically appended; use Metadata Editor for additional PropertyMap fields and Tag Inspector for native inspection. New installations show Title, Artist, Album, Composer, Genre, Year, Track Number, Total Tracks, Disc Number, Total Discs, Comment, Album Artist, Release Date, Publisher, Copyright, Explicit and Credits; Date, Original Release Date, Content Group, Grouping and Work are optional. Existing saved field choices are preserved. Hiding a row changes presentation only: it neither deletes file metadata nor discards an existing draft. Save still applies all pending changes, including a draft entered before its row was hidden.

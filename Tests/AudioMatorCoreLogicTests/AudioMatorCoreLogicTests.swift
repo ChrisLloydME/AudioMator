@@ -249,14 +249,14 @@ final class AudioMatorCoreLogicTests: XCTestCase {
 
     func testFilenameMetadataMatcherKeepsUniqueTypedBacktrackingMatch() throws {
         let matcher = FilenameMetadataTemplateMatcher(
-            document: FileRenameTemplateDocument(rawValue: "{{artist}} - {{year}} - {{title}}"),
+            document: FileRenameTemplateDocument(rawValue: "{{artist}} - {{trackNumber}} - {{title}}"),
             replaceUnderscoresWithSpaces: false
         )
 
-        let captures = try XCTUnwrap(matcher.match("Boards - Aquarius - 2026 - Version"))
+        let captures = try XCTUnwrap(matcher.match("Boards - Aquarius - 07 - Version"))
 
         XCTAssertEqual(captures[.artist], "Boards - Aquarius")
-        XCTAssertEqual(captures[.year], "2026")
+        XCTAssertEqual(captures[.trackNumberText], "07")
         XCTAssertEqual(captures[.title], "Version")
     }
 
@@ -293,7 +293,14 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         XCTAssertEqual(captures[.releaseDate], "2026-06-02")
         XCTAssertEqual(captures[.title], "Quiet Storm")
         XCTAssertNil(matcher.match("side-a - 2026 - 2026-06-02 - Quiet Storm"))
-        XCTAssertNil(matcher.match("03 - 20X6 - 2026-06-02 - Quiet Storm"))
+
+        // User-entered/filename-extracted date values pass through without
+        // date-specific format rejection or rewriting.
+        let freeformDateCaptures = try XCTUnwrap(matcher.match("03 - Spring_2024 - circa_1998 - Quiet_Storm"))
+        XCTAssertEqual(freeformDateCaptures[.trackNumberText], "03")
+        XCTAssertEqual(freeformDateCaptures[.year], "Spring 2024")
+        XCTAssertEqual(freeformDateCaptures[.releaseDate], "circa 1998")
+        XCTAssertEqual(freeformDateCaptures[.title], "Quiet Storm")
     }
 
     func testMetadataExchangeCSVParsesBOMQuotesEmbeddedNewlinesAndTrailingFields() throws {

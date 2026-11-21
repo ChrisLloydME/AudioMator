@@ -194,3 +194,39 @@ enum MetadataCommitWarning {
         String(localized: "Your changes were saved, but macOS couldn't confirm that the save will survive a crash or power loss. Don't repeat this save.\nDetails: \(detail)")
     }
 }
+
+/// Annotates a writer rejection with the affected field display name(s) when
+/// the underlying writer error does not already name them. File-level failures
+/// (revision, recovery, membership, conflict, and access errors) keep their
+/// file-level explanation without field annotations.
+nonisolated func annotatingWriteFailureWithFields(
+    _ reason: String,
+    fieldLabels: [String],
+    category: MetadataFileMutationFailureCategory = .writeRejection
+) -> String {
+    guard category == .writeRejection else { return reason }
+    let uniqueLabels = MetadataWriteFailureFieldAnnotation.normalizedUniqueLabels(fieldLabels)
+    guard !uniqueLabels.isEmpty else { return reason }
+    let compoundDateLabels = [
+        MetadataFieldGuide.displayName(for: .releaseDate),
+        MetadataFieldGuide.displayName(for: .originalReleaseDate),
+        MetadataFieldGuide.displayName(for: .itunesPurchaseDate),
+        "Release Date",
+        "Original Release Date",
+        "Purchase Date",
+        "iTunes Purchase Date",
+    ]
+    guard !MetadataWriteFailureFieldAnnotation.namesEveryField(
+        uniqueLabels,
+        in: reason,
+        compoundLabels: compoundDateLabels
+    ) else {
+        return reason
+    }
+
+    let joined = ListFormatter.localizedString(byJoining: uniqueLabels)
+    if uniqueLabels.count == 1 {
+        return "\(reason)\n\(String(localized: "Affected field: \(joined)"))"
+    }
+    return "\(reason)\n\(String(localized: "Affected fields: \(joined)"))"
+}

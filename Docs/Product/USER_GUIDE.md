@@ -56,7 +56,7 @@ If a watched folder, Quick Import list or settings removal makes some of a dirty
 2. Edit fields in the Inspector.
 3. Choose **Save** in the Inspector toolbar or **Save Edits** from the Edit menu to write pending changes, or **Cancel** in the Inspector toolbar (**Cancel Edits** in the Edit menu) to discard them. Both save commands apply to the current selection.
 
-On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** to close the pane. When it is closed, **Show Inspector** appears at the right of the middle pane's toolbar; the View menu also offers **Toggle Inspector**.
+On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** in the Inspector toolbar to close the pane. Choose **View → Toggle Inspector** to reopen it or to close it from the menu.
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 

@@ -160,9 +160,7 @@ struct ContentView: View {
             onOpenMetadataFilenameTool: openMetadataFilenameTool,
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
-            onOpenTrackRenumber: openTrackRenumberSheet,
-            isInspectorVisible: isInspectorVisible,
-            onShowInspector: toggleInspector
+            onOpenTrackRenumber: openTrackRenumberSheet
         )
     }
 

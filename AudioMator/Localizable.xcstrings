@@ -11925,47 +11925,6 @@
         }
       }
     },
-    "Show Inspector" : {
-      "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/ContentPane.swift:128.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Inspector"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Inspector"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示检查器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示檢閱器"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示檢閱器"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示檢閱器"
-          }
-        }
-      }
-    },
     "Show Now" : {
 
     },

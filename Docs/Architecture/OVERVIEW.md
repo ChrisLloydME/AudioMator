@@ -94,7 +94,7 @@ The `AudioMatorTestHost` path substitutes temporary preferences and a temporary 
 
 ## UI Composition
 
-- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. SwiftUI's full-height `.inspector` modifier is applied to the split view, and the column width is constrained to 340–480 points. The Inspector hosts its own Cancel, Save, and Hide Inspector toolbar items; the middle pane provides Show Inspector when the column is closed.
+- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. SwiftUI's full-height `.inspector` modifier is applied to the split view, and the column width is constrained to 340–480 points. The Inspector hosts Cancel, Save, and Hide Inspector in its toolbar. The View menu toggles the column through the same visibility action as Hide Inspector.
 - The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into SwiftUI for native selection and column behavior. Selection is mirrored back to `AudioViewModel`; rejected draft-discard changes restore the previous native selection.
 - Sidebar sources are Quick Import (current session) and Watched Folders (the watched library and individual folders). Switching source changes the visible file collection and prunes selection.
 - The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does not own file state.

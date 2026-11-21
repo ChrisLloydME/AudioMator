@@ -4,15 +4,47 @@
     "" : {
 
     },
-    "“%@” — current location: %@" : {
+    "“%@” — observed: %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "“%1$@” — current location: %2$@"
+            "value" : "“%1$@” — observed: %2$@"
           }
         }
       }
+    },
+    "“%@” (%@) is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” (%2$@) is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused."
+          }
+        }
+      }
+    },
+    "“%@” → “%@” — %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "“%1$@” → “%2$@” — %3$@"
+          }
+        }
+      }
+    },
+    "“%@” can’t be reached right now. Reauthorize it in Settings → Folders, then refresh again." : {
+
+    },
+    "“%@” changed again before it was accepted. Choose Reload from Disk to review the current file." : {
+
+    },
+    "“%@” changed since it was reviewed. Review the current values before applying changes." : {
+
+    },
+    "“%@” couldn’t be accepted because its state changed. Choose Reload from Disk to review it again." : {
+
     },
     "“%@” couldn’t be reloaded.\nDetails: %@" : {
       "localizations" : {
@@ -24,38 +56,33 @@
         }
       }
     },
-    "“%@” couldn’t be renamed.\nDetails: %@" : {
+    "“%@” couldn’t be verified.\nDetails: %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "“%1$@” couldn’t be renamed.\nDetails: %2$@"
+            "value" : "“%1$@” couldn’t be verified.\nDetails: %2$@"
           }
         }
       }
     },
-    "“%@” couldn’t be restored to “%@”. Check its current location before renaming it again.\nDetails: " : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "“%1$@” couldn’t be restored to “%2$@”. Check its current location before renaming it again.\nDetails: "
-          }
-        }
-      }
+    "“%@” is no longer loaded in AudioMator. Import it again before applying changes." : {
+
+    },
+    "“%@” is now a different file on disk than the one AudioMator renamed. Accept this replacement file to resume editing it, or keep editing paused." : {
+
     },
     "“%@” isn't a supported field. Choose a field from the available list." : {
 
     },
-    "“%@” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: %@" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "“%1$@” was renamed, but it couldn’t be checked at its new location. Metadata editing is paused for this file. Choose Reload from Disk from its context menu before editing.\nDetails: %2$@"
-          }
-        }
-      }
+    "“%@” was renamed but hasn’t been checked at its new location yet. Choose Reload from Disk from its context menu." : {
+
+    },
+    "“%@” was renamed, but a different file now has that name. Metadata editing stays paused until you choose Reload from Disk and confirm whether to accept the replacement file." : {
+
+    },
+    "“%@” was renamed, but checking its metadata timed out. Choose Reload from Disk from its context menu before editing." : {
+
     },
     "“%@” was renamed, but its metadata couldn’t be reloaded. Choose Reload from Disk from its context menu.\nDetails: %@" : {
       "localizations" : {
@@ -66,9 +93,6 @@
           }
         }
       }
-    },
-    "“%@”: current location couldn’t be determined." : {
-
     },
     "%@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Short UI token; keep compact and verify it still fits in tight controls. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -118,6 +142,16 @@
     "%@ took too long to complete." : {
 
     },
+    "%@, UTC: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, UTC: %2$@"
+          }
+        }
+      }
+    },
     "%lld" : {
 
     },
@@ -141,7 +175,13 @@
         }
       }
     },
+    "%lld already correct" : {
+
+    },
     "%lld audio files couldn't be read" : {
+
+    },
+    "%lld blocked" : {
 
     },
     "%lld change%@" : {
@@ -153,6 +193,9 @@
           }
         }
       }
+    },
+    "%lld duplicate" : {
+
     },
     "%lld files" : {
 
@@ -178,10 +221,19 @@
     "%lld folder scans couldn't be completed" : {
 
     },
+    "%lld folders are not actively monitored" : {
+
+    },
     "%lld folders couldn't be opened" : {
 
     },
     "%lld folders exceed the monitoring limit" : {
+
+    },
+    "%lld folders now refer to different directories" : {
+
+    },
+    "%lld more rows won’t be written." : {
 
     },
     "%lld of %lld recording details loaded" : {
@@ -190,6 +242,16 @@
           "stringUnit" : {
             "state" : "new",
             "value" : "%1$lld of %2$lld recording details loaded"
+          }
+        }
+      }
+    },
+    "%lld reloaded paths (%@) now contain different files on disk than the ones AudioMator renamed. Accept these replacement files to resume editing them, or keep editing paused." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld reloaded paths (%2$@) now contain different files on disk than the ones AudioMator renamed. Accept these replacement files to resume editing them, or keep editing paused."
           }
         }
       }
@@ -232,6 +294,25 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已選擇 %lld 個檔案"
+          }
+        }
+      }
+    },
+    "%lld skipped" : {
+
+    },
+    "%lld to update" : {
+
+    },
+    "%lld watched folders can’t be reached right now. Reauthorize them in Settings → Folders, then refresh again." : {
+
+    },
+    "%lld. %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld. %2$@"
           }
         }
       }
@@ -283,9 +364,6 @@
         }
       }
     },
-    "1" : {
-
-    },
     "1 audio file couldn’t be read" : {
 
     },
@@ -305,6 +383,12 @@
 
     },
     "1 folder exceeds the monitoring limit" : {
+
+    },
+    "1 folder is not actively monitored" : {
+
+    },
+    "1 folder now refers to a different directory" : {
 
     },
     "1 folder scan couldn’t be completed" : {
@@ -334,6 +418,22 @@
     "A field you name yourself. Use it only when no existing field describes the information." : {
 
     },
+    "A file in this preview needs to be reloaded before it can be renamed again. Choose Reload from Disk for that file, then reopen this tool." : {
+
+    },
+    "A file move failed at position %lld (code %@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "A file move failed at position %1$lld (code %2$@)."
+          }
+        }
+      }
+    },
+    "A finished rename record needs review. Open Settings > Folders, then Rename Recovery to inspect or remove it. No files are moved automatically." : {
+
+    },
     "A grouping label for organising related tracks. AudioMator keeps this separate from Work and Content Group." : {
 
     },
@@ -343,13 +443,43 @@
     "A name for this disc within a set." : {
 
     },
+    "A newer artwork command replaced the unfinished one for %@, so the older artwork wasn’t applied. Nothing was written." : {
+
+    },
     "A playback volume adjustment for this track." : {
+
+    },
+    "A previous save is still finishing. Wait before saving again." : {
 
     },
     "A quoted CSV cell is missing its closing quote. Add the closing quote before importing." : {
 
     },
     "A recording’s industry identification code." : {
+
+    },
+    "A recovery record already exists for this operation. Open Settings > Folders, review Rename Recovery, then try again. No files were moved." : {
+
+    },
+    "A removal token can’t identify a file. Enter the file’s name, path, or index, or escape the token as literal text." : {
+
+    },
+    "A removal token can’t identify a file. Enter the file’s name, path, or index, or quote the token as literal text." : {
+
+    },
+    "A rename for “%@” was interrupted or needs acknowledgement. Open Settings > Folders, review Rename Recovery, and restore or acknowledge the operation before editing this file." : {
+
+    },
+    "A rename was interrupted before it finished or has a recovery record that needs inspection. No files were changed automatically. Open Settings > Folders, then Rename Recovery to review the recorded locations and restore the original names." : {
+
+    },
+    "A saved rename recovery record couldn't be read and was kept for inspection." : {
+
+    },
+    "A saved rename recovery record couldn't be validated and was kept for inspection." : {
+
+    },
+    "A saved rename recovery record was created by a newer version and was kept for inspection." : {
 
     },
     "A separate Date value already used by some files. Leave it empty unless you need it; AudioMator never fills it from Year or Release Date." : {
@@ -371,6 +501,12 @@
 
     },
     "A style used for browsing music." : {
+
+    },
+    "A temporary name for the file at position %lld is too long. No files were moved." : {
+
+    },
+    "A temporary name for the file at position %lld is unavailable. No files were moved." : {
 
     },
     "A value in the response uses an unexpected format.\nDetails: expected %@ at %@." : {
@@ -488,6 +624,18 @@
         }
       }
     },
+    "Accept Replacement" : {
+
+    },
+    "Accept replacement file?" : {
+
+    },
+    "Accept replacement files?" : {
+
+    },
+    "Accepting Replacement Files" : {
+
+    },
     "Access to “%@” couldn’t be saved for future use." : {
 
     },
@@ -502,6 +650,12 @@
       }
     },
     "Access to %lld selected folders couldn’t be saved for future use." : {
+
+    },
+    "Access to the file’s folder was removed before the change was written." : {
+
+    },
+    "Access to the file’s folder wasn’t granted, so this file wasn’t changed." : {
 
     },
     "Access to this folder couldn’t be saved for future use." : {
@@ -917,6 +1071,12 @@
         }
       }
     },
+    "Add Time" : {
+
+    },
+    "Add Value" : {
+
+    },
     "Add Watched Folder…" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Use the ellipsis for commands that open another dialog or picker. Used around: AudioMator/App/Commands/ToolbarEditCommands.swift:30.",
       "localizations" : {
@@ -988,6 +1148,41 @@
     },
     "Additional warnings: %lld." : {
 
+    },
+    "Affected field: %@" : {
+
+    },
+    "Affected fields: %@" : {
+
+    },
+    "Africa" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "非洲"
+          }
+        }
+      }
     },
     "Album" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:31, AudioMator/Domain/UIState/MiddleListColumn.swift:37, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:116, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:34.",
@@ -1073,6 +1268,9 @@
         }
       }
     },
+    "All files moved, but completion wasn't recorded" : {
+
+    },
     "Allow" : {
 
     },
@@ -1084,6 +1282,35 @@
     },
     "Allow Folder Access" : {
 
+    },
+    "Americas" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "美洲"
+          }
+        }
+      }
     },
     "An AcoustID match identifier." : {
 
@@ -1106,10 +1333,19 @@
     "An audio fingerprint used for matching." : {
 
     },
+    "An empty value list can’t be saved. Add at least one value, or use Delete Field to remove the metadata field." : {
+
+    },
     "An episode’s text identifier, separate from its number." : {
 
     },
     "An existing rating value. AudioMator does not offer typed editing because no rating scale is established." : {
+
+    },
+    "An incomplete rename recovery record was kept for inspection." : {
+
+    },
+    "An interrupted rename needs to be restored or acknowledged before these files can be renamed. Open Settings > Folders, review Rename Recovery, then reopen this tool." : {
 
     },
     "An older MusicIP matching identifier; preserve existing values." : {
@@ -1117,6 +1353,59 @@
     },
     "And %lld more groups." : {
 
+    },
+    "Another copy of AudioMator is using rename recovery" : {
+
+    },
+    "Another copy of AudioMator is using rename recovery. No files were renamed. Try again after that operation finishes." : {
+
+    },
+    "Another copy of AudioMator is using rename recovery. Try again." : {
+
+    },
+    "Another copy of AudioMator is using rename recovery. Wait for it to finish, then check again." : {
+
+    },
+    "Another file now has this name" : {
+
+    },
+    "Another interrupted rename covers one of these files. Open Settings > Folders, review Rename Recovery, then try again. No files were moved." : {
+
+    },
+    "Another rename recovery action is already in progress." : {
+
+    },
+    "Another save is still in progress. Wait for it to finish, then try applying lyrics again." : {
+
+    },
+    "Antarctica" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南极洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "南極洲"
+          }
+        }
+      }
     },
     "Any" : {
 
@@ -1179,6 +1468,41 @@
     },
     "Apply to Selected Files" : {
 
+    },
+    "Applying LRCLIB Lyrics" : {
+
+    },
+    "Applying lyrics to the matched files..." : {
+
+    },
+    "Arctic" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北极地区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "北極地區"
+          }
+        }
+      }
     },
     "Artist" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:15, AudioMator/Domain/UIState/MiddleListColumn.swift:8, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:85, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:29.",
@@ -1312,13 +1636,22 @@
         }
       }
     },
+    "Artwork Download Cancelled" : {
+
+    },
     "Artwork download cancelled." : {
+
+    },
+    "Artwork Download Failed" : {
 
     },
     "Artwork Lookup Couldn’t Be Completed" : {
 
     },
     "Artwork search cancelled." : {
+
+    },
+    "Artwork Wasn’t Applied" : {
 
     },
     "Artwork will be removed from all selected files" : {
@@ -1363,6 +1696,9 @@
         }
       }
     },
+    "Artwork: changed" : {
+
+    },
     "Ascending" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/UIState/SharedState.swift:14, AudioMator/Domain/UIState/MiddleListColumn.swift:201, AudioMator/Infrastructure/LRCLIB/LRCLIBCandidateRanker.swift:27, AudioMator/Features/MetadataEditor/MetadataFieldSuggestion.swift:24.",
       "localizations" : {
@@ -1404,8 +1740,75 @@
         }
       }
     },
+    "Asia" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亚洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "亞洲"
+          }
+        }
+      }
+    },
     "Asks compatible players to display work and movement information." : {
 
+    },
+    "At a temporary name" : {
+
+    },
+    "At the new name" : {
+
+    },
+    "At the original name" : {
+
+    },
+    "Atlantic" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "大西洋"
+          }
+        }
+      }
     },
     "Audio samples per second. Changing this requires audio conversion, not a metadata edit." : {
 
@@ -1455,7 +1858,19 @@
     "AudioMator couldn't load this photo. Choose another photo or import an image file." : {
 
     },
+    "AudioMator doesn't support clearing metadata in this file format." : {
+
+    },
     "AudioMator doesn't support saving metadata to this file format." : {
+
+    },
+    "AudioMator doesn’t support saving metadata to this file format." : {
+
+    },
+    "AudioMator doesn't support writing raw metadata values to this file format." : {
+
+    },
+    "AudioMator found saved rename recovery records. Reviewing them is read-only; no files are moved until you explicitly restore or acknowledge an operation." : {
 
     },
     "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers." : {
@@ -1631,6 +2046,41 @@
     "AudioMator uses transactional saves to reduce the chance that a failed operation leaves an audio file partially written." : {
 
     },
+    "AudioMator will move each recorded file back only when the exact file entry is verified. No file is overwritten. If another file now has a recorded name, restoration stops and nothing at that step is overwritten." : {
+
+    },
+    "Australia" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳大利亚"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "澳洲"
+          }
+        }
+      }
+    },
+    "Authorize & Restore…" : {
+
+    },
     "Authorize Folder…" : {
 
     },
@@ -1693,6 +2143,9 @@
           }
         }
       }
+    },
+    "Automatic refresh is monitoring all %lld folders." : {
+
     },
     "Automatically keeps changes to different fields. If both sides changed the same field and a safe merge cannot be verified, saving stops and your draft is kept so you can choose how to resolve it." : {
 
@@ -1878,6 +2331,34 @@
         }
       }
     },
+    "Calendar" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日历"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行事曆"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行事曆"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行事曆"
+          }
+        }
+      }
+    },
     "Can't Edit Artwork for This Selection" : {
 
     },
@@ -2044,6 +2525,9 @@
     "Changes to %@ can’t be saved in this file format. No changes were saved." : {
 
     },
+    "Changes to %lld metadata fields can’t be saved in this file format." : {
+
+    },
     "Changes were saved to %lld of %lld files." : {
       "localizations" : {
         "en" : {
@@ -2098,10 +2582,16 @@
         }
       }
     },
+    "Check Again" : {
+
+    },
     "Check for Updates…" : {
 
     },
-    "Check the file locations before continuing (%@):" : {
+    "Checking saved rename recovery records…" : {
+
+    },
+    "Choose %@" : {
 
     },
     "Choose a destination field different from the source field." : {
@@ -2162,6 +2652,9 @@
       }
     },
     "Choose between 1 and 200 search results." : {
+
+    },
+    "Choose Date…" : {
 
     },
     "Choose exactly which iTunes values should overwrite the current file tags." : {
@@ -2853,6 +3346,12 @@
     "Comparing metadata with iTunes" : {
 
     },
+    "Completed" : {
+
+    },
+    "Completed record couldn't be verified" : {
+
+    },
     "Composer" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:33, AudioMator/Domain/UIState/MiddleListColumn.swift:41, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:120, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:306.",
       "extractionState" : "stale",
@@ -3307,9 +3806,6 @@
         }
       }
     },
-    "Current" : {
-
-    },
     "Current list" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/Main/Views/TrackRenumberSheet.swift:91.",
       "extractionState" : "stale",
@@ -3351,6 +3847,9 @@
           }
         }
       }
+    },
+    "current location couldn’t be determined" : {
+
     },
     "Current Session" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Main/Views/SidebarPane.swift:17, AudioMator/Features/Welcome/Views/WelcomeSplashView.swift:85.",
@@ -3604,6 +4103,12 @@
       }
     },
     "Date" : {
+
+    },
+    "Date Only" : {
+
+    },
+    "Date Precision" : {
 
     },
     "Dates" : {
@@ -3862,12 +4367,14 @@
         }
       }
     },
+    "Discard and Open" : {
+
+    },
     "Discard and Reload" : {
 
     },
     "Discard Edits" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Context: disc-number metadata context. Used around: AudioMator/Features/Main/Views/ContentView.swift:141.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3908,6 +4415,15 @@
       }
     },
     "Discard edits and reload from disk?" : {
+
+    },
+    "Discard Inspector Edits?" : {
+
+    },
+    "Discard Metadata Editor Changes?" : {
+
+    },
+    "Don't ask again" : {
 
     },
     "Done" : {
@@ -4336,13 +4852,7 @@
         }
       }
     },
-    "Enter a supported Date value before importing." : {
-
-    },
-    "Enter a supported value for %@ before importing." : {
-
-    },
-    "Enter a supported Year value before importing." : {
+    "Enter a start number from 1 to 9,999." : {
 
     },
     "Enter a template or drag metadata chips into the field." : {
@@ -4390,7 +4900,44 @@
     "Enter a two-letter store region code, such as US or GB." : {
 
     },
+    "Enter a valid start number before applying changes." : {
+
+    },
+    "Enter a year from 1 to 9999." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请输入 1 到 9999 之间的年份。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請輸入 1 到 9999 之間的年份。"
+          }
+        }
+      }
+    },
     "Enter something to search for." : {
+
+    },
+    "Enter text above to preview changes." : {
+
+    },
+    "Enter the start number using digits 0–9 only. Signs, fractions and other digit characters aren’t supported." : {
 
     },
     "Erase" : {
@@ -4436,6 +4983,35 @@
     },
     "Erase all metadata tags?" : {
 
+    },
+    "Europe" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "欧洲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "歐洲"
+          }
+        }
+      }
     },
     "Existing iTunes playback data associated with encoder delay and padding. Preserve it; AudioMator does not interpret its internal encoding." : {
 
@@ -4751,7 +5327,13 @@
     "Files Couldn’t Be Renamed" : {
 
     },
-    "Files couldn’t be renamed.\nDetails: %@" : {
+    "Files couldn’t be renamed and need recovery review." : {
+
+    },
+    "Files couldn’t be renamed. %@" : {
+
+    },
+    "Files couldn’t be renamed. Every moved file was restored to its original name.\nDetails: %@" : {
 
     },
     "Files here are cleared when AudioMator closes." : {
@@ -4767,6 +5349,9 @@
 
     },
     "Files skipped: %lld." : {
+
+    },
+    "Files that couldn’t be accepted: %lld." : {
 
     },
     "Files that couldn’t be imported: %lld." : {
@@ -4883,6 +5468,9 @@
     "Finder" : {
 
     },
+    "Finding LRCLIB Best Matches" : {
+
+    },
     "Finding matching iTunes tracks" : {
 
     },
@@ -4898,10 +5486,19 @@
     "First row is header" : {
 
     },
+    "Folder access is required" : {
+
+    },
+    "Folder contents are watched for added, removed and renamed entries; edits inside an already loaded file may need Refresh." : {
+
+    },
     "Folder monitoring degraded" : {
 
     },
     "Folder Not Added" : {
+
+    },
+    "Folder unavailable" : {
 
     },
     "Folders" : {
@@ -4914,6 +5511,45 @@
 
     },
     "For %@, enter a whole number from 0 to 2147483647. You can add a total after a slash, such as 3/12; the total must be in the same range." : {
+
+    },
+    "For %@, enter a whole number from 1 to %lld." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "For %1$@, enter a whole number from 1 to %2$lld."
+          }
+        }
+      }
+    },
+    "For %@, enter a whole number from 1 to %lld. Negative values can’t be imported." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "For %1$@, enter a whole number from 1 to %2$lld. Negative values can’t be imported."
+          }
+        }
+      }
+    },
+    "For %@, enter a whole number from 1 to %lld. This file format can’t store the larger value." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "For %1$@, enter a whole number from 1 to %2$lld. This file format can’t store the larger value."
+          }
+        }
+      }
+    },
+    "For %@, enter one whole number without a total." : {
+
+    },
+    "For %@, put a whole number on each side of the slash, such as 3/12." : {
+
+    },
+    "For %@, use at most one slash with a number and total, such as 3/12." : {
 
     },
     "For Content Advisory, enter a supported advisory label or a whole-number code from 0 to 255." : {
@@ -5000,6 +5636,9 @@
           }
         }
       }
+    },
+    "Full Date" : {
+
     },
     "Full license texts are also included in the app bundle." : {
       "comment" : "Footnote in the Acknowledgements sheet explaining that license texts are bundled.",
@@ -5179,6 +5818,34 @@
         }
       }
     },
+    "Hour" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小時"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小時"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "小時"
+          }
+        }
+      }
+    },
     "How long the audio plays. Changing a tag does not change its length." : {
 
     },
@@ -5343,16 +6010,45 @@
         }
       }
     },
-    "Imported" : {
-
-    },
     "Importing Metadata" : {
 
     },
     "Include header row" : {
 
     },
+    "Indian Ocean" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "印度洋"
+          }
+        }
+      }
+    },
     "Individual artist names rather than a joined credit." : {
+
+    },
+    "Inspector Draft Needs Review" : {
 
     },
     "Inspector Metadata Fields" : {
@@ -5439,6 +6135,18 @@
           }
         }
       }
+    },
+    "Interrupted" : {
+
+    },
+    "Interrupted — original names can be restored" : {
+
+    },
+    "Interrupted before any file moved" : {
+
+    },
+    "Interrupted Rename Needs Attention" : {
+
     },
     "ISRC" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/MiddleListColumn.swift:343, AudioMator/Infrastructure/MusicBrainz/MusicBrainzClient.swift:3191, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:64, AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzBrowserStore.swift:85.",
@@ -5616,8 +6324,12 @@
         }
       }
     },
+    "Keep Editing Paused" : {
+
+    },
     "Keeps the same width as numbers grow." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Main/Views/TrackRenumberSheet.swift:261.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5880,6 +6592,37 @@
         }
       }
     },
+    "Local Time" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当地时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當地時間"
+          }
+        }
+      }
+    },
+    "Location not found" : {
+
+    },
     "Logs" : {
 
     },
@@ -5896,6 +6639,9 @@
 
     },
     "LRCLIB Lyrics" : {
+
+    },
+    "LRCLIB Lyrics Applied" : {
 
     },
     "Lyricist" : {
@@ -6477,6 +7223,9 @@
         }
       }
     },
+    "Metadata Editor Changed" : {
+
+    },
     "Metadata field" : {
 
     },
@@ -6534,6 +7283,9 @@
     "Metadata Tools" : {
 
     },
+    "Metadata Value" : {
+
+    },
     "Metadata was cleared from %lld of %lld files." : {
       "localizations" : {
         "en" : {
@@ -6545,6 +7297,9 @@
       }
     },
     "Metadata was cleared from this file." : {
+
+    },
+    "Metadata wasn’t loaded for this file. Close and reopen the Metadata Editor. No changes were saved." : {
 
     },
     "Middle List Columns" : {
@@ -6584,6 +7339,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "中間列表列"
+          }
+        }
+      }
+    },
+    "Minute" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分钟"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分鐘"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分鐘"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分鐘"
           }
         }
       }
@@ -6678,6 +7461,9 @@
     "Modes" : {
 
     },
+    "More than one rename recovery record uses the same identifier; they were kept for inspection." : {
+
+    },
     "Moving Metadata" : {
       "comment" : "Metadata Exchange field copy/cut tool.",
       "extractionState" : "manual",
@@ -6721,6 +7507,9 @@
       }
     },
     "MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename." : {
+
+    },
+    "Multiple locations match" : {
 
     },
     "Multiple Values" : {
@@ -7189,6 +7978,9 @@
     "Musicians paired with instruments or roles." : {
 
     },
+    "Needs inspection before restoration" : {
+
+    },
     "Network activity only happens when optional online features are used." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:1121.",
       "localizations" : {
@@ -7454,6 +8246,9 @@
         }
       }
     },
+    "No inspectable field changes." : {
+
+    },
     "No mapping in AudioMator" : {
 
     },
@@ -7461,6 +8256,9 @@
 
     },
     "No Metadata Fields" : {
+
+    },
+    "No metadata values are available for the selected fields." : {
 
     },
     "No portable tag; tracker modules use their own headers." : {
@@ -7686,6 +8484,9 @@
       }
     },
     "Not Now" : {
+
+    },
+    "Not Written" : {
 
     },
     "Nothing to Preview" : {
@@ -7956,6 +8757,9 @@
         }
       }
     },
+    "Open Settings > Folders, then Rename Recovery to review the recorded locations and restore the original names. No file was overwritten." : {
+
+    },
     "Opening a provider page sends its URL and standard browser requests to Apple or MusicBrainz, including their subdomains. Embedded pages use non-persistent browser storage. Their images, scripts, and other subresources may contact additional hosts; the page navigation allow-list does not filter subresources." : {
 
     },
@@ -8007,11 +8811,73 @@
     "Operation Cancelled" : {
 
     },
-    "Original Release Date" : {
+    "Original Names Restored" : {
 
+    },
+    "Original names were restored after verifying each file entry. Reload any affected files before editing them." : {
+
+    },
+    "Other" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他"
+          }
+        }
+      }
+    },
+    "Pacific" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "太平洋"
+          }
+        }
+      }
     },
     "Pad with leading zeros" : {
       "comment" : "User-facing UI text. Used around: AudioMator/Features/Main/Views/TrackRenumberSheet.swift:260.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -8255,6 +9121,12 @@
     "Preparing MusicBrainz match preview…" : {
 
     },
+    "Preparing preview…" : {
+
+    },
+    "Preparing selected files..." : {
+
+    },
     "Preparing the MusicBrainz match preview" : {
 
     },
@@ -8298,6 +9170,9 @@
           }
         }
       }
+    },
+    "Preview Unavailable" : {
+
     },
     "Previous" : {
 
@@ -8609,6 +9484,9 @@
     "Quit" : {
 
     },
+    "Re-import or restore every captured file, then resume editing. Values are not transferred to other files." : {
+
+    },
     "Read-only credits supplied by the file’s system metadata. Edit the specific Composer or Lyricist field when that is what you mean." : {
 
     },
@@ -8619,6 +9497,9 @@
 
     },
     "Reading official field documentation. The built-in guide is available offline." : {
+
+    },
+    "Reading the renamed file was cancelled." : {
 
     },
     "Ready" : {
@@ -8708,6 +9589,18 @@
 
     },
     "Recovery required for %@:" : {
+
+    },
+    "Refresh" : {
+
+    },
+    "Refresh Folder" : {
+
+    },
+    "Refresh Selected Folders" : {
+
+    },
+    "Refresh Watched Folders" : {
 
     },
     "Registered storage location; the file must support the requested edit." : {
@@ -8925,6 +9818,7 @@
     },
     "Release Date" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Context: music release metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:51, AudioMator/Domain/UIState/MiddleListColumn.swift:53, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:132, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:324.",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -9451,7 +10345,19 @@
     "Remove Folder" : {
 
     },
+    "Remove Record" : {
+
+    },
+    "Remove Record…" : {
+
+    },
+    "Remove Rename Record?" : {
+
+    },
     "Remove Selected Folders" : {
+
+    },
+    "Remove Value" : {
 
     },
     "Remove watched folder" : {
@@ -9542,6 +10448,9 @@
     "Removing a folder from this list removes AudioMator's saved access. It does not delete or modify the folder or any files inside it." : {
 
     },
+    "Removing this watched folder affects files with unsaved inspector edits. Discard those edits to continue." : {
+
+    },
     "Rename" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/App/AppNotifications.swift:7, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:67, AudioMator/Domain/Rename/FileRenameTemplate.swift:4, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:4.",
       "extractionState" : "stale",
@@ -9583,6 +10492,15 @@
           }
         }
       }
+    },
+    "Rename Record Removed" : {
+
+    },
+    "Rename Recovery" : {
+
+    },
+    "Rename recovery storage couldn't be read or written. Nothing was moved." : {
+
     },
     "Rename template" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:37.",
@@ -9844,6 +10762,9 @@
     "Replace With" : {
 
     },
+    "Replacement File Couldn’t Be Accepted" : {
+
+    },
     "Replacement text" : {
 
     },
@@ -9979,16 +10900,28 @@
     "Reset" : {
 
     },
-    "Restore each listed file to its original location before attempting another rename." : {
-
-    },
     "Restore Inspector Metadata Fields" : {
 
     },
     "Restore List Columns" : {
 
     },
+    "Restore Original Names" : {
+
+    },
+    "Restore Original Names?" : {
+
+    },
+    "Restore Original Names…" : {
+
+    },
     "Restore Toolbar" : {
+
+    },
+    "Restoring the original names couldn't start. Details: %@" : {
+
+    },
+    "Restoring the original names was cancelled. No further files were moved." : {
 
     },
     "Results" : {
@@ -10034,6 +10967,12 @@
           }
         }
       }
+    },
+    "Resume Editing" : {
+
+    },
+    "Resume editing the captured files or discard the pending Inspector edits before saving." : {
+
     },
     "Review & Apply Tags" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/iTunesBrowser/Views/iTunesTaggingWorkbenchView.swift:30, AudioMator/Features/iTunesBrowser/Views/iTunesBrowserView.swift:735, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzTaggingWorkbenchView.swift:31, AudioMator/Features/MusicBrainzBrowser/Views/MusicBrainzMetadataDetailView.swift:219.",
@@ -10291,6 +11230,9 @@
     "Save Logs" : {
 
     },
+    "Save or discard the pending inspector edits before accepting a replacement file." : {
+
+    },
     "Save or discard the pending inspector edits before changing files from another tool." : {
 
     },
@@ -10349,6 +11291,9 @@
 
     },
     "Search" : {
+
+    },
+    "Search Again" : {
 
     },
     "Search Couldn’t Be Completed" : {
@@ -10488,6 +11433,34 @@
         }
       }
     },
+    "Search time zones" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索时区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋時區"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋時區"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋時區"
+          }
+        }
+      }
+    },
     "Search uses this file's title, artist, album, and duration when available." : {
 
     },
@@ -10506,6 +11479,9 @@
     "Searching iTunes..." : {
 
     },
+    "Searching LRCLIB" : {
+
+    },
     "Searching LRCLIB…" : {
 
     },
@@ -10514,6 +11490,34 @@
     },
     "Searching MusicBrainz…" : {
 
+    },
+    "Second" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "秒"
+          }
+        }
+      }
     },
     "Select a File" : {
 
@@ -10787,6 +11791,9 @@
         }
       }
     },
+    "Selection Changed" : {
+
+    },
     "Selection looks mixed. Album matches may be less accurate." : {
 
     },
@@ -10962,6 +11969,9 @@
     "Show Now" : {
 
     },
+    "Show Recovery Folder in Finder" : {
+
+    },
     "Show Welcome Screen" : {
       "comment" : "User-facing UI text. Used around: AudioMator/App/AudioMatorApp.swift:65, AudioMator/Features/Settings/Views/SettingsView.swift:408.",
       "localizations" : {
@@ -11009,6 +12019,9 @@
     "Some Files Couldn’t Be Imported" : {
 
     },
+    "Some files from %@ are no longer available, so the artwork wasn’t applied to any file. Nothing was written. Select the intended files again and choose the artwork again." : {
+
+    },
     "Some information is missing from the response.\nDetails: missing “%@” at %@." : {
       "localizations" : {
         "en" : {
@@ -11025,16 +12038,13 @@
     "Some MusicBrainz tracks are assigned to several files. Assign each track to only one file before applying metadata." : {
 
     },
+    "Some recorded folders are unavailable. Restoring will ask for access to those folders first:" : {
+
+    },
     "Some recording details couldn't be loaded. Those fields will keep their existing values." : {
 
     },
     "Some selected file formats don’t support saving" : {
-
-    },
-    "Some values in this filename preview can’t be applied. Close and reopen this tool, then check the template and preview." : {
-
-    },
-    "Some values in this import preview can’t be applied. Close and reopen this tool, then check the template and imported values." : {
 
     },
     "Song words stored as text." : {
@@ -11214,6 +12224,9 @@
         }
       }
     },
+    "Stop Download" : {
+
+    },
     "Stops saving whenever the file revision changes. Your draft is kept. Use Reload from Disk in the file menu before editing again, then reopen Metadata Editor if it is open." : {
 
     },
@@ -11228,6 +12241,34 @@
     },
     "Suffix" : {
 
+    },
+    "System — %@" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统 — %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統 — %@"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統 — %@"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系統 — %@"
+          }
+        }
+      }
     },
     "Tag Format" : {
 
@@ -11270,6 +12311,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "標籤檢閱器"
+          }
+        }
+      }
+    },
+    "Tag Value Preview" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签值预览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽"
+          }
+        }
+      }
+    },
+    "Tag Value Preview (UTC)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签值预览（UTC）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽（UTC）"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽（UTC）"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤值預覽（UTC）"
           }
         }
       }
@@ -11472,11 +12569,45 @@
     "The audio container or codec reported for the file. Renaming a file does not convert its audio." : {
 
     },
+    "The AudioMator version label isn’t on its own line. Put a line break after it, or remove the label before importing." : {
+
+    },
     "The clipboard doesn't contain an image. Copy an image, then paste again." : {
+
+    },
+    "The completion record could not be written after moving files." : {
 
     },
     "The composition performed, such as a symphony." : {
 
+    },
+    "The converted UTC year must be from 1 to 9999." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "转换后的 UTC 年份必须在 1 到 9999 之间。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "轉換後的 UTC 年份必須在 1 到 9999 之間。"
+          }
+        }
+      }
     },
     "The credited audio or video director." : {
 
@@ -11495,6 +12626,9 @@
 
     },
     "The current app version couldn’t be determined, so updates can’t be checked." : {
+
+    },
+    "The destination already has this value. This file will be skipped without changes." : {
 
     },
     "The downloaded image couldn’t be converted to PNG. Choose another artwork result." : {
@@ -11557,13 +12691,34 @@
         }
       }
     },
-    "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu. Unsaved Inspector edits must be discarded to reload." : {
+    "The file at position %lld changed since the preview was created." : {
 
     },
-    "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before applying lyrics." : {
+    "The file at position %lld changed since the preview was created. No files were moved." : {
 
     },
-    "The file couldn’t be checked after it moved. Choose Reload from Disk from its context menu before clearing metadata." : {
+    "The file at position %lld does not provide enough identity evidence to be renamed safely. No files were moved." : {
+
+    },
+    "The file at position %lld is missing." : {
+
+    },
+    "The file at position %lld is missing. No files were moved." : {
+
+    },
+    "The file changed since it was reviewed. Close and reopen the tool, then review the current values before applying changes." : {
+
+    },
+    "The file changed since it was reviewed. Review the current values before applying changes." : {
+
+    },
+    "The file changed since this change was reviewed." : {
+
+    },
+    "The file changed while it was being read. Select it again to reload it." : {
+
+    },
+    "The file couldn’t be checked after it moved. Before editing, choose Reload from Disk from the file’s context menu." : {
 
     },
     "The file couldn’t be checked after it moved. Close any open metadata tool, then choose Reload from Disk from the file’s context menu before continuing. If there are unsaved edits, you’ll be asked to discard them before reloading." : {
@@ -11575,10 +12730,28 @@
     "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before applying changes." : {
 
     },
+    "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before clearing metadata." : {
+
+    },
     "The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing." : {
 
     },
+    "The file couldn’t be checked for changes. Close the Metadata Editor, choose Reload from Disk from the file’s context menu, then reopen the editor." : {
+
+    },
+    "The file entry at position %lld could not be verified after a move, so no further moves were attempted." : {
+
+    },
     "The file has changed since it was last checked. The current values must be reviewed before these changes can be applied." : {
+
+    },
+    "The file list order or selection changed. Review the updated preview before applying." : {
+
+    },
+    "The file must be reloaded before it can be changed." : {
+
+    },
+    "The file was removed from its source before the change was written." : {
 
     },
     "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
@@ -11668,7 +12841,19 @@
         }
       }
     },
-    "The files selected for this artwork lookup are no longer available. Select the files again." : {
+    "The folder “%@” is on a volume that can’t provide safe exclusive renames. No files were moved. Choose a local folder that supports exclusive renaming." : {
+
+    },
+    "The folder “%@” is on a volume that can't provide safe exclusive renames. Nothing was moved." : {
+
+    },
+    "The folder for the file at position %lld could not be opened or changed during the operation. No files were moved." : {
+
+    },
+    "The folder for the file at position %lld is unavailable or changed." : {
+
+    },
+    "The folder metadata could not be flushed after moving files (code %@)." : {
 
     },
     "The generated filename already matches the current file." : {
@@ -11716,10 +12901,25 @@
     "The highest measured peak across the album." : {
 
     },
-    "The identity of “%@” couldn’t be confirmed, so its name wasn’t restored. Check its current location before renaming it again." : {
+    "The import file's AudioMator version label isn't valid. Check the label or export the file again from AudioMator." : {
 
     },
-    "The import file's AudioMator version label isn't valid. Check the label or export the file again from AudioMator." : {
+    "The import records can’t be matched to the selected files." : {
+
+    },
+    "The Inspector draft changed before the artwork for %@ finished loading, so nothing was applied. Select the intended files again and choose the artwork again." : {
+
+    },
+    "The Inspector selection no longer matches %@, so the artwork wasn’t applied. Nothing was written. Select the intended files again and choose the artwork again." : {
+
+    },
+    "The intended name for the file at position %lld is occupied by another file." : {
+
+    },
+    "The intended name for the file at position %lld is occupied by another file. No files were moved." : {
+
+    },
+    "The item at position %lld is not a regular file or symbolic link that can be renamed. No files were moved." : {
 
     },
     "The iTunes artwork search couldn't be completed. Try again later.\nDetails: HTTP %lld." : {
@@ -11755,6 +12955,15 @@
     "The measured peak level for this track." : {
 
     },
+    "The Metadata Editor changed before it could open these files. Choose Metadata Editor… again." : {
+
+    },
+    "The Metadata Editor has unsaved changes. Opening the selected file discards them." : {
+
+    },
+    "The Metadata Editor has unsaved changes. Opening the selected files discards them." : {
+
+    },
     "The metadata from MusicBrainz couldn’t be read. Try again later.\nDetails: %@" : {
 
     },
@@ -11788,6 +12997,9 @@
     "The previous file list will stay visible until a scan completes successfully." : {
 
     },
+    "The recovery record couldn't be removed and was kept for inspection." : {
+
+    },
     "The release notes couldn’t be retrieved from GitHub. Try again later.\nDetails: HTTP %lld." : {
 
     },
@@ -11795,6 +13007,33 @@
 
     },
     "The release’s retail barcode." : {
+
+    },
+    "The rename plan is no longer valid. Close and reopen this tool to review it again." : {
+
+    },
+    "The rename record couldn't be checked. Choose Retry." : {
+
+    },
+    "The rename recovery record can't be restored automatically: %@. The recorded locations were left unchanged for inspection." : {
+
+    },
+    "The rename recovery record could not be read or written." : {
+
+    },
+    "The rename recovery record could not be written safely, so no files were moved." : {
+
+    },
+    "The rename recovery record couldn't be removed. Details: %@" : {
+
+    },
+    "The rename recovery record is no longer available." : {
+
+    },
+    "The rename recovery record was removed. No files were moved." : {
+
+    },
+    "The response couldn't be read." : {
 
     },
     "The response couldn’t be read. Try again later." : {
@@ -11807,6 +13046,12 @@
 
     },
     "The response from MusicBrainz couldn’t be read. Try again later." : {
+
+    },
+    "The reviewed changes no longer match this file’s captured values. Close the Metadata Editor, review the current values, and try again." : {
+
+    },
+    "The reviewed track-only change isn’t supported for this file." : {
 
     },
     "The same file is included more than once in this preview. Close and reopen this tool before applying changes." : {
@@ -11822,6 +13067,9 @@
 
     },
     "The selected artwork will replace the current file artwork." : {
+
+    },
+    "The selected fields cannot be previewed in the current editor session." : {
 
     },
     "The selected files have no non-empty metadata fields to show in this editor." : {
@@ -11884,9 +13132,6 @@
     "These ID3v2.3 tags don't allow these date fields to be edited separately. Their dates will stay as they are." : {
 
     },
-    "These loaded files couldn’t be uniquely identified. Remove them from AudioMator and import them again." : {
-
-    },
     "These results don't include synced lyrics. Try another search." : {
 
     },
@@ -11941,7 +13186,13 @@
         }
       }
     },
+    "This artwork can’t be applied because the Inspector doesn’t have an editable draft for %@. Nothing was written. Select the intended files in the Inspector and choose the artwork again." : {
+
+    },
     "This artwork couldn't be downloaded. Try again or choose another result." : {
+
+    },
+    "This artwork lookup isn’t connected to an editable Inspector draft, so the artwork wasn’t applied. Nothing was written. Select the intended files in the Inspector and use Fetch Online… again." : {
 
     },
     "This artwork will be applied to all selected files" : {
@@ -11992,6 +13243,9 @@
     "This content advisory code can't be assigned. Its existing value will be kept. To change it, choose a supported advisory option." : {
 
     },
+    "This converter returned a result for a different mode. Reopen the tool and try again." : {
+
+    },
     "This CSV has too many rows to import at once. Split it into smaller files." : {
 
     },
@@ -12001,7 +13255,25 @@
     "This destination field accepts one whole number from 0 to 2147483647. It can't accept a number/total pair." : {
 
     },
+    "This destination field accepts one whole number from 1 to %lld. Copying a zero would delete the destination instead of assigning a value." : {
+
+    },
+    "This destination field accepts one whole number from 1 to %lld. It can't accept a larger value or a number/total pair." : {
+
+    },
+    "This destination field accepts one whole number from 1 to %lld. It can't accept a number/total pair." : {
+
+    },
     "This disc’s position in a multi-disc release." : {
+
+    },
+    "This draft captured files that are no longer available. The captured values are kept; Save is suspended until every file is available again and you resume editing, or you discard the edits." : {
+
+    },
+    "This file" : {
+
+    },
+    "This file appears more than once in the target list, so it is numbered only once." : {
 
     },
     "This file can be renamed." : {
@@ -12052,7 +13324,16 @@
     "This File Couldn’t Be Imported" : {
 
     },
+    "This file doesn’t have a reviewed revision to write. Reload it, then try again." : {
+
+    },
+    "This file doesn’t have a reviewed revision. Reload it, then reopen track renumbering." : {
+
+    },
     "This file exceeds the %lld MB import limit. Choose a smaller text file or split it into smaller files." : {
+
+    },
+    "This file format can store track numbers only up to %lld." : {
 
     },
     "This file format doesn’t support saving" : {
@@ -12062,6 +13343,9 @@
 
     },
     "This file format doesn't support saving lyrics in AudioMator. No changes were saved." : {
+
+    },
+    "This file format doesn’t support saving Track Number." : {
 
     },
     "This file is no longer loaded in AudioMator. Import it again before applying changes." : {
@@ -12095,6 +13379,29 @@
     "This image's dimensions exceed the artwork processing limit. Resize it or choose a smaller image." : {
 
     },
+    "This import has %lld records but %lld files are selected. Add %lld missing record(s), or use a file name, path, or index locator." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This import has %1$lld records but %2$lld files are selected. Add %3$lld missing record(s), or use a file name, path, or index locator."
+          }
+        }
+      }
+    },
+    "This import has %lld records but %lld files are selected. Remove %lld extra record(s), or use a file name, path, or index locator. A trailing empty line after the last record counts as an extra record." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "This import has %1$lld records but %2$lld files are selected. Remove %3$lld extra record(s), or use a file name, path, or index locator. A trailing empty line after the last record counts as an extra record."
+          }
+        }
+      }
+    },
+    "This interrupted rename record is no longer available." : {
+
+    },
     "This item isn't a regular text file. Choose a text file to import." : {
 
     },
@@ -12110,6 +13417,15 @@
     "This link doesn't identify a supported album or song. Paste an Apple Music or iTunes album or song link." : {
 
     },
+    "This local time doesn’t exist. Choose a valid time." : {
+
+    },
+    "This local time occurs twice. Choose an occurrence." : {
+
+    },
+    "This lookup isn’t connected to an editable Inspector draft, so the artwork can’t be applied. Select the files in the Inspector and use Fetch Online… again." : {
+
+    },
     "This LRCLIB search couldn’t be completed. Try again later.\nDetails: HTTP %lld." : {
 
     },
@@ -12117,6 +13433,9 @@
 
     },
     "This lyrics result is empty. Choose another result." : {
+
+    },
+    "This lyrics result wasn’t built from a reviewed copy of this file. Close and reopen LRCLIB, then review the current lyrics before applying them." : {
 
     },
     "This movement’s position within the work." : {
@@ -12143,17 +13462,97 @@
     "This numbering value couldn’t be determined. Enter the value you want to save." : {
 
     },
+    "This preview wasn’t built from a reviewed file revision. Close and reopen the tool, then review the current values before applying changes." : {
+
+    },
     "This record gives more than one value for %@. Keep one value or use CSV import." : {
+
+    },
+    "This removes the saved recovery record only. Files are not moved; a completed rename keeps its new names and an operation that never moved files stays as it is." : {
+
+    },
+    "This rename recovery record is no longer available." : {
+
+    },
+    "This rename was completed, so the new names are final and are not restored." : {
 
     },
     "This replaces the Comment field on the selected files with MuseAmp ID data, then saves the files." : {
 
     },
+    "This result doesn't include synced lyrics. Choose a result that has synced lyrics." : {
+
+    },
     "This result has plain lyrics only. It will not be applied as synced lyrics." : {
+
+    },
+    "This tag can’t store the selected time at this precision." : {
+
+    },
+    "This track number is too large to save." : {
 
     },
     "This track’s position within its disc." : {
 
+    },
+    "Time" : {
+
+    },
+    "Time Precision" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时间精度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間精度"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間精度"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時間精度"
+          }
+        }
+      }
+    },
+    "Time Zone" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "时区"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時區"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時區"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時區"
+          }
+        }
+      }
     },
     "Title" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/App/AudioMatorApp.swift:77, AudioMator/Domain/UIState/InspectorMetadataField.swift:27, AudioMator/Domain/UIState/MiddleListColumn.swift:33, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:64.",
@@ -12579,6 +13978,9 @@
     "Track numbering was cancelled before it began. No track numbers were changed." : {
 
     },
+    "Track renumbering can change only Track Number in this file." : {
+
+    },
     "Track title from the matched release track." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/MusicBrainzBrowser/ViewModels/MusicBrainzTaggingWorkbenchStore.swift:101.",
       "extractionState" : "stale",
@@ -12620,6 +14022,9 @@
           }
         }
       }
+    },
+    "Try Again" : {
+
     },
     "Type separators, then insert fields where you want them." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:46.",
@@ -12876,6 +14281,9 @@
     "Unknown" : {
 
     },
+    "Unknown file" : {
+
+    },
     "Unsaved Changes" : {
       "comment" : "Short UI label. Used around: AudioMator/Features/iPad/Views/IPadInspectorView.swift:238, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:428.",
       "localizations" : {
@@ -12916,6 +14324,12 @@
           }
         }
       }
+    },
+    "Unsaved Edits Need Review" : {
+
+    },
+    "Unsaved inspector edits will be discarded, and the loaded tracks will be removed from AudioMator only. Files on disk stay unchanged." : {
+
     },
     "Unsaved inspector edits will be discarded. The files will be read again from disk." : {
 
@@ -12967,7 +14381,13 @@
     "US, JP, GB" : {
 
     },
+    "Use Minute Precision" : {
+
+    },
     "Use one supported field per CSV template column, such as {{title}}." : {
+
+    },
+    "Use Second Precision" : {
 
     },
     "Use Selected Artwork" : {
@@ -12977,9 +14397,6 @@
 
     },
     "Use the add button to watch a folder." : {
-
-    },
-    "uses a date format that can’t be saved here. Enter a supported date or clear the field." : {
 
     },
     "Utilities…" : {
@@ -13025,6 +14442,12 @@
           }
         }
       }
+    },
+    "Verifying on disk…" : {
+
+    },
+    "Verifying replacement file" : {
+
     },
     "Version %@" : {
       "comment" : "Dynamic UI text assembled with runtime values. Preserve the 1 %@ placeholder and their order unless grammar requires reordering supported by the format. Usage may be indirect through localized keys or generated SwiftUI extraction.",
@@ -13161,6 +14584,9 @@
     "Warnings and failures are recorded here after they appear during save." : {
 
     },
+    "Watched Folder Unavailable" : {
+
+    },
     "Watched Folders" : {
       "comment" : "Screen, sheet, section, or navigation title. Used around: AudioMator/Features/Main/Views/SidebarPane.swift:54, AudioMator/Features/Main/Views/ContentPane.swift:287.",
       "localizations" : {
@@ -13203,6 +14629,9 @@
       }
     },
     "Watched folders stay in the sidebar across launches." : {
+
+    },
+    "Watched folders stay in the sidebar across launches. AudioMator watches folder contents for added, removed and renamed entries; edits inside an already loaded file may need Refresh. If a folder becomes unavailable, reauthorize it or add it again." : {
 
     },
     "Website" : {
@@ -13419,6 +14848,9 @@
         }
       }
     },
+    "Year & Month" : {
+
+    },
     "You can also check GitHub Releases manually." : {
 
     },
@@ -13441,51 +14873,6 @@
 
     },
     "YYYY" : {
-
-    },
-    "Artwork Download Cancelled" : {
-
-    },
-    "Artwork Download Failed" : {
-
-    },
-    "Search Again" : {
-
-    },
-    "Stop Download" : {
-
-    },
-    "Try Again" : {
-
-    },
-    "Artwork Wasn’t Applied" : {
-
-    },
-    "Selection Changed" : {
-
-    },
-    "Unknown file" : {
-
-    },
-    "This lookup isn’t connected to an editable Inspector draft, so the artwork can’t be applied. Select the files in the Inspector and use Fetch Online… again." : {
-
-    },
-    "This artwork lookup isn’t connected to an editable Inspector draft, so the artwork wasn’t applied. Nothing was written. Select the intended files in the Inspector and use Fetch Online… again." : {
-
-    },
-    "Some files from %@ are no longer available, so the artwork wasn’t applied to any file. Nothing was written. Select the intended files again and choose the artwork again." : {
-
-    },
-    "A newer artwork command replaced the unfinished one for %@, so the older artwork wasn’t applied. Nothing was written." : {
-
-    },
-    "This artwork can’t be applied because the Inspector doesn’t have an editable draft for %@. Nothing was written. Select the intended files in the Inspector and choose the artwork again." : {
-
-    },
-    "The Inspector draft changed before the artwork for %@ finished loading, so nothing was applied. Select the intended files again and choose the artwork again." : {
-
-    },
-    "The Inspector selection no longer matches %@, so the artwork wasn’t applied. Nothing was written. Select the intended files again and choose the artwork again." : {
 
     }
   },

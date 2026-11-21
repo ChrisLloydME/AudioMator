@@ -62,6 +62,26 @@ Saves write only the fields that changed from the draft's baseline. Before writi
 
 For multiple files, Inspector, MusicBrainz/iTunes plans, filename/CSV imports and related batch work process up to four independent files concurrently while still serializing operations that touch the same path. Results are per file; a batch can partially succeed. Cancelling stops files that have not started; already started saves finish and report their outcomes. The save issue log records save warnings and failures, plus per-file outcomes for incomplete batches (Settings → Logs). A single operation cancelled before writing does not create a save issue entry; an incomplete batch retains the unprocessed files as warning records so each selected file is accounted for.
 
+### Date and time editing
+
+You can type or paste date text such as `circa 1998`, `Spring 2024`, `2024/6/2`, or an ISO timestamp. AudioMator applies the same text handling as for other metadata values and performs no date-format validation, calendar correction, or time-zone conversion on this path. The Inspector trims leading and trailing whitespace and treats an empty value as a clear. Metadata Editor handles raw values as an ordered list, where an empty value is a distinct entry and **Delete Field** removes the key. Container support, writer verification, and conflict handling still apply. CSV, text, and filename imports likewise skip date-format validation, while their normal input and target checks still apply.
+
+Year, Date, Release Date, and Original Release Date are independent. The Inspector shows a calendar button only on a visible row with a recognized writable route for every file in the selection. Metadata Editor shows **Choose Date…** only for the exact raw key it will write and requires the same field identity across the selection. The table lists eligible routes, subject to the concrete file's write capabilities and refresh state.
+
+| Tag family | Inspector | Metadata Editor raw keys |
+| --- | --- | --- |
+| ID3v2.4 | Year, Date, Release Date, Original Release Date | `RELEASEDATE`, `ORIGINALDATE`, `ITUNESPURCHASEDATE` |
+| MP4 / M4A | Year, Date, Release Date, Original Release Date | `DATE` → Year (`©day`), `RELEASEDATE`, `ORIGINALDATE` |
+| Vorbis comments | Year, Date, Release Date, Original Release Date | `YEAR`, `DATE`, `RELEASEDATE`, `ORIGINALDATE`, `ITUNESPURCHASEDATE` |
+| APEv2 | Year, Date, Release Date, Original Release Date | `YEAR`, `RELEASEDATE`, `ORIGINALDATE`, `ITUNESPURCHASEDATE`. `DATE` is eligible for WavPack. |
+| ASF / WMA | Year, Date, Original Release Date | `DATE` → Year |
+
+An existing raw key stays the same when edited. Adding the named **Date** field uses raw `DATE` when the selected files have the verified independent Date route in Vorbis comments or WavPack. A raw `DATE` selection spanning MP4 and Vorbis has different field identities and stays text-only. Existing ID3v2.3 dates, custom keys, and the MP4 raw `ITUNESPURCHASEDATE` key do not get the picker. MP4's raw purchase key would write a separate atom from its native `purd` value. The Inspector's WAV Year picker requires a known ID3v2.4 tag.
+
+Every field that opens the picker offers **Year**, **Year & Month**, and **Full Date**. **Full Date** shows an open monthly calendar and lets you turn on **Add Time** with hour, minute, or second precision. The **Time Zone** dropdown uses the same search control as the Metadata Editor field selector, matches the width of the input, and scrolls vertically when needed. Search by city, region, or identifier, and choose the result with a click or the arrow keys and Return. The system time zone and UTC are quick choices. A recognized existing timestamp keeps its instant when you change the display zone. After entering a new local time, the selected zone is used to interpret it. If daylight saving makes the chosen local time ambiguous or nonexistent, choose a specific occurrence or a valid time.
+
+**Tag Value Preview** is the final row of the active group and shows the exact value that **Apply** will put in the active Inspector draft or raw value entry. The file is written only when you save the draft. Time values are converted to UTC and marked in the preview. Native ID3v2.4 timestamps omit the `Z`, and date-specific text tags use `Z` unless the same value must also fit an ID3v2.4 target in the batch. Pure dates keep their selected calendar values. Blank, mixed, or unrecognized values open with a starting date and remain untouched until Apply. The format writer still verifies each save and reports any rejected value. The title and grouped rows scroll together when needed, and the sheet buttons stay in the bottom action bar.
+
 ### Numbering compatibility
 
 Older numbering values are handled internally and can appear in the normal Track Number, Total Tracks, Disc Number and Total Discs fields. Opening or importing files does not rewrite them. Saving a number change uses the intended field values and preserves the other pair; there is no separate Restore/Cleanup operation. If a number or total cannot be determined safely, enter its intended value in that ordinary field and save again. Unrelated edits preserve existing numbering data. Numeric components are required for semantic edits; text such as `A1` is preserved during unrelated edits but must be changed in Metadata Editor.

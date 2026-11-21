@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-20. The current source declares **1056 app-hosted tests across 115 `XCTestCase` classes**, **97 SwiftPM core tests across 6 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-21. The current source declares **1065 app-hosted tests across 116 `XCTestCase` classes**, **119 SwiftPM core tests across 7 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 97 | 6 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1056 | 115 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 119 | 7 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1065 | 116 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 121 `XCTestCase` classes across both targets (115 app-hosted, 6 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
+- There are 123 `XCTestCase` classes across both targets (116 app-hosted, 7 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - F4 directory-monitor coverage lives in `AudioMatorTests/Application/WatchedFolders/DirectoryMonitorIdentityTests.swift` (15 native tests over disposable real directories: descriptor device/inode/kind capture, same-key move-aside/recreate rebinding, removal/reappearance, cap/root priority, open-vs-identity failure split, terminal event and balanced close, in-place-write platform limit) and `WatchedFolderMonitoringWiringTests.swift` (11 ViewModel-driven tests: attach-before-scan with no redundant follow-up, exactly one follow-up scan for a newly attached nested directory, cap omission status, same-key root replacement rebinding, stale-callback suppression, removed-nested-directory terminal rescan, missing/permission-denied root degraded status and manual refresh recovery, removal/reappearance with a fresh controller, cancelled scan after folder removal, user-requested refresh of all watched folders).
 - F3 Inspector draft-session coverage lives in `AudioMatorTests/Application/MetadataEditing/InspectorDraftSessionTests.swift` (session identity/generations, dirty and original-revision retention across passive refresh, clean refresh, detached pending review and resume/discard, per-field save-delta completion including an intentional pre-save revert, partial-batch ledger, unverified readback, and independent artwork command generations), plus extended cases in `InspectorDirtyStateTests`, `InspectorAndMetadataEditorWorkflowTests`, `WatchedFolderRefreshOrderingTests` and `RenameRefreshSafetyTests`.
@@ -67,7 +67,7 @@ Performance tests are part of the same scheme and run in CI. See [Performance te
 
 `Package.swift` compiles exactly 33 Foundation-only production files:
 
-- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, Quick Import path index and refcounted scope leases, fuzzy similarity, independent date text.
+- Core: numeric conversion, tag-number text, format-support core, async deadline, path semantics, Quick Import path index and refcounted scope leases, fuzzy similarity, date serialization, picker drafts and viewport bounds.
 - Domain: metadata model core, fingerprint, mutation directory plan, conflict policy, text edit pipeline, mutation coordinator, CSV and template syntax, MuseAmp IDs, rename plan/template/sanitizer, filename extraction, track renumber.
 - Infrastructure pure cores: iTunes artwork/provider, LRCLIB models/ranker/request builder, MusicBrainz provider core/Lucene builder/request scheduling, online selection core.
 
@@ -91,15 +91,18 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/WatchedFolders` | 6 | 53 | identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 4 | 52 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 115 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
-| `Integration/TagLib` | 13 | 124 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback |
+| `Integration/TagLib` | 14 | 133 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 15 | 81 | artwork preview cache, editor rows, status text, list selection, comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **122** | **1056** | |
+| **Total** | **123** | **1065** | |
 
 Notable coverage:
+
+- Core date picker tests verify partial dates, DST handling, UTC conversion and narrow-window viewport bounds. The app-hosted date picker suite covers known raw routes and the normal Metadata Editor Add Field resolution through persistence. Viewport logic tests do not measure a macOS sheet presented in a window.
+- Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
 - Real TagLib writes use temporary copies of the six committed audio fixtures. Rename tests verify that a replacement changed in place and a superseded confirmation both keep the file protected. Reviewed-write tests also invalidate a later target during the first folder request and verify that no request is made for the blocked target’s folder.
@@ -170,7 +173,7 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
 1. runs the policy and crash-recovery tests with `python3 -m unittest discover -s scripts/tests` (currently 32: 13 evidence-gate tests, 16 build-helper shell policy tests, and 3 real child-process `SIGKILL` rename crash-recovery tests covering 7 crash gates),
-2. runs all 97 core tests and checks complete named execution with `scripts/check-core-evidence.py`,
+2. runs the full core suite and checks complete named execution with `scripts/check-core-evidence.py`,
 3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the inventory at the 2026-11-19 `878e2fc6` gate was 949 app-hosted and 70 core tests; the F5 wave reached 1010 app-hosted and 97 core tests; the 2026-11-20 independent-review remediation wave brings the named inventory to 1042 app-hosted, 97 core, and 32 policy/crash-gate tests),
 4. builds an unsigned Release app and runs the artifact validator,
 5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.

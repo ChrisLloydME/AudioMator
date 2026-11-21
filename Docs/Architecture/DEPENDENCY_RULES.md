@@ -31,7 +31,7 @@ Core format-support helpers
 | `Features` | Domain, Core, Infrastructure protocols/types, SwiftUI/AppKit | Direct TagLib manager calls, container format code, owning file transactions |
 | `Domain` | Foundation, pure `Core`, package semantic types | SwiftUI, AppKit, Combine, URLSession, concrete TagLib managers, file transactions |
 | `Infrastructure` | Domain, Core, system frameworks, package APIs | Feature views or view models |
-| `Core` | Foundation and focused system frameworks; package capability/field-key types only in the format-support and date-validation helpers | Feature, Domain, or Infrastructure types (pure Core files must stay Foundation-only) |
+| `Core` | Foundation and focused system frameworks; package capability/field-key types only in the format-support helper | Feature, Domain, or Infrastructure types (pure Core files must stay Foundation-only) |
 
 ## The Metadata Contract Exception
 
@@ -45,7 +45,7 @@ Domain reuses stable semantic types from `TagLibAudioMetadata`:
 
 This keeps one contract for field capabilities, revisions, and raw edits across the boundary. It is a controlled package-contract dependency, not a claim that Domain is package-independent.
 
-`Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`; `Core/Audio/MetadataDateTextFieldSupport.swift` keys date validation by `MetadataFieldKey`. Both are excluded from the SwiftPM fast target; the Foundation-only `AudioFormatSupportCore` and `MetadataDateTextCore` remain its compilable surface.
+`Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`. It is excluded from the SwiftPM fast target; the Foundation-only `AudioFormatSupportCore` and `MetadataDateTimeCore` remain part of its compilable surface, while the shared DateTimePicker feature uses the package’s field schema and the loaded tag layout to decide which controls to show.
 
 Still forbidden in Domain:
 

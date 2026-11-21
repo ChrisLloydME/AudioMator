@@ -27,6 +27,38 @@ struct MetadataFieldEntrySheet: View {
         fieldKey.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    private var writeKey: String {
+        context.resolvedWriteKey(input: trimmedFieldKey, selectedMappingKey: selectedMappingKey)
+    }
+
+    private struct DateScope: Equatable {
+        let key: String
+        let elementID: UUID?
+    }
+
+    @ViewBuilder
+    private var dateButton: some View {
+        if let eligibility = MetadataDatePickerEligibilityResolver.metadataEditorEligibility(
+            rawKey: writeKey, targets: context.targets
+        ) {
+            let title = MetadataFieldGuide.displayName(for: eligibility.fieldKey)
+            MetadataDatePickerButton(
+                scope: DateScope(key: writeKey, elementID: draft.selectedElementID),
+                title: title,
+                value: selectedTextBinding.wrappedValue,
+                format: eligibility.destinationFormat,
+                onApply: { scope, value in
+                    guard writeKey == scope.key, draft.selectedElementID == scope.elementID else { return }
+                    selectedTextBinding.wrappedValue = value
+                }
+            ) {
+                Label(String(localized: "Choose Date…"), systemImage: "calendar")
+            }
+            .help(String(localized: "Choose \(title)"))
+            .accessibilityLabel(Text("Choose \(title)"))
+        }
+    }
+
     private var canSave: Bool {
         switch context.mode {
         case .add:
@@ -182,6 +214,8 @@ struct MetadataFieldEntrySheet: View {
                 }
             }
 
+            dateButton
+
             MetadataFieldValueEditor(
                 text: selectedTextBinding,
                 placeholder: context.isMixed
@@ -242,9 +276,7 @@ struct MetadataFieldEntrySheet: View {
 
     private func commit() {
         commitError = nil
-        let typedKey = selectedMappingKey
-            ?? MetadataFieldSuggestion.resolvedKey(for: trimmedFieldKey)
-        let outcome = onSave(typedKey, draft.values)
+        let outcome = onSave(writeKey, draft.values)
         switch outcome {
         case .applied, .noChange:
             dismiss()

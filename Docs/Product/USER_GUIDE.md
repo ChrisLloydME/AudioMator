@@ -42,6 +42,8 @@ Changing selection or sidebar source can discard an unsaved Inspector draft. If 
 
 Files appear in the middle list with configurable columns. Sorting is available by column, and the list also supports a manual order used by track renumbering. Visible columns, toolbar buttons, and Inspector fields are configured in Settings → Interface; each section has a restore action.
 
+New main windows default to 1,360 × 760 points. The middle list requests at least 680 points of width. To make the window narrower, hide the Inspector.
+
 ## Editing Common Metadata (Inspector)
 
 The right Inspector is a curated common-field editor. Settings → Interface → Inspector Metadata Fields controls its rows for both single and multiple selection. Container-specific fields are not automatically appended; use Metadata Editor for additional PropertyMap fields and Tag Inspector for native inspection. New installations show Title, Artist, Album, Composer, Genre, Year, Track Number, Total Tracks, Disc Number, Total Discs, Comment, Album Artist, Release Date, Publisher, Copyright, Explicit and Credits; Date, Original Release Date, Content Group, Grouping and Work are optional. Existing saved field choices are preserved. Hiding a row changes presentation only: it neither deletes file metadata nor discards an existing draft. Save still applies all pending changes, including a draft entered before its row was hidden.
@@ -56,7 +58,7 @@ If a watched folder, Quick Import list or settings removal makes some of a dirty
 2. Edit fields in the Inspector.
 3. Choose **Save** in the Inspector toolbar or **Save Edits** from the Edit menu to write pending changes, or **Cancel** in the Inspector toolbar (**Cancel Edits** in the Edit menu) to discard them. Both save commands apply to the current selection.
 
-On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** to close the pane. When it is closed, **Show Inspector** appears at the right of the middle pane's toolbar; the View menu also offers **Toggle Inspector**.
+On macOS 26 and later, the Inspector toolbar controls align to the right edge of the pane. Use **Hide Inspector** in the Inspector toolbar to close the pane. Choose **View → Toggle Inspector** to reopen it or to close it from the menu.
 
 Saves write only the fields that changed from the draft's baseline. Before writing, AudioMator checks that the format supports each requested field. If any requested field is unsupported, the file is not written and the unsupported fields are reported.
 

@@ -12,8 +12,6 @@ struct ContentPane: View {
     let onOpenMetadataEditor: ([AudioFile.ID]) -> Void
     let onFindSelectedFileInMusicBrainz: () -> Void
     let onOpenTrackRenumber: () -> Void
-    let isInspectorVisible: Bool
-    let onShowInspector: () -> Void
 
     @AppStorage(museAmpSupportEnabledDefaultsKey) private var isMuseAmpSupportEnabled: Bool = false
 
@@ -113,16 +111,6 @@ struct ContentPane: View {
                 if shouldShowMetadataToolsToolbarGroup {
                     ToolbarItem(placement: .primaryAction) {
                         metadataToolsToolbarGroup
-                    }
-                }
-
-                if !isInspectorVisible {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: onShowInspector) {
-                            Label("Show Inspector", systemImage: "sidebar.right")
-                                .labelStyle(.iconOnly)
-                        }
-                        .help("Show Inspector")
                     }
                 }
             }

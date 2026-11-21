@@ -86,7 +86,7 @@ The `AudioMatorTestHost` path substitutes temporary preferences and a temporary 
 ## Application Lifecycle
 
 - `AudioMatorApp` is the `@main` SwiftUI app and installs `AppDelegate` through `NSApplicationDelegateAdaptor`.
-- On first launch, `AppDelegate` checks `hasLaunchedBefore`; if unset, it sizes the first window to 900×600, centers it, and stores the flag. Later launches keep the system-restored window state.
+- On first launch, `AppDelegate` checks `hasLaunchedBefore`, centers the first window, and stores the flag. The SwiftUI scene supplies the default size for new main windows. macOS restores the previous size for restored windows.
 - The app terminates when the last window closes (`applicationShouldTerminateAfterLastWindowClosed`).
 - The welcome sheet is presented when `WelcomeSplashProgress.shouldPresent` reports incomplete or outdated onboarding (`hasCompletedWelcomeSplash` / `completedWelcomeSplashVersion`, current version 3). It can be reopened from Settings or the Help menu.
 - Commands and cross-window actions communicate through `NotificationCenter` names in `AppNotifications.swift` or through injected bindings. The main window handles metadata dump, track renumber, online metadata, filename/metadata tool, metadata editor, clear-list confirmation, select-all, sidebar change, inspector toggle, and welcome-screen requests.
@@ -94,7 +94,8 @@ The `AudioMatorTestHost` path substitutes temporary preferences and a temporary 
 
 ## UI Composition
 
-- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. SwiftUI's full-height `.inspector` modifier is applied to the split view, and the column width is constrained to 340–480 points. The Inspector hosts its own Cancel, Save, and Hide Inspector toolbar items; the middle pane provides Show Inspector when the column is closed.
+- The main window uses a `NavigationSplitView` for the sidebar and middle content pane. SwiftUI's full-height `.inspector` modifier is applied to the split view, and the column width is constrained to 340–480 points. The Inspector hosts Cancel, Save, and Hide Inspector in its toolbar. The View menu toggles the column through the same visibility action as Hide Inspector.
+- The middle pane requests a 680-point minimum and a 760-point ideal width. The window uses `.contentMinSize` with a 1,240-point minimum width while the Inspector is open and 900 points while it is closed. The minimum height is 600 points.
 - The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into SwiftUI for native selection and column behavior. Selection is mirrored back to `AudioViewModel`; rejected draft-discard changes restore the previous native selection.
 - Sidebar sources are Quick Import (current session) and Watched Folders (the watched library and individual folders). Switching source changes the visible file collection and prunes selection.
 - The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does not own file state.

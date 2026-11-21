@@ -48,6 +48,7 @@ struct ContentView: View {
 
     var body: some View {
         rootContent
+            .frame(minWidth: isInspectorVisible ? 1_240 : 900, minHeight: 600)
             .sheet(isPresented: $isMetadataDumpPresented) {
                 MetadataDumpSheet(
                     metadataDumpText: metadataDumpText,
@@ -136,6 +137,7 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 320)
         } detail: {
             contentPane
+                .navigationSplitViewColumnWidth(min: 680, ideal: 760)
         }
         .navigationSplitViewStyle(.balanced)
         // Use SwiftUI's full-height Inspector with its own toolbar section.
@@ -160,9 +162,7 @@ struct ContentView: View {
             onOpenMetadataFilenameTool: openMetadataFilenameTool,
             onOpenMetadataEditor: openMetadataEditor,
             onFindSelectedFileInMusicBrainz: findSelectedFileInMusicBrainz,
-            onOpenTrackRenumber: openTrackRenumberSheet,
-            isInspectorVisible: isInspectorVisible,
-            onShowInspector: toggleInspector
+            onOpenTrackRenumber: openTrackRenumberSheet
         )
     }
 

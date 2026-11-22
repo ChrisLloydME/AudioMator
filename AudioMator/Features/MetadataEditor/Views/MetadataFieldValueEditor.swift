@@ -5,7 +5,7 @@ import AppKit
 struct MetadataFieldValueEditor: View {
     @Binding var text: String
     let placeholder: String
-    var minimumHeight: CGFloat = 300
+    var minimumHeight: CGFloat = 100
 
     private let editorFont = NSFont(name: "Menlo-Regular", size: 13) ??
         NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
@@ -39,7 +39,7 @@ struct MetadataFieldValueEditor: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(borderColor, lineWidth: 1)
         )
-        .frame(minHeight: minimumHeight)
+        .frame(minHeight: minimumHeight, maxHeight: .infinity)
     }
 }
 
@@ -49,6 +49,10 @@ private struct MetadataFieldValueTextEditor: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: NSScrollView, context: Context) -> CGSize? {
+        proposal.replacingUnspecifiedDimensions(by: CGSize(width: 400, height: 160))
     }
 
     func makeNSView(context: Context) -> NSScrollView {

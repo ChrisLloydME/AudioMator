@@ -5736,47 +5736,6 @@
     "GitHub is limiting update checks. Wait a while before checking again." : {
 
     },
-    "Hidden characters are shown while editing." : {
-      "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:277, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:1017.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hidden characters are shown while editing."
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hidden characters are shown while editing."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑时会显示隐藏字符。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯時會顯示隱藏字符。"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯時會顯示隱藏字符。"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯時會顯示隱藏字符。"
-          }
-        }
-      }
-    },
     "Hide Inspector" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Features/Main/Views/ContentPane.swift:128.",
       "localizations" : {

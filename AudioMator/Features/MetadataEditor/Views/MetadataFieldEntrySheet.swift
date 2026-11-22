@@ -54,6 +54,7 @@ struct MetadataFieldEntrySheet: View {
             ) {
                 Label(String(localized: "Choose Date…"), systemImage: "calendar")
             }
+            .fixedSize()
             .help(String(localized: "Choose \(title)"))
             .accessibilityLabel(Text("Choose \(title)"))
         }
@@ -77,7 +78,7 @@ struct MetadataFieldEntrySheet: View {
         }
     }
 
-    private var descriptionText: String {
+    private var descriptionText: String? {
         switch context.mode {
         case .add:
             return L10n.string("Choose an AudioMator field or enter a custom field name.")
@@ -85,17 +86,9 @@ struct MetadataFieldEntrySheet: View {
             if context.isMixed {
                 return L10n.string("Selected files currently contain different values. Add the replacement values; saving replaces the whole value list on every selected file.")
             }
-            return L10n.string("A line break stays inside the value you are editing.")
-        }
-    }
-
-    private var emptyStartGuidance: String? {
-        switch draft.emptyStartReason {
-        case .mixedSelection:
-            return L10n.string("Add the values to apply to every selected file. Removing the field is a separate Delete Field command.")
-        case .existingEmptyArray:
-            return L10n.string("This field currently has no values. Add a value to replace the empty list, or use Delete Field to remove the key.")
-        case .newField, .none:
+            if draft.emptyStartReason == .existingEmptyArray {
+                return L10n.string("This field currently has no values. Add a value to replace the empty list, or use Delete Field to remove the key.")
+            }
             return nil
         }
     }
@@ -107,10 +100,12 @@ struct MetadataFieldEntrySheet: View {
                     .font(.title3)
                     .fontWeight(.semibold)
 
-                Text(descriptionText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if let descriptionText {
+                    Text(descriptionText)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             if context.mode == .add {
@@ -147,19 +142,16 @@ struct MetadataFieldEntrySheet: View {
                     Text(context.displayName)
                         .font(.system(size: 13, weight: .medium))
                         .textSelection(.enabled)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .help(context.displayName)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
 
-            if let emptyStartGuidance {
-                Text(emptyStartGuidance)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
             valueEditorArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             if let commitError {
                 Text(commitError)
@@ -186,35 +178,37 @@ struct MetadataFieldEntrySheet: View {
             }
         }
         .padding(20)
-        .frame(width: 860)
-        .frame(minHeight: 540)
+        .frame(width: 860, height: 540)
     }
 
     private var valueEditorArea: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text("Value")
+                    .font(.headline)
+                    .fixedSize()
+
                 if draft.elements.count > 1 {
                     valuePicker
-                } else {
-                    Text("Value")
-                        .font(.headline)
                 }
 
                 Spacer(minLength: 12)
 
+                dateButton
+
                 Button("Add Value") {
                     draft.addValue()
                 }
+                .fixedSize()
 
                 if draft.elements.count > 1 {
                     Button("Remove Value") {
                         guard let selectedElementID = draft.selectedElementID else { return }
                         draft.removeValue(id: selectedElementID)
                     }
+                    .fixedSize()
                 }
             }
-
-            dateButton
 
             MetadataFieldValueEditor(
                 text: selectedTextBinding,
@@ -223,10 +217,6 @@ struct MetadataFieldEntrySheet: View {
                     : L10n.string("Enter the metadata value")
             )
             .accessibilityLabel("Metadata Value")
-
-            Text("Hidden characters are shown while editing.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 
@@ -243,8 +233,10 @@ struct MetadataFieldEntrySheet: View {
                     .tag(Optional(element.id))
             }
         }
+        .labelsHidden()
         .pickerStyle(.menu)
-        .fixedSize()
+        .accessibilityLabel(Text("Value"))
+        .frame(maxWidth: 320, alignment: .leading)
     }
 
     private func valuePreview(_ text: String) -> String {

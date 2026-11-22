@@ -322,12 +322,21 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         XCTAssertEqual(add.resolvedWriteKey(input: "STANDALONEDATE", selectedMappingKey: nil), "STANDALONEDATE")
         let writeKey = add.resolvedWriteKey(input: title, selectedMappingKey: "STANDALONEDATE")
         XCTAssertEqual(writeKey, "DATE")
-        XCTAssertEqual(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(
+        let eligibility = try XCTUnwrap(MetadataDatePickerEligibilityResolver.metadataEditorEligibility(
             rawKey: writeKey, targets: add.targets
-        )?.destinationFormat, .utcTextTimestamp)
+        ))
+        XCTAssertEqual(eligibility.destinationFormat, .utcTextTimestamp)
 
+        var picker = MetadataDateTimePickerSession(
+            initialText: nil,
+            destinationFormat: eligibility.destinationFormat,
+            systemTimeZone: .gmt
+        )
+        picker.setDate(year: 2024, month: 6, day: 2)
         var draft = MetadataFieldValueDraft(context: add)
-        draft.addValue(text: "2024-06-02")
+        let valueID = try XCTUnwrap(draft.selectedElementID)
+        draft.setText(try XCTUnwrap(picker.formattedValue), for: valueID)
+        XCTAssertEqual(draft.values, ["2024-06-02"])
         XCTAssertEqual(store.commitFieldEntry(add, typedKey: writeKey, values: draft.values), .applied)
         let edit = try XCTUnwrap(store.makeEditFieldContext())
         XCTAssertEqual(edit.resolvedWriteKey(input: "", selectedMappingKey: nil), writeKey)
@@ -335,7 +344,8 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         viewModel.mergeQuickImportFiles([file])
         let request = try XCTUnwrap(store.startApply())
         let outcome = await viewModel.applyRawMetadataApplyRequest(request)
-        XCTAssertTrue(outcome.didApplyAllChanges)
+        XCTAssertTrue(outcome.didApplyAllChanges, "FLAC apply HUD: \(String(describing: viewModel.metadataWriteHUD))")
+        XCTAssertEqual(try pipeline.rawMetadataValueMap(for: flac)[writeKey], ["2024-06-02"])
         let saved = try await pipeline.loadAudioFile(at: flac, id: file.id)
         XCTAssertEqual(saved.date, "2024-06-02")
         XCTAssertEqual(saved.year, file.year)

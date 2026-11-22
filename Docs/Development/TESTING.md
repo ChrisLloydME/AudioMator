@@ -101,7 +101,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 
 Notable coverage:
 
-- Core date picker tests verify partial dates, DST handling, UTC conversion and narrow-window viewport bounds. The app-hosted date picker suite covers known raw routes and the normal Metadata Editor Add Field resolution through persistence. Viewport logic tests do not measure a macOS sheet presented in a window.
+- Core date picker tests verify partial dates, DST handling, UTC conversion and narrow-window viewport bounds. The app-hosted date picker suite covers known raw routes and the Metadata Editor Add Field path from filling the initially selected value through exact FLAC `DATE` readback. Viewport logic tests do not measure a macOS sheet presented in a window.
 - Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
@@ -149,6 +149,7 @@ What this does **not** prove: live service availability, remote rate limits, API
 - No `XCTMetric` and no `measure {}` API.
 - Timing uses `ContinuousClock`/`Duration`; the online workbench reports warm medians as attachments.
 - Most wall-clock numbers are informational. Hard assertions mostly check work bounds: four concurrent batch writes, publication counts below a fraction of file count, virtualized rows ≤ 40, recording fan-out ≤ 1, menu deferral.
+- The 1,000- and 4,000-file synthetic Inspector saves use a 120-second stall timeout that resets when the reported completion count advances. The test checks collection publications against file count and progress publications against the 100 ms throttle and lifecycle updates.
 - One traversal test asserts a 2-second layout budget.
 - All performance tests run unconditionally in CI and in the scheme.
 - `QuickImportProgressivePerformanceTests` is the AM-14 sensor: 480/960/4,000 synthetic candidates through the real progressive import path (decode excluded) and 480/960 real MP3 fixture copies through the real TagLib adapter (decode included). It asserts deterministic work counters (one identity preparation per candidate, one parent per directory, zero per-batch path-key work, forced 24/48 publication counts, unique rows, no terminal merge), records host/fixture/loader-mode, cumulative and maximum main-actor batch publication cost, and publication counts as a report and attachment. It has no wall-clock threshold and no `measure` block. `WatchedFolderRefreshOrderingTests` also checks that a late Quick Import result retains its admitted membership without replacing a newer watched observation, that a disjoint progressive import makes one membership lookup and updates zero watched rows, and that folder removal prunes the index. The audit-measured path-work harness and the source-derived pre-F5 production model are archived as `.tmp` probe output, not as test thresholds.

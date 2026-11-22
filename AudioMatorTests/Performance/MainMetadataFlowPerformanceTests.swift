@@ -147,8 +147,18 @@ nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
             }
             let saveStart = clock.now
             viewModel.saveInspectorEdits()
-            let deadline = clock.now.advanced(by: .seconds(120))
-            while viewModel.metadataSaveProgress != nil, clock.now < deadline {
+            let stallTimeout: Duration = .seconds(120)
+            var lastProgressTime = clock.now
+            var lastCompletedCount = 0
+            while let progress = viewModel.metadataSaveProgress {
+                if progress.completedUnitCount > lastCompletedCount {
+                    lastCompletedCount = progress.completedUnitCount
+                    lastProgressTime = clock.now
+                }
+                guard lastProgressTime.duration(to: clock.now) < stallTimeout else {
+                    XCTFail("Batch save stalled at \(lastCompletedCount) of \(count) files for \(stallTimeout).")
+                    return
+                }
                 try await Task.sleep(for: .milliseconds(10))
             }
             let saveTime = saveStart.duration(to: clock.now)
@@ -160,9 +170,11 @@ nonisolated final class MainMetadataFlowPerformanceTests: XCTestCase {
             XCTAssertTrue(viewModel.files.allSatisfy { $0.title == "Saved batch title" })
             XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
             XCTAssertEqual(viewModel.selectedAudioIDs, Set(files.map(\.id)))
-            // Gate work, not wall-clock time on a potentially loaded test runner.
             XCTAssertLessThan(collectionPublications, count / 4)
-            XCTAssertLessThan(progressPublications, count / 4)
+            // Intermediate progress is throttled to one update per 100 ms.
+            // Start, last completion, finishing and clear can publish immediately.
+            let progressPublicationLimit = Int(milliseconds(saveTime) / 100) + 4
+            XCTAssertLessThanOrEqual(progressPublications, progressPublicationLimit)
             let median = selectionMilliseconds.sorted()[selectionMilliseconds.count / 2]
             print("Main metadata flow \(count) files: selection median=\(median) ms, save=\(milliseconds(saveTime)) ms, collection publications=\(collectionPublications), progress publications=\(progressPublications)")
         }

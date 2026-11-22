@@ -252,60 +252,8 @@ struct InspectorPane: View {
                 .help("Hide Inspector")
             }
         }
-        .sheet(isPresented: $isInspectorQuickPresented) {            VStack(alignment: .leading, spacing: 18) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Edit Metadata Field")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-
-                    Text("Update the selected metadata field for every file in the current selection.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Field")
-                        .font(.headline)
-
-                    Text(inspectorQuickLabel)
-                        .font(.system(size: 13, weight: .medium, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(alignment: .firstTextBaseline, spacing: 12) {
-                        Text("Value")
-                            .font(.headline)
-
-                        Spacer()
-
-                        Text("Hidden characters are shown while editing.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    MetadataFieldValueEditor(
-                        text: $inspectorQuickText,
-                        placeholder: "Enter the metadata value"
-                    )
-                }
-
-                HStack {
-                    Spacer()
-                    Button("Cancel") {
-                        isInspectorQuickPresented = false
-                    }
-                    Button("Save") {
-                        inspectorQuickBinding?.wrappedValue = inspectorQuickText
-                        isInspectorQuickPresented = false
-                    }
-                    .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding(20)
-            .frame(width: 860, height: 540)
+        .sheet(isPresented: $isInspectorQuickPresented) {
+            inspectorQuickEditSheet
         }
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)
@@ -318,6 +266,68 @@ struct InspectorPane: View {
         .onChange(of: selectedPhotoLibraryArtworkItem) { _, newItem in
             importSelectedPhotoLibraryArtwork(newItem)
         }
+    }
+
+    private var inspectorQuickEditSheet: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Edit Metadata Field")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+
+                if selectedFiles.count > 1 {
+                    Text("Update the selected metadata field for every file in the current selection.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Field")
+                    .font(.headline)
+
+                Text(inspectorQuickLabel)
+                    .font(.system(size: 13, weight: .medium))
+                    .textSelection(.enabled)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .help(inspectorQuickLabel)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Value")
+                    .font(.headline)
+
+                MetadataFieldValueEditor(
+                    text: $inspectorQuickText,
+                    placeholder: L10n.string("Enter the metadata value")
+                )
+                .accessibilityLabel("Metadata Value")
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            Divider()
+
+            HStack(spacing: 8) {
+                Spacer()
+
+                Button("Cancel") {
+                    isInspectorQuickPresented = false
+                }
+                .keyboardShortcut(.cancelAction)
+
+                Button("Save") {
+                    inspectorQuickBinding?.wrappedValue = inspectorQuickText
+                    isInspectorQuickPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 860, height: 540)
     }
 
     private func pickArtworkFromFinder(for target: ArtworkImportTarget) {

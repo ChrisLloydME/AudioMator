@@ -15,11 +15,11 @@ Environment and project values verified on 2026-11-20:
 | --- | --- |
 | Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.8.1`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.1), revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0` |
+| Package pin | Exact published `0.8.2`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.2), revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868` |
 | Package resolution file | `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` |
 | Marketing version / build | `2.7` / `26112` in both app configurations |
 | Bundle identifiers | Debug `com.TheLloydME.AudioMator.Beta`; Release `com.LloydME.AudioMator` |
-| Recorded Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
+| Earlier Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
 
 The repository targets stable Xcode 27. Prerelease toolchains and older Xcode versions are not supported by project policy and were not tested. The external package's own manifest is authoritative for its toolchain requirements; the separate Foundation-only SwiftPM harness in this repository declares Swift tools 6.0 and does not compile the dependency.
 
@@ -37,7 +37,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The committed package requirement is **exact version `0.8.1`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
+The committed package requirement is **exact version `0.8.2`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
 
 ## Scheme and Configurations
 
@@ -135,7 +135,7 @@ The app-hosted test target launches the app as its test host. Always keep the se
 bash scripts/validate-release.sh
 ```
 
-This is the normal release gate. It runs the policy and crash-recovery tests, the 97 Foundation-only core tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+This is the normal release gate. It runs the policy and crash-recovery tests, the Foundation-only core tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
 
 The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
 
@@ -227,7 +227,9 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-Current published 0.8.1 adoption results are recorded in [Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). The 0.8.0 results in older engineering records are historical and are not acceptance evidence for this dependency. The latest full repository gates with the published 0.8.1 pin are recorded in the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) (including its 2026-11-20 follow-up addendum) and the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
+On 2026-11-23, `bash scripts/validate-release.sh` passed with the published 0.8.2 lock. It ran 32 policy and crash-recovery tests, 126 core tests, and 1,074 serial app-hosted tests, including the M4A cover diagnostic regression, then passed the unsigned Release build and artifact validation. Local evidence is under `.deriveddata-codex/Validation/20261123-122932-47720/`. Interactive UI acceptance remains manual.
+
+The [0.8.1 Debug adoption record](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) documents an earlier pin. Full repository gates with the published 0.8.1 pin are recorded in the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) (including its 2026-11-20 follow-up addendum) and the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
 
 ## Related Documents
 

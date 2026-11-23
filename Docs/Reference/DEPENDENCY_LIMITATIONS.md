@@ -1,6 +1,6 @@
 # Dependency Limitations
 
-AudioMator pins published **TagLibAudioMetadata 0.8.1**, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. [Current adoption evidence](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records validation against that tag; the ignored local workspace is only an explicit candidate tool, not part of normal resolution. Historical records under [Docs/Engineering/HISTORY](../Engineering/HISTORY/README.md) describe superseded versions and are not current capability claims.
+AudioMator pins published **TagLibAudioMetadata 0.8.2**, revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. The ignored local workspace is used only for explicit candidate validation. Historical records under [Docs/Engineering/HISTORY](../Engineering/HISTORY/README.md) describe superseded versions and are not current capability claims.
 
 ## Current Published Boundary
 

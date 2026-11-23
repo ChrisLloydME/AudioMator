@@ -542,6 +542,26 @@ nonisolated final class TagLibReadWriteIntegrationTests: XCTestCase {
     }
 
     @MainActor
+    func testMP4RawMetadataDumpReportsEmbeddedCoverSize() throws {
+        let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.m4a"))
+        defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+
+        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])),
+            to: workingURL
+        )
+
+        let text = try XCTUnwrap(TagLibAudioMetadataPipeline().rawMetadataDumpText(for: workingURL))
+        let lines = text.components(separatedBy: .newlines)
+        let header = try XCTUnwrap(lines.firstIndex(of: "[MP4 ItemMap]"))
+        let coverLines = lines.dropFirst(header + 1)
+            .prefix { !$0.isEmpty }
+            .filter { $0.hasPrefix("covr =") }
+        XCTAssertEqual(coverLines, ["covr = <CoverArt: 1 image, \(artworkData.count) bytes>"])
+    }
+
+    @MainActor
     private static func sectionHeaders(after precedingHeader: String, in text: String) -> [String] {
         var hasSeenPrecedingHeader = false
         var headers: [String] = []

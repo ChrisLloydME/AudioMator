@@ -2,7 +2,7 @@ import Foundation
 
 /// Declared numeric bounds for structured number components by file extension.
 ///
-/// TagLibAudioMetadata 0.8.1 does not publish per-format component bounds through
+/// TagLibAudioMetadata does not publish per-format component bounds through
 /// its capability API, so the app declares the bounds documented in the mapping
 /// contract (`Docs/Architecture/METADATA_MAPPING_SPEC.md`): MP4 pair components are
 /// limited to `1...65535` with zero as the native absent-component sentinel, and

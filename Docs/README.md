@@ -13,7 +13,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 | Run tests and judge coverage | [Testing](Development/TESTING.md), [Metadata test strategy](Development/METADATA_TEST_STRATEGY.md) |
 | Understand the architecture | [Architecture Overview](Architecture/OVERVIEW.md) |
 | Work on metadata reading/writing | [Metadata Pipeline](Architecture/METADATA_PIPELINE.md) |
-| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1) |
+| Work on the metadata mapping contract | [Mapping Specification](Architecture/METADATA_MAPPING_SPEC.md) (`AM-TLAM-MAPPING-2.2`, implemented by the published package) |
 | Look up UI, app, package, and native fields together | [Complete mapping table](Reference/METADATA_FIELD_MAPPING_TABLE.md) |
 | Work on conflicts, reloads, or file revisions | [File Revision and Reload](Architecture/FILE_REVISION_AND_RELOAD.md), [State and Mutation Model](Architecture/STATE_AND_MUTATION_MODEL.md) |
 | Work on filename/text/CSV workflows | [Metadata Exchange](Architecture/METADATA_EXCHANGE.md), [Rename and Renumbering](Architecture/RENAME_AND_RENUMBERING.md) |

@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator pins published `TagLibAudioMetadata` **0.8.1** (revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`) through the normal Xcode project and committed `Package.resolved`; there is no local override in normal builds. The shared contract is **`AM-TLAM-MAPPING-2.2`** (see [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)); adoption evidence is recorded in [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) and current restrictions in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+AudioMator pins published `TagLibAudioMetadata` **0.8.2** (revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`) through the normal Xcode project and committed `Package.resolved`; there is no local override in normal builds. The shared contract is **`AM-TLAM-MAPPING-2.2`** (see [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)); current restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Boundary Summary
 

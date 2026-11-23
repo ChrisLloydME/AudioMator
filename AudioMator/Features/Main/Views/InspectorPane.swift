@@ -53,7 +53,9 @@ struct InspectorPane: View {
         var model = currentEdit(for: file) ?? SingleFileEditModel(from: file)
         mutate(&model)
         viewModel.edit = model
-        viewModel.editSourceFileID = file.id
+        if viewModel.editSourceFileID != file.id {
+            viewModel.editSourceFileID = file.id
+        }
     }
 
     private func binding(
@@ -65,6 +67,8 @@ struct InspectorPane: View {
                 currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
             },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0[keyPath: keyPath] = newValue }
             }
         )
@@ -102,6 +106,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setTrackNumberFieldText(newValue) }
             }
         )
@@ -111,6 +117,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setTrackTotalFieldText(newValue) }
             }
         )
@@ -120,6 +128,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setDiscNumberFieldText(newValue) }
             }
         )
@@ -129,6 +139,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setDiscTotalFieldText(newValue) }
             }
         )
@@ -141,10 +153,20 @@ struct InspectorPane: View {
             },
             set: { newValue in
                 guard var current = viewModel.multiEdit else { return }
+                guard Self.shouldApplyMultiEditText(newValue, for: field, in: current) else { return }
                 current.setText(newValue, for: field)
                 viewModel.multiEdit = current
             }
         )
+    }
+
+    static func shouldApplyMultiEditText(
+        _ newValue: String,
+        for field: MultiFileEditableTextField,
+        in current: MultiFileEditModel
+    ) -> Bool {
+        let isUntouchedMixed = current.mixedTextFields.contains(field) && !current.modifiedTextFields.contains(field)
+        return isUntouchedMixed || newValue != current.text(for: field)
     }
 
     private var multiExplicitBinding: Binding<MultiFileExplicitEditState> {

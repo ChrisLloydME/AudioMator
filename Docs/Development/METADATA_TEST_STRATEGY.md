@@ -32,6 +32,9 @@ A red regression that reproduces a dependency bug blocks release. Report the API
 
 ## Preview-to-save journeys
 
+Real-write tests can declare fixture directories through the [XCTest folder-access setup](TESTING.md#test-targets) while exercising the normal mutation pipeline under App Sandbox.
+The exact raw-array test requires a per-file write issue and unchanged bytes when the edit is rejected, so early folder-access failure cannot satisfy its rejection assertion.
+
 `MetadataSaveJourneyTests` starts at actual workbench stores and `MetadataEditorStore`, not manually constructed provider write entries. The provider transport is offline; metadata planning, field selection, mutation coordinator, adapter writes, verification and disk reloads are real. Tests run on MP4/FLAC copies and generated AIFF files.
 
 - Every iTunes field has a declared decision: 15 fields are individually checked, saved and compared after reload; absent remote barcode must produce no write. Every unchecked provider field is compared with the original file.

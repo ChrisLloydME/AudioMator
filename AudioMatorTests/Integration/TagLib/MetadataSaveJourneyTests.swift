@@ -591,7 +591,7 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
 
     @MainActor
     private func viewModel(_ files: [AudioFile]) -> AudioViewModel {
-        let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: files)
         vm.mergeQuickImportFiles(files)
         vm.setSelectedAudioIDs(Set(files.map(\.id)))
         return vm
@@ -628,16 +628,18 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
 
     @MainActor
     private func fixture(_ ext: String) async throws -> AudioFile {
-        let url: URL
+        let name = UUID().uuidString
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent(name).appendingPathExtension(ext)
         if ext == "aiff" {
-            url = try aiff()
+            try writeAIFF(to: url)
         } else {
             let bundle = Bundle(for: Self.self)
             let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile", withExtension: ext, subdirectory: "Fixtures/Audio")
                 ?? bundle.url(forResource: "testAudioFile", withExtension: ext))
-            url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
             try FileManager.default.copyItem(at: source, to: url)
-            addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         }
         let file = try await pipeline.loadAudioFile(at: url, id: UUID())
         var edit = SingleFileEditModel(from: file)
@@ -652,21 +654,16 @@ nonisolated final class MetadataSaveJourneyTests: XCTestCase {
     }
 
     @MainActor
-    private func aiff() throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("aiff")
-        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
-        do {
-            let file = try AVAudioFile(forWriting: url, settings: [
-                AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 44100,
-                AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
-                AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: true
-            ])
-            let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4410))
-            buffer.frameLength = 4410
-            if let samples = buffer.floatChannelData { samples[0].update(repeating: 0, count: 4410) }
-            try file.write(from: buffer)
-        }
-        return url
+    private func writeAIFF(to url: URL) throws {
+        let file = try AVAudioFile(forWriting: url, settings: [
+            AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 44100,
+            AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: true
+        ])
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4410))
+        buffer.frameLength = 4410
+        if let samples = buffer.floatChannelData { samples[0].update(repeating: 0, count: 4410) }
+        try file.write(from: buffer)
     }
 
     @MainActor

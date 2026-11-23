@@ -64,11 +64,9 @@ nonisolated final class RenameRecoveryPresentationTests: XCTestCase {
         let viewModel = AudioViewModelTestFactory.make(
             metadataPipeline: TagLibAudioMetadataPipeline(),
             renameFileSystem: LocalRenameFileSystem(),
-            renameJournalStore: failingJournal
+            renameJournalStore: failingJournal,
+            writableFixtures: files
         )
-        // Registering the fixture parents as quick-import members makes their
-        // directories active mutation roots, so this route never requests scope
-        // through a user-facing panel in the headless host.
         viewModel.mergeQuickImportFiles(files)
         viewModel.flushPendingMetadataReloads()
 

@@ -2103,6 +2103,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             return mutationDirectoryAccessRequester(directoryURL)
         }
 
+        if AudioMatorTestHost.isEnabled {
+            return "Missing test authorization for mutation directory: \(directoryURL.path)"
+        }
+
         let displayName = FileManager.default.displayName(atPath: directoryURL.path)
         let key = Self.urlKey(for: directoryURL)
 

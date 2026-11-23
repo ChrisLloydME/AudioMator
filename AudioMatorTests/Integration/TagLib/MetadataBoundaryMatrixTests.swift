@@ -253,7 +253,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         for ext in ["m4a", "flac"] {
             files.append(try await pipeline.loadAudioFile(at: fixture(ext), id: UUID()))
         }
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: files)
         viewModel.mergeQuickImportFiles(files)
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
         await viewModel.applyiTunesTaggingPlan(files.map {
@@ -374,7 +374,7 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         for ext in ["m4a", "flac"] {
             files.append(try await pipeline.loadAudioFile(at: fixture(ext), id: UUID()))
         }
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: files)
         viewModel.mergeQuickImportFiles(files)
         viewModel.setSelectedAudioIDs([files[0].id])
         viewModel.edit?.title = "Inspector single"
@@ -415,9 +415,12 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         let bundle = Bundle(for: Self.self)
         let source = try XCTUnwrap(bundle.url(forResource: "testAudioFile", withExtension: ext, subdirectory: "Fixtures/Audio")
             ?? bundle.url(forResource: "testAudioFile", withExtension: ext))
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+        let name = UUID().uuidString
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent(name).appendingPathExtension(ext)
         try FileManager.default.copyItem(at: source, to: url)
-        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url
     }
 }

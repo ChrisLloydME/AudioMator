@@ -32,7 +32,7 @@ nonisolated final class ArtworkStagedSaveReadbackTests: XCTestCase {
             let originalTitle = file.title
             let originalAlbum = file.album
 
-            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [file])
             viewModel.mergeQuickImportFiles([file])
             viewModel.setSelectedAudioIDs([file.id])
             viewModel.edit?.title = "Artwork Save Title"

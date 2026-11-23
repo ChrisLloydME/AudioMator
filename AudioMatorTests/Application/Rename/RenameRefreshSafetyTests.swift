@@ -230,7 +230,7 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
         let pipeline = TagLibAudioMetadataPipeline()
         let source = try await pipeline.loadAudioFile(at: sourceURL, id: UUID())
         let beforeMap = try pipeline.rawMetadataValueMap(for: sourceURL)
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [source])
         viewModel.mergeQuickImportFiles([source])
 
         // A real move, not a copy: the source directory entry no longer exists.
@@ -540,8 +540,7 @@ nonisolated final class RenameRefreshSafetyTests: XCTestCase {
 
         let pipeline = TagLibAudioMetadataPipeline()
         let original = try await pipeline.loadAudioFile(at: environment.sourceURL, id: UUID())
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [original])
         viewModel.mergeQuickImportFiles([original])
         viewModel.setSelectedAudioIDs([original.id])
 

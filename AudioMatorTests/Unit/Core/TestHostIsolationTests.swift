@@ -32,5 +32,17 @@ nonisolated final class TestHostIsolationTests: XCTestCase {
         XCTAssertTrue(viewModel.fileAccessGrants.isEmpty)
         XCTAssertTrue(viewModel.saveIssueLogStore.entries.isEmpty)
         XCTAssertFalse(viewModel.conflictPolicyDefaults === UserDefaults.standard)
+
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let fixture = AudioFileTestFactory.make(url: root.appendingPathComponent("fixture.mp3"))
+        let otherURL = root.appendingPathComponent("other/fixture.mp3")
+        XCTAssertNotNil(viewModel.ensureMutationDirectoryAccess(for: [fixture.url]))
+
+        let fixtureViewModel = AudioViewModelTestFactory.make(
+            metadataPipeline: TagLibAudioMetadataPipeline(),
+            writableFixtures: [fixture]
+        )
+        XCTAssertNil(fixtureViewModel.ensureMutationDirectoryAccess(for: [fixture.url]))
+        XCTAssertNotNil(fixtureViewModel.ensureMutationDirectoryAccess(for: [otherURL]))
     }
 }

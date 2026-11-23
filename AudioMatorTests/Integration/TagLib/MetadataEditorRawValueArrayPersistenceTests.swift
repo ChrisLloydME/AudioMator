@@ -69,7 +69,7 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         let request = try XCTUnwrap(store.startApply())
 
         let mediaPipeline = TagLibAudioMetadataPipeline()
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let outcome = await viewModel.applyRawMetadataApplyRequest(request)
         XCTAssertTrue(outcome.failedTargetIDs.isEmpty, "Unexpected raw apply failure")
@@ -110,7 +110,7 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         let beforeBytes = try Data(contentsOf: url)
 
         let mediaPipeline = TagLibAudioMetadataPipeline()
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let outcome = await viewModel.applyRawMetadataApplyRequest(request)
 
@@ -148,7 +148,7 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         let beforeBytes = try Data(contentsOf: url)
 
         let mediaPipeline = TagLibAudioMetadataPipeline()
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let outcome = await viewModel.applyRawMetadataApplyRequest(request)
 
@@ -161,6 +161,13 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
                 "Duplicate and explicit blank elements must round-trip exactly where the container accepts them"
             )
         } else {
+            XCTAssertEqual(outcome.failedTargetIDs, [file.id])
+            let issue = try XCTUnwrap(
+                viewModel.saveIssueLogStore.entries.first?.issues.first,
+                "A folder access failure must not count as a rejected write"
+            )
+            XCTAssertEqual(issue.fileName, request.pendingTargets.first?.fileName)
+            XCTAssertFalse(issue.messages.isEmpty)
             XCTAssertEqual(
                 try Data(contentsOf: url),
                 beforeBytes,
@@ -196,8 +203,7 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         store.upsertField(key: "COMMENT", values: ["Second Apply Comment"])
 
         let mediaPipeline = TagLibAudioMetadataPipeline()
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline)
-        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: mediaPipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
 
         let firstOutcome = await viewModel.applyRawMetadataApplyRequest(firstRequest)
@@ -267,8 +273,7 @@ nonisolated final class MetadataEditorRawValueArrayPersistenceTests: XCTestCase 
         XCTAssertNil(retainedTarget.reviewedTarget)
 
         let secondRequest = try XCTUnwrap(store.startApply())
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
-        viewModel.mutationDirectoryAccessRequester = { _ in nil }
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let secondOutcome = await viewModel.applyRawMetadataApplyRequest(secondRequest)
         XCTAssertEqual(secondOutcome.failedTargetIDs, [file.id])

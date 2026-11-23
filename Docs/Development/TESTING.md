@@ -21,6 +21,7 @@ Counts and paths below were re-verified by source inspection on 2026-11-23. The 
 - The scheme includes one testable, `skipped = "NO"`, `parallelizable = "NO"`, with an auto-created test plan. No `.xctestplan` file exists.
 - There are no skipped, disabled, or expected-failure tests, and no environment-variable gating of individual tests. The Test action environment flag isolates app startup. The action pins English/US presentation and ignores saved window restoration state.
 - Source-policy tests read repository files through `#filePath`; moving the test or its target file breaks them.
+- The Debug XCTest host returns an error if mutation preflight reaches the native folder-access prompt without a test requester. Register the temporary audio copies through the test factory's `writableFixtures` argument for real write and rename tests, or inject a requester when the test exercises the permission decision itself. The fixture requester accepts only the listed files' parent directories and the actual file operation still runs under App Sandbox.
 
 ## Commands
 

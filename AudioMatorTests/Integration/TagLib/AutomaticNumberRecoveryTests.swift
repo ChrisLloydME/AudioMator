@@ -6,9 +6,12 @@ nonisolated final class AutomaticNumberRecoveryTests: XCTestCase {
     private func fixture() throws -> URL {
         let source = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a", subdirectory: "Fixtures/Audio")
             ?? Bundle(for: Self.self).url(forResource: "testAudioFile", withExtension: "m4a"))
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("m4a")
+        let name = UUID().uuidString
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(name, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent(name).appendingPathExtension("m4a")
         try FileManager.default.copyItem(at: source, to: url)
-        addTeardownBlock { try? FileManager.default.removeItem(at: url) }
         return url
     }
 
@@ -271,7 +274,7 @@ nonisolated final class AutomaticNumberRecoveryTests: XCTestCase {
                 ]), to: url)
                 files.append(try await pipeline.loadAudioFile(at: url, id: UUID()))
             }
-            let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+            let vm = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: files)
             vm.mergeQuickImportFiles(files)
             vm.setSelectedAudioIDs(Set(files.map(\.id)))
             if count == 1 { vm.edit?.setTrackNumberFieldText("5") }

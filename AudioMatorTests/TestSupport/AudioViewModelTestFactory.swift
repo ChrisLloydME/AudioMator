@@ -15,7 +15,8 @@ enum AudioViewModelTestFactory {
         saveIssueLogStore: SaveIssueLogStore? = nil,
         moveReadbackTimeout: Duration = .seconds(60),
         renameFileSystem: any RenameFileSystem = LocalRenameFileSystem(),
-        renameJournalStore: (any RenameJournalStoring)? = nil
+        renameJournalStore: (any RenameJournalStoring)? = nil,
+        writableFixtures: [AudioFile] = []
     ) -> AudioViewModel {
         let suiteName = "AudioMatorTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -23,7 +24,7 @@ enum AudioViewModelTestFactory {
             directoryURL: FileManager.default.temporaryDirectory
                 .appendingPathComponent("AudioMatorTestsRenameJournal-\(UUID().uuidString)", isDirectory: true)
         )
-        return AudioViewModel(
+        let viewModel = AudioViewModel(
             watchedFolderStore: WatchedFolderStore(userDefaults: defaults),
             fileAccessGrantStore: FileAccessGrantStore(userDefaults: defaults),
             metadataPipeline: metadataPipeline,
@@ -36,6 +37,18 @@ enum AudioViewModelTestFactory {
             renameJournalStore: journalStore,
             renameJournalAutoClassification: false
         )
+        if !writableFixtures.isEmpty {
+            let approvedDirectories = Set(writableFixtures.map {
+                FileSystemPathSemantics.key(for: $0.url.deletingLastPathComponent())
+            })
+            viewModel.mutationDirectoryAccessRequester = { directory in
+                guard approvedDirectories.contains(FileSystemPathSemantics.key(for: directory)) else {
+                    return "Missing test authorization for mutation directory: \(directory.path)"
+                }
+                return nil
+            }
+        }
+        return viewModel
     }
 
     static func makeIssueLogStore() -> SaveIssueLogStore {

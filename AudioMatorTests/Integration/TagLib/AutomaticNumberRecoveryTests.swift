@@ -207,10 +207,12 @@ nonisolated final class AutomaticNumberRecoveryTests: XCTestCase {
                 await vm.reloadSelectedFilesFromDisk()
                 XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)
                 var confirmations = 0
-                ContentView.performSidebarSelectionChange(hasUnsavedInspectorChanges: vm.hasUnsavedInspectorChanges,
-                    suppressesDiscardWarning: false, requestDiscardConfirmation: { _ in confirmations += 1 },
-                    discardInspectorEdits: { XCTFail("Read-only recovery is not a draft") },
-                    commitSelection: { vm.setSelectedAudioIDs([]) })
+                ContentView.confirmInspectorDiscard(
+                    using: vm,
+                    suppressesDiscardWarning: false,
+                    requestDiscardConfirmation: { _ in confirmations += 1 },
+                    action: { vm.setSelectedAudioIDs([]) }
+                )
                 XCTAssertEqual(confirmations, 0, context)
                 vm.setSelectedAudioIDs([file.id])
                 XCTAssertFalse(vm.hasUnsavedInspectorChanges, context)

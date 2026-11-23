@@ -427,10 +427,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     func setSidebarSelection(_ selection: SidebarSelection?) {
         let normalized = normalizedSidebarSelection(selection ?? .quickImport)
-        if activeSidebarSelection != normalized {
+        let changesSource = activeSidebarSelection != normalized
+        if changesSource {
             activeSidebarSelection = normalized
         }
-        rebuildVisibleFiles()
+        rebuildVisibleFiles(preservingOutOfScopeDraft: !changesSource)
     }
 
     func watchedFolderHierarchy(for folderID: UUID) -> WatchedFolderHierarchy? {
@@ -558,7 +559,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     /// Detached pending-review session for captured targets that disappeared
-    /// from every source membership. The draft payload and baselines are kept;
+    /// from the active source or from all memberships. Payload and baselines are kept;
     /// selection is pruned by the caller; Save stays suspended.
     private func enterInspectorPendingReview(unavailableTargetIDs: Set<UUID>) {
         guard var session = inspectorDraft else { return }
@@ -1853,7 +1854,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         }
     }
 
-    func rebuildVisibleFiles() {
+    func rebuildVisibleFiles(preservingOutOfScopeDraft: Bool = true) {
         let selection = normalizedSidebarSelection(activeSidebarSelection)
         if activeSidebarSelection != selection {
             activeSidebarSelection = selection
@@ -1897,7 +1898,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             }
 
             let unavailableCapturedIDs = Set(
-                session.targetIDs.filter { quickImportFilesByID[$0] == nil && watchedFolderRowOffsetsByFileID[$0] == nil }
+                session.targetIDs.filter { id in
+                    (preservingOutOfScopeDraft && !validIDs.contains(id))
+                        || (quickImportFilesByID[id] == nil && watchedFolderRowOffsetsByFileID[id] == nil)
+                }
             )
             if !unavailableCapturedIDs.isEmpty,
                isInspectorDraftPayloadDirty || !session.completedByID.isEmpty {
@@ -1928,7 +1932,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     private func updateInspectorPendingReviewAvailability() {
         guard var session = inspectorDraft, let current = session.pendingReview else { return }
         let committedIDs = committedSourceFileIDs()
-        let unavailable = Set(session.targetIDs.filter { !committedIDs.contains($0) })
+        let unavailable = Set(session.targetIDs.filter { !committedIDs.contains($0) || visibleFilesByID[$0] == nil })
         let updated = InspectorPendingReview(
             identity: session.identity,
             capturedTargetIDs: current.capturedTargetIDs,

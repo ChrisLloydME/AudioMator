@@ -58,7 +58,7 @@ Click any editable value to edit it inline, then press Return or click away to l
 
 A background refresh (watched-folder rescan or imported-file reload) does not recreate or replace a dirty Inspector draft, and a save keeps the original expected revision until it succeeds. After a successful save, fields you did not edit again follow the value read back from disk; edits made while the save was in flight stay pending. If some files in a batch fail, Save retries only those files or your newer changes.
 
-If a watched folder, Quick Import list or settings removal makes some of a dirty draft's files unavailable, AudioMator prunes the selection as usual but keeps your captured values in a review state. The Inspector explains which files are unavailable and shows the captured changes; **Save is suspended** until every captured file is available again and you choose **Resume Editing**, or you choose **Discard Edits**. Captured values are never applied to other files.
+If a passive refresh, scope fallback or removal takes a dirty draft’s files out of the current view — even if the same files still appear in Quick Import or another watched root — AudioMator prunes the selection as usual but keeps your captured values in a review state. The Inspector explains which files are unavailable and shows the captured changes; **Save is suspended** until every captured file is available again in the current view and you choose **Resume Editing**, or you choose **Discard Edits**. Captured values are never applied to other files.
 
 1. Select one or more files.
 2. Edit fields in the Inspector.

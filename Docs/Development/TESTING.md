@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-23. The current source declares **1081 app-hosted tests across 118 `XCTestCase` classes**, **126 SwiftPM core tests across 8 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-23. The current source declares **1082 app-hosted tests across 118 `XCTestCase` classes**, **126 SwiftPM core tests across 8 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 126 | 8 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1081 | 118 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1082 | 118 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 126 `XCTestCase` classes across both targets (118 app-hosted, 8 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -89,7 +89,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/MetadataEditing` | 26 | 299 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 6 | 112 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
 | `Application/Rename` | 10 | 80 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 7 | 59 | hierarchical subfolder browsing, scoping, untagged FLAC batch-edit isolation and fallback when a subfolder disappears during browsing or a pending Inspector discard confirmation; identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Application/WatchedFolders` | 7 | 60 | hierarchical subfolder browsing, scoping, untagged FLAC batch-edit isolation and fallback when a subfolder disappears during browsing or a pending Inspector discard confirmation; identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 4 | 52 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 115 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
 | `Integration/TagLib` | 14 | 134 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
@@ -98,7 +98,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Unit/Presentation` | 16 | 90 | artwork preview cache, inspector scroll routing/offset preservation/multi-edit binding guards, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **125** | **1081** | |
+| **Total** | **125** | **1082** | |
 
 Notable coverage:
 

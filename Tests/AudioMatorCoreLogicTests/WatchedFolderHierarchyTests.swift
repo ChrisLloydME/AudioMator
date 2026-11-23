@@ -208,6 +208,19 @@ final class WatchedFolderHierarchyTests: XCTestCase {
                 withinRelativePathKey: hierarchy.rootChildren[0].children[0].relativePathKey
             )
         )
+
+        let realTrack = disc1.appendingPathComponent("01.flac")
+        let outsideTrack = baseURL.appendingPathComponent("outside.flac")
+        let aliasIntoDisc = baseURL.appendingPathComponent("alias.flac")
+        let aliasOutOfDisc = disc1.appendingPathComponent("outside-alias.flac")
+        try Data().write(to: realTrack)
+        try Data().write(to: outsideTrack)
+        try FileManager.default.createSymbolicLink(at: aliasIntoDisc, withDestinationURL: realTrack)
+        try FileManager.default.createSymbolicLink(at: aliasOutOfDisc, withDestinationURL: outsideTrack)
+
+        let discKey = hierarchy.rootChildren[0].children[0].relativePathKey
+        XCTAssertTrue(hierarchy.containsFile(at: aliasIntoDisc, withinRelativePathKey: discKey))
+        XCTAssertFalse(hierarchy.containsFile(at: aliasOutOfDisc, withinRelativePathKey: discKey))
     }
 
     func testSidebarSelectionSourceModeAndWatchedRootFolderID() {

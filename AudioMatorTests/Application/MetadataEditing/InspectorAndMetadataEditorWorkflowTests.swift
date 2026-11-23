@@ -145,24 +145,34 @@ nonisolated final class InspectorAndMetadataEditorWorkflowTests: XCTestCase {
     @MainActor
     func testSidebarSelectionRequestPreservesDraftUntilDiscardIsConfirmed() {
         var pendingConfirmation: (() -> Void)?
-        var didDiscardDraft = false
         var didCommitSelection = false
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
+        let file = AudioFileTestFactory.make(title: "On disk")
+        viewModel.files = [file]
+        viewModel.setSelectedAudioIDs([file.id])
+        viewModel.edit?.title = "First draft"
 
-        ContentView.performSidebarSelectionChange(
-            hasUnsavedInspectorChanges: true,
+        ContentView.confirmInspectorDiscard(
+            using: viewModel,
             suppressesDiscardWarning: false,
             requestDiscardConfirmation: { pendingConfirmation = $0 },
-            discardInspectorEdits: { didDiscardDraft = true },
-            commitSelection: { didCommitSelection = true }
+            action: { didCommitSelection = true }
         )
 
-        XCTAssertNotNil(pendingConfirmation)
-        XCTAssertFalse(didDiscardDraft)
+        let staleConfirmation = pendingConfirmation
+        XCTAssertNotNil(staleConfirmation)
+        viewModel.edit?.title = "Newer draft"
+        pendingConfirmation = nil
+        staleConfirmation?()
+
         XCTAssertFalse(didCommitSelection)
+        XCTAssertEqual(viewModel.edit?.title, "Newer draft")
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        XCTAssertNotNil(pendingConfirmation)
 
         pendingConfirmation?()
 
-        XCTAssertTrue(didDiscardDraft)
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
         XCTAssertTrue(didCommitSelection)
     }
 

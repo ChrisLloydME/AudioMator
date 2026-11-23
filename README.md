@@ -26,7 +26,7 @@ AudioMator is a local-first audio metadata editor for macOS. It inspects, edits,
 - **Artwork replacement** from a local image, the photo library, or clipboard data, plus optional iTunes artwork lookup.
 - **Metadata Field Guide** — an offline in-app help window explaining each editable field, with optional links to official references.
 - **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB synced lyrics, always user initiated.
-- **Watched folders** with security-scoped bookmarks, debounced rescans, and bounded directory monitoring.
+- **Watched folders** with security-scoped bookmarks, expandable on-disk folder hierarchy browsing in the sidebar, debounced rescans, and bounded directory monitoring.
 - **Conflict strategies** for Inspector and Metadata Editor drafts when files change on disk.
 - **Operation result reporting** with per-item outcomes, cancellation handling, and a local save issue log.
 - **MuseAmp compatibility IDs** as an optional integration.

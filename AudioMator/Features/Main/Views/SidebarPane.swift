@@ -38,18 +38,9 @@ struct SidebarPane: View {
                     Text("No watched folders yet")
                         .foregroundStyle(.secondary)
                 } else {
-                    ForEach(viewModel.watchedFolders) { folder in
-                        watchedFolderRow(folder)
-                            .contextMenu {
-                                Button("Refresh Folder", systemImage: "arrow.clockwise") {
-                                    onRefreshWatchedFolder(folder)
-                                }
-                                Divider()
-                                Button("Remove Folder", role: .destructive) {
-                                    removeWatchedFolder(folder)
-                                }
-                            }
-                            .tag(SidebarSelection.watchedFolder(folder.id))
+                    OutlineGroup(watchedSidebarItems, children: \.children) { item in
+                        watchedSidebarRow(item)
+                            .tag(item.selection)
                     }
                 }
 
@@ -84,6 +75,31 @@ struct SidebarPane: View {
         )
     }
 
+    private var watchedSidebarItems: [WatchedSidebarItem] {
+        viewModel.watchedFolders.map { folder in
+            let childNodes = viewModel.watchedFolderHierarchies[folder.id]?.rootChildren ?? []
+            return WatchedSidebarItem(
+                selection: .watchedFolder(folder.id),
+                kind: .root(folder),
+                children: makeSubfolderItems(from: childNodes, rootFolder: folder)
+            )
+        }
+    }
+
+    private func makeSubfolderItems(
+        from nodes: [WatchedFolderNode],
+        rootFolder: WatchedFolder
+    ) -> [WatchedSidebarItem]? {
+        guard !nodes.isEmpty else { return nil }
+        return nodes.map { node in
+            WatchedSidebarItem(
+                selection: node.selection,
+                kind: .subfolder(rootFolder: rootFolder, node: node),
+                children: makeSubfolderItems(from: node.children, rootFolder: rootFolder)
+            )
+        }
+    }
+
     private func sidebarRow(
         title: String,
         systemImage: String
@@ -92,8 +108,36 @@ struct SidebarPane: View {
             .lineLimit(1)
     }
 
+    @ViewBuilder
+    private func watchedSidebarRow(_ item: WatchedSidebarItem) -> some View {
+        switch item.kind {
+        case .root(let folder):
+            watchedFolderRow(folder)
+                .contextMenu {
+                    Button("Refresh Folder", systemImage: "arrow.clockwise") {
+                        onRefreshWatchedFolder(folder)
+                    }
+                    Divider()
+                    Button("Remove Folder", role: .destructive) {
+                        removeWatchedFolder(folder)
+                    }
+                }
+        case .subfolder(let rootFolder, let node):
+            watchedSubfolderRow(node)
+                .contextMenu {
+                    Button("Refresh Folder", systemImage: "arrow.clockwise") {
+                        onRefreshWatchedFolder(rootFolder)
+                    }
+                    Divider()
+                    Button("Reveal in Finder", systemImage: "folder") {
+                        MacWorkspace.reveal([node.url])
+                    }
+                }
+        }
+    }
+
     private func watchedFolderRow(_ folder: WatchedFolder) -> some View {
-        return HStack(spacing: 8) {
+        HStack(spacing: 8) {
             Label(folder.displayName, systemImage: "folder")
                 .lineLimit(1)
 
@@ -122,7 +166,27 @@ struct SidebarPane: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func watchedSubfolderRow(_ node: WatchedFolderNode) -> some View {
+        Label(node.displayName, systemImage: "folder")
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .help(node.relativeDisplayPath)
+    }
+
     private func removeWatchedFolder(_ folder: WatchedFolder) {
         onRemoveWatchedFolder(folder)
     }
+}
+
+private struct WatchedSidebarItem: Identifiable {
+    enum Kind {
+        case root(WatchedFolder)
+        case subfolder(rootFolder: WatchedFolder, node: WatchedFolderNode)
+    }
+
+    let selection: SidebarSelection
+    let kind: Kind
+    let children: [WatchedSidebarItem]?
+
+    var id: SidebarSelection { selection }
 }

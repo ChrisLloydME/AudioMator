@@ -716,7 +716,10 @@ extension AudioViewModel {
         quickImportFilesByID.removeAll()
         revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
         prunePendingReplacementFileReviews(removingIDs: removedFileIDs)
-        activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
+        let resolvedSelection = normalizedSidebarSelection(activeSidebarSelection)
+        if activeSidebarSelection != resolvedSelection {
+            activeSidebarSelection = resolvedSelection
+        }
         rebuildVisibleFiles()
     }
 

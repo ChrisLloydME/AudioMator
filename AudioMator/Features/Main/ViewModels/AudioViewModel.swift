@@ -178,6 +178,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     @Published var isReloadingSelectedFiles = false
     @Published private(set) var directoryMonitoringStatuses: [UUID: DirectoryMonitoringStatus] = [:]
+    @Published private(set) var watchedFolderHierarchies: [UUID: WatchedFolderHierarchy] = [:]
     @Published private(set) var fileAccessGrants: [FileAccessGrant] = []
     @Published private(set) var bookmarkPersistenceWarnings: [String] = []
 
@@ -213,7 +214,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     var quickImportBookkeeping: QuickImportBookkeeping
     private var watchedFolderFiles: [UUID: [AudioFile]] = [:]
     private var watchedFolderRowOffsetsByFileID: [AudioFile.ID: [UUID: [Int]]] = [:]
-    var activeSidebarSelection: SidebarSelection = .quickImport
+    @Published var activeSidebarSelection: SidebarSelection = .quickImport
     // Session-wide stable-ID promise: selecting the same path again reuses the
     // existing UUID, including after remove/clear (documented in USER_GUIDE).
     var fileIDsByKey: [String: UUID] = [:]
@@ -425,8 +426,19 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     func setSidebarSelection(_ selection: SidebarSelection?) {
-        activeSidebarSelection = normalizedSidebarSelection(selection ?? .quickImport)
+        let normalized = normalizedSidebarSelection(selection ?? .quickImport)
+        if activeSidebarSelection != normalized {
+            activeSidebarSelection = normalized
+        }
         rebuildVisibleFiles()
+    }
+
+    func watchedFolderHierarchy(for folderID: UUID) -> WatchedFolderHierarchy? {
+        watchedFolderHierarchies[folderID]
+    }
+
+    func watchedSubfolderNode(rootFolderID: UUID, relativePathKey: String) -> WatchedFolderNode? {
+        watchedFolderHierarchies[rootFolderID]?.node(forRelativePathKey: relativePathKey)
     }
 
     // MARK: - Selection and Edit Sync
@@ -1150,6 +1162,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         for id in existingIDs {
             stopWatchingFolder(id: id)
             setWatchedFolderFiles(nil, for: id)
+            watchedFolderHierarchies[id] = nil
             watchedFolderScanFailureCounts[id] = nil
             watchedFolderMetadataReadFailureCounts[id] = nil
             folderScanTokens[id] = nil
@@ -1162,7 +1175,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         revokeCommitPermitsForRemovedSourceFiles(removedFileIDs)
         prunePendingReplacementFileReviews(removingIDs: removedFileIDs)
 
-        activeSidebarSelection = normalizedSidebarSelection(activeSidebarSelection)
+        let resolvedSelection = normalizedSidebarSelection(activeSidebarSelection)
+        if activeSidebarSelection != resolvedSelection {
+            activeSidebarSelection = resolvedSelection
+        }
         rebuildVisibleFiles()
     }
 
@@ -1703,7 +1719,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         guard !Task.isCancelled, folderScanTokens[id] == scanToken else { return }
 
         let scanTask = Task.detached(priority: .utility) {
-            Self.scanFolderSnapshot(for: folder.url)
+            Self.scanFolderSnapshot(for: folder.url, folderID: id)
         }
         let snapshot = await withTaskCancellationHandler {
             await scanTask.value
@@ -1801,6 +1817,9 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
                 ?? previousFilesByKey[entry.key]
         }
         setWatchedFolderFiles(refreshedList, for: id)
+        if watchedFolderHierarchies[id] != snapshot.hierarchy {
+            watchedFolderHierarchies[id] = snapshot.hierarchy
+        }
         if !newlyAcceptedFiles.isEmpty {
             syncAcceptedObservationsToOtherSources(
                 newlyAcceptedFiles,
@@ -1836,7 +1855,9 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     func rebuildVisibleFiles() {
         let selection = normalizedSidebarSelection(activeSidebarSelection)
-        activeSidebarSelection = selection
+        if activeSidebarSelection != selection {
+            activeSidebarSelection = selection
+        }
 
         let sourceFiles: [AudioFile]
         switch selection {
@@ -1846,6 +1867,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             sourceFiles = mergedWatchedFiles()
         case .watchedFolder(let id):
             sourceFiles = watchedFolderFiles[id] ?? []
+        case .watchedSubfolder(let rootFolderID, let relativePathKey):
+            sourceFiles = watchedSubfolderFiles(
+                rootFolderID: rootFolderID,
+                relativePathKey: relativePathKey
+            )
         }
 
         files = sourceFiles.map { applyingRecoveryProjection($0) }
@@ -1921,10 +1947,48 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
                 return selection
             }
             return .watchedLibrary
+        case .watchedSubfolder(let rootFolderID, let relativePathKey):
+            guard watchedFolders.contains(where: { $0.id == rootFolderID }) else {
+                return .watchedLibrary
+            }
+            guard let hierarchy = watchedFolderHierarchies[rootFolderID] else {
+                return selection
+            }
+            return hierarchy.nearestSurvivingSelection(for: relativePathKey)
         case .watchedLibrary:
             return .watchedLibrary
         case .quickImport:
             return .quickImport
+        }
+    }
+
+    private func watchedSubfolderFiles(
+        rootFolderID: UUID,
+        relativePathKey: String
+    ) -> [AudioFile] {
+        guard let folderFiles = watchedFolderFiles[rootFolderID],
+              !folderFiles.isEmpty else {
+            return []
+        }
+
+        if let hierarchy = watchedFolderHierarchies[rootFolderID] {
+            return folderFiles.filter { file in
+                hierarchy.containsFile(at: file.url, withinRelativePathKey: relativePathKey)
+            }
+        }
+
+        guard let folder = watchedFolders.first(where: { $0.id == rootFolderID }) else {
+            return []
+        }
+
+        let fallbackHierarchy = WatchedFolderHierarchy.build(
+            rootFolderID: rootFolderID,
+            rootURL: folder.url,
+            directoryURLs: [],
+            audioFileURLs: folderFiles.map(\.url)
+        )
+        return folderFiles.filter { file in
+            fallbackHierarchy.containsFile(at: file.url, withinRelativePathKey: relativePathKey)
         }
     }
 
@@ -2305,14 +2369,18 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         watchedFolderStore.saveFolders(watchedFolders)
     }
 
-    nonisolated private static func scanFolderSnapshot(for folderURL: URL) -> FolderScanSnapshot {
+    nonisolated private static func scanFolderSnapshot(
+        for folderURL: URL,
+        folderID: UUID
+    ) -> FolderScanSnapshot {
         var audioURLs: [URL] = []
         var directoryURLs: [URL] = [folderURL.standardizedFileURL]
+        var hierarchyDirectoryURLs: [URL] = [folderURL.standardizedFileURL]
         var scanFailureCount = 0
         var seenAudioKeys = Set<String>()
         var seenDirectoryKeys = Set([urlKey(for: folderURL)])
 
-        let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isRegularFileKey]
+        let resourceKeys: Set<URLResourceKey> = [.isDirectoryKey, .isPackageKey, .isRegularFileKey]
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles, .skipsPackageDescendants]
 
         guard let enumerator = FileManager.default.enumerator(
@@ -2327,6 +2395,12 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             return FolderScanSnapshot(
                 audioURLs: audioURLs,
                 directoryURLs: directoryURLs,
+                hierarchy: WatchedFolderHierarchy.build(
+                    rootFolderID: folderID,
+                    rootURL: folderURL,
+                    directoryURLs: hierarchyDirectoryURLs,
+                    audioFileURLs: audioURLs
+                ),
                 scanFailureCount: 1
             )
         }
@@ -2344,7 +2418,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             if values.isDirectory == true {
                 let key = urlKey(for: url)
                 if seenDirectoryKeys.insert(key).inserted {
-                    directoryURLs.append(url.standardizedFileURL)
+                    let standardizedURL = url.standardizedFileURL
+                    directoryURLs.append(standardizedURL)
+                    if values.isPackage != true {
+                        hierarchyDirectoryURLs.append(standardizedURL)
+                    }
                 }
                 continue
             }
@@ -2360,9 +2438,17 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         audioURLs.sort(by: compareURLs)
         directoryURLs.sort(by: compareURLs)
 
+        let hierarchy = WatchedFolderHierarchy.build(
+            rootFolderID: folderID,
+            rootURL: folderURL,
+            directoryURLs: hierarchyDirectoryURLs,
+            audioFileURLs: audioURLs
+        )
+
         return FolderScanSnapshot(
             audioURLs: audioURLs,
             directoryURLs: directoryURLs,
+            hierarchy: hierarchy,
             scanFailureCount: scanFailureCount
         )
     }
@@ -2422,6 +2508,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 private struct FolderScanSnapshot {
     let audioURLs: [URL]
     let directoryURLs: [URL]
+    let hierarchy: WatchedFolderHierarchy
     let scanFailureCount: Int
 }
 

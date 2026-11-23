@@ -9,44 +9,54 @@ nonisolated enum SidebarSelection: Hashable, Sendable {
     case quickImport
     case watchedLibrary
     case watchedFolder(UUID)
+    case watchedSubfolder(rootFolderID: UUID, relativePathKey: String)
 
     var sourceMode: FileSourceMode {
         switch self {
         case .quickImport:
             return .quickImport
-        case .watchedLibrary, .watchedFolder:
+        case .watchedLibrary, .watchedFolder, .watchedSubfolder:
             return .watchedFolders
+        }
+    }
+
+    var watchedRootFolderID: UUID? {
+        switch self {
+        case .quickImport, .watchedLibrary:
+            return nil
+        case .watchedFolder(let id), .watchedSubfolder(let id, _):
+            return id
         }
     }
 }
 
-struct WatchedFolderRecord: Codable, Identifiable {
+nonisolated struct WatchedFolderRecord: Codable, Identifiable, Sendable {
     let id: UUID
     let displayName: String
     let bookmarkData: Data
 }
 
-struct WatchedFolder: Identifiable, Equatable {
-    let id: UUID
-    let displayName: String
-    let url: URL
-    let bookmarkData: Data
-}
-
-struct FileAccessGrantRecord: Codable, Identifiable {
-    let id: UUID
-    let displayName: String
-    let bookmarkData: Data
-}
-
-struct FileAccessGrant: Identifiable, Equatable {
+nonisolated struct WatchedFolder: Identifiable, Equatable, Sendable {
     let id: UUID
     let displayName: String
     let url: URL
     let bookmarkData: Data
 }
 
-enum FileAccessAuthorizationOutcome: Equatable {
+nonisolated struct FileAccessGrantRecord: Codable, Identifiable, Sendable {
+    let id: UUID
+    let displayName: String
+    let bookmarkData: Data
+}
+
+nonisolated struct FileAccessGrant: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let displayName: String
+    let url: URL
+    let bookmarkData: Data
+}
+
+nonisolated enum FileAccessAuthorizationOutcome: Equatable, Sendable {
     case authorized(path: String)
     case cancelled
     case failure(String)

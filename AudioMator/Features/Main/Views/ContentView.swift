@@ -81,7 +81,7 @@ struct ContentView: View {
                 }
             }
             .onAppear {
-                viewModel.setSidebarSelection(state.selectedSidebarItem)
+                Self.commitSidebarSelection(state.selectedSidebarItem, using: viewModel, state: state)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 Task { await viewModel.refreshSelectedFilesAfterActivation() }
@@ -90,8 +90,10 @@ struct ContentView: View {
                 guard shouldPresentWelcomeSplashOnLaunch, !isWelcomeSplashPresented else { return }
                 isWelcomeSplashPresented = true
             }
-            .onChange(of: state.selectedSidebarItem) { _, newSelection in
-                viewModel.setSidebarSelection(newSelection)
+            .onChange(of: viewModel.activeSidebarSelection) { _, resolvedSelection in
+                if state.selectedSidebarItem != resolvedSelection {
+                    state.selectedSidebarItem = resolvedSelection
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .showWelcomeSplash)) { _ in
                 guard !isWelcomeSplashPresented else { return }
@@ -300,7 +302,19 @@ struct ContentView: View {
             requestDiscardConfirmation: presentUnsavedInspectorDiscardAlert,
             discardInspectorEdits: discardInspectorEditsIfNeeded
         ) {
-            state.selectedSidebarItem = newSelection
+            Self.commitSidebarSelection(newSelection, using: viewModel, state: state)
+        }
+    }
+
+    static func commitSidebarSelection(
+        _ selection: SidebarSelection?,
+        using viewModel: AudioViewModel,
+        state: SharedState
+    ) {
+        viewModel.setSidebarSelection(selection)
+        let resolvedSelection = viewModel.activeSidebarSelection
+        if state.selectedSidebarItem != resolvedSelection {
+            state.selectedSidebarItem = resolvedSelection
         }
     }
 
@@ -341,7 +355,7 @@ struct ContentView: View {
 
     private func watchedFolderRemovalCanAffectInspectorSelection(_ folder: WatchedFolder) -> Bool {
         switch state.selectedSidebarItem {
-        case .watchedFolder(let id):
+        case .watchedFolder(let id), .watchedSubfolder(let id, _):
             return id == folder.id
         case .watchedLibrary:
             return viewModel.files.contains { file in
@@ -354,10 +368,12 @@ struct ContentView: View {
     }
 
     private func removeWatchedFolderAndUpdateSelection(id: UUID) {
+        let wasViewingRemovedFolder = state.selectedSidebarItem?.watchedRootFolderID == id
         viewModel.removeWatchedFolder(id: id)
 
-        if state.selectedSidebarItem == .watchedFolder(id) {
-            state.selectedSidebarItem = viewModel.watchedFolders.isEmpty ? .quickImport : .watchedLibrary
+        if wasViewingRemovedFolder {
+            let nextSelection: SidebarSelection = viewModel.watchedFolders.isEmpty ? .quickImport : .watchedLibrary
+            Self.commitSidebarSelection(nextSelection, using: viewModel, state: state)
         }
     }
 

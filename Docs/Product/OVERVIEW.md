@@ -27,7 +27,7 @@ The following features are implemented in the repository. Format-specific capabi
 | Feature | What it does | Primary implementation |
 | --- | --- | --- |
 | Quick Import | Loads selected files into a session-only Current Session list. | `AudioViewModel.importQuickFiles`, `AudioViewModel+Import.swift` |
-| Watched folders | Persists security-scoped folder access and refreshes contents on directory events and app activation. | `WatchedFolderStore`, `DirectoryMonitor`, `AudioViewModel` |
+| Watched folders | Persists security-scoped folder access, browses on-disk subfolder hierarchies in the sidebar, and refreshes contents on directory events and app activation. | `WatchedFolderStore`, `WatchedFolderHierarchy`, `DirectoryMonitor`, `AudioViewModel` |
 | Three-pane main window | Sidebar sources, sortable/editable middle list, and Inspector. | `Features/Main` |
 | Inspector editing | Edits curated common fields and artwork for one or many selected files. | `InspectorPane`, `SingleFileEditModel`, `MultiFileEditModel` |
 | Metadata Editor | Edits the TagLib PropertyMap projection as ordered value lists. | `Features/MetadataEditor` |

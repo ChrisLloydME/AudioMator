@@ -141,7 +141,7 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 | TagLibAudioMetadata | `TagLibAudioMetadata-MIT.txt` | MIT |
 | utf8-cpp (utfcpp) | `utfcpp-Boost-1.0.txt` | Boost Software License 1.0 |
 
-Before distribution, a maintainer must confirm those five files are present in the Release app's `Contents/Resources` directory. No committed script checks resources; `scripts/validate-macos-artifact.sh` checks only minimum OS and Mach-O platform. The in-app Acknowledgements sheet loads the texts by resource name and shows a visible fallback if a text is missing.
+The release artifact gate checks that all five files are present and non-empty in `Contents/Resources`. The in-app Acknowledgements sheet loads the texts by resource name and shows a fallback when a text is missing. Verify that the shipped app opens each license during manual acceptance.
 
 The published 0.8.2 package manifest retains the checksum-pinned TagLib 2.3.1 revision 2 asset. The bundled license texts are not byte-compared by any automated check; compare them with the published package when the dependency changes. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only by the explicit local-candidate gate, not for current validation.
 

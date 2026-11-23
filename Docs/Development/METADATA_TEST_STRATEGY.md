@@ -24,7 +24,7 @@ This is not a claim of the full field × format × tag-version product. AIFF bey
 
 ## Release gate
 
-Run `bash scripts/validate-release.sh` with stable Xcode at `/Applications/Xcode.app`. The script runs core tests, all serial app-hosted tests, rejects skipped app tests, builds unsigned Release and audits the macOS artifact. All Xcode outputs use `.deriveddata-codex`. Each run keeps logs and an `.xcresult` under `.deriveddata-codex/Validation`; successful test execution also produces a machine-readable summary. A failed phase stops release validation. No filter, expected failure or skip is allowed to hide a reproduced mapping defect.
+Run `bash scripts/validate-release.sh` with stable Xcode at `/Applications/Xcode.app`. The gate checks documentation links, runs policy tests, and verifies the complete core and serial app-hosted test inventories. The standard lane uses the committed package lock. The gate then builds unsigned Release from clean build products and checks the bundle identifier, universal app and TagLib binaries, macOS Mach-O platform and deployment versions, and five non-empty license files. A failed phase stops validation. Evidence under `.deriveddata-codex/Validation/` includes logs, the `.xcresult`, and machine-readable test results. See [Testing](TESTING.md#release-gate-evidence) for the exact execution requirements.
 
 CI invokes the same gate and uploads its evidence even on failure. Uploads contain test evidence, not a distributable release. Maintainer UI acceptance, signing, notarization and publication remain separate.
 

@@ -542,23 +542,73 @@ nonisolated final class TagLibReadWriteIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testMP4RawMetadataDumpReportsEmbeddedCoverSize() throws {
+    func testMP4RawMetadataDumpReportsEmbeddedCoverSize() async throws {
         let workingURL = try makeWritableCopy(of: bundledAudioFixtureURL(named: "testAudioFile.m4a"))
         defer { removeTemporaryFixtureDirectory(containing: workingURL) }
+        let pipeline = TagLibAudioMetadataPipeline()
 
-        let artworkData = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        func coverLines() throws -> [String] {
+            let text = try XCTUnwrap(pipeline.rawMetadataDumpText(for: workingURL))
+            let lines = text.components(separatedBy: .newlines)
+            guard let header = lines.firstIndex(of: "[MP4 ItemMap]") else { return [] }
+            return lines.dropFirst(header + 1)
+                .prefix { !$0.isEmpty }
+                .filter { $0.hasPrefix("covr =") }
+        }
+
+        let untouched = try await pipeline.loadAudioFile(at: workingURL, id: UUID())
+        XCTAssertNil(untouched.artworkData)
+        XCTAssertTrue(try coverLines().isEmpty)
+
+        let jpeg = try Data(contentsOf: bundledArtworkFixtureURL(named: "testCover.jpg"))
+        let png = try ArtworkImageNormalizer.normalizedPNGData(from: jpeg, maximumPixelDimension: 32)
         _ = try TagLibMetadataManager.applyMetadataPatch(
-            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: artworkData)])),
+            MetadataPatch(artwork: .replace([StructuredArtwork(mimeType: "image/jpeg", data: jpeg)])),
             to: workingURL
         )
+        XCTAssertEqual(try coverLines(), ["covr = <CoverArt: 1 image, \(jpeg.count) bytes>"])
 
-        let text = try XCTUnwrap(TagLibAudioMetadataPipeline().rawMetadataDumpText(for: workingURL))
-        let lines = text.components(separatedBy: .newlines)
-        let header = try XCTUnwrap(lines.firstIndex(of: "[MP4 ItemMap]"))
-        let coverLines = lines.dropFirst(header + 1)
-            .prefix { !$0.isEmpty }
-            .filter { $0.hasPrefix("covr =") }
-        XCTAssertEqual(coverLines, ["covr = <CoverArt: 1 image, \(artworkData.count) bytes>"])
+        _ = try TagLibMetadataManager.applyMetadataPatch(
+            MetadataPatch(artwork: .replace([
+                StructuredArtwork(mimeType: "image/jpeg", data: jpeg),
+                StructuredArtwork(mimeType: "image/png", data: png),
+            ])),
+            to: workingURL
+        )
+        let expectedLines = ["covr = <CoverArt: 2 images, \(jpeg.count) bytes, \(png.count) bytes>"]
+
+        func checkCovers() async throws -> AudioFile {
+            XCTAssertEqual(try coverLines(), expectedLines)
+            let file = try await pipeline.loadAudioFile(at: workingURL, id: untouched.id)
+            XCTAssertEqual(file.artworkData, jpeg)
+            let artwork = try pipeline.conflictSnapshot(for: workingURL).structured.artwork
+            XCTAssertEqual(artwork.map(\.data), [jpeg, png])
+            return file
+        }
+
+        let withCovers = try await checkCovers()
+        var edit = SingleFileEditModel(from: withCovers)
+        edit.title = "Unrelated semantic title"
+        _ = try pipeline.writeMetadata(
+            MetadataEditPayload(edit, comparedTo: withCovers),
+            to: workingURL,
+            expectedVersion: withCovers.metadataFileVersion
+        )
+        let afterSemantic = try await checkCovers()
+        XCTAssertEqual(afterSemantic.title, edit.title)
+
+        _ = try pipeline.writeRawMetadataPatch(
+            RawMetadataPatch(valuesToSet: ["ARTIST": ["Unrelated raw artist"]]),
+            to: workingURL,
+            expectedVersion: afterSemantic.metadataFileVersion
+        )
+        let afterRaw = try await checkCovers()
+        XCTAssertEqual(afterRaw.artist, "Unrelated raw artist")
+
+        _ = try TagLibMetadataManager.applyMetadataPatch(MetadataPatch(artwork: .removeAll), to: workingURL)
+        XCTAssertTrue(try coverLines().isEmpty)
+        let cleared = try await pipeline.loadAudioFile(at: workingURL, id: untouched.id)
+        XCTAssertNil(cleared.artworkData)
     }
 
     @MainActor

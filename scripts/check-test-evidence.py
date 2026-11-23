@@ -9,7 +9,29 @@ import json
 from pathlib import Path
 import re
 
+APP_TEST_FLOOR = 1094
+CORE_TEST_FLOOR = 130
+
 CRITICAL = {
+    'WatchedFolderHierarchyWorkflowTests/testAliasImportKeepsWatchedSubfolderMembershipAndRefreshPreservesDirtyDraft()',
+    'InspectorInteractionTests/testTrackpadMayBeginBalancingMicroJitterAndNoStaleLeak()',
+    'InspectorInteractionTests/testInlineDoubleClickHandoffPromotesOnlyRapidUntouchedSameSpotClick()',
+    'InspectorInteractionTests/testQuickEditCommitDecisionProtectsUntouchedMixedAndRejectsStaleScope()',
+    'InspectorInteractionTests/testActiveInspectorDraftScopeSurvivesCleanRefreshAndInvalidatesOnCancelSelectionOrPendingReview()',
+    'InspectorInteractionTests/testEscapeRevertRestoresPairedNumbersAndUntouchedMixedWithoutLosingUnrelatedDraftEdits()',
+    'InspectorInteractionTests/testMultiEditBindingGuardPreservesUntouchedMixedClearWhileSkippingNoOpSharedWrites()',
+    'InspectorInteractionTests/testFindAndReplacePreviewFitsFullWidthAndHeightInHostingView()',
+    'NativeDateTimePickerIntegrationTests/testDirectTypedCSVTextAndFilenameValuesReachWriterWithoutDateRewriting()',
+    'NativeDateTimePickerIntegrationTests/testInspectorDatePickerRejectsStaleApplyAfterSameSessionCleanRefreshAndNormalApplyStagesWithoutSaving()',
+    'NativeDateTimePickerIntegrationTests/testInspectorSaveKeepsSingleDateRejectionUnderPreferDiskChanges()',
+    'NativeDateTimePickerIntegrationTests/testInspectorSaveTreatsWrappedFilesystemFailuresAsFileLevel()',
+    'NativeDateTimePickerIntegrationTests/testInspectorSaveDoesNotAttributeMultiFieldRejectionsToDiscardedOrUnidentifiedFields()',
+    'NativeDateTimePickerIntegrationTests/testWriteFailureFieldBoundariesTreatEachEndOfMixedScriptLabelsIndependently()',
+    'FilenameMetadataTemplateTests/testFilenameMetadataPlanFlagsAmbiguousFreeformDateSplitWithoutWriting()',
+    'FilenameMetadataTemplateTests/testFilenameMetadataPlanDistinguishesPlainNonMatchFromAmbiguity()',
+    'MetadataFieldGuideTests/testSourceURLPathsContainNoWhitespaceOrControlCharacters()',
+    'TagLibReadWriteIntegrationTests/testMP4RawMetadataDumpReportsEmbeddedCoverSize()',
+
     'MetadataEditorDraftRowsTests/testFieldLabelsKeepRawKeysAndIndependentDateMeanings()',
     'MetadataEditorDraftRowsTests/testSuggestionsUseSharedNamesPurposesAndSeparateDisplayFromStorage()',
     'MetadataEditorStoreTests/testFriendlyNamesNeverRedirectExistingRawDateOrAliasKeys()',
@@ -48,6 +70,16 @@ CRITICAL = {
     'MappingPackageConformanceTests/testAppMP4CommentPreservesAbsentYearWithStandaloneDate()',
 }
 
+CORE_CRITICAL = {
+    'AudioMatorCoreLogicTests/testFilenameMetadataMatcherRejectsAmbiguousLiteralSeparatedFields()',
+    'MetadataDateTimeCoreTests/testDSTHourPrecisionKeepsBothNewYorkOccurrencesToggleable()',
+    'MetadataDateTimeCoreTests/testDSTHourPrecisionOffersMinutesWhenRoundingWouldCrossStJohnsTransition()',
+    'MetadataDateTimeCoreTests/testDSTHourPrecisionSpringForwardKeepsChoicesWithoutDuplicateUTCPreviews()',
+    'MetadataDateTimeCoreTests/testFractionalSecondsPreservedOnNoOpApplyAndZoneSwitchAndDroppedOnExplicitReduction()',
+    'MetadataDateTimeCoreTests/testLongFractionalSecondsKeepTheirWholeSecondAtTheUTCYearLimit()',
+    'MetadataDateTimeCoreTests/testWriteFailureFieldAnnotationDistinguishesDateFromUpdateAndCompoundDateLabels()',
+}
+
 
 def inventory(root):
     result = set()
@@ -79,13 +111,16 @@ def assess_core(log, expected, runner_status):
     passed = re.findall(r"Test Case '-\[([^\]\s]+) (test\w+)\]' passed", log)
     names = [owner.split('.')[-1] + '/' + method + '()' for owner, method in passed]
     summaries = re.findall(r'Executed (\d+) tests, with (\d+) failures', log)
-    accepted = (runner_status == 0 and len(expected) >= 62 and set(names) == expected
+    missing_critical = CORE_CRITICAL - expected
+    accepted = (runner_status == 0 and len(expected) >= CORE_TEST_FLOOR and not missing_critical
+        and set(names) == expected
         and len(names) == len(expected) and bool(summaries)
         and int(summaries[-1][0]) == len(expected)
         and all(int(failures) == 0 for _, failures in summaries)
         and not re.search(r"Test Case '.+' (?:failed|skipped)", log))
     return {'accepted': bool(accepted), 'expected': len(expected), 'executed': len(names),
-            'missing': sorted(expected - set(names)), 'unexpected': sorted(set(names) - expected)}
+            'missing': sorted(expected - set(names)), 'unexpected': sorted(set(names) - expected),
+            'missingCritical': sorted(missing_critical)}
 
 
 def assess(summary, tree, expected, runner_status):
@@ -97,7 +132,7 @@ def assess(summary, tree, expected, runner_status):
         reasons.append('Nonzero test runner status')
     if not CRITICAL <= expected:
         reasons.append('Critical tests removed from source inventory')
-    if len(expected) < 579:
+    if len(expected) < APP_TEST_FLOOR:
         reasons.append('Source inventory shrank below reviewed baseline')
     if actual != expected:
         reasons.append('Executed identities do not equal the complete source inventory')

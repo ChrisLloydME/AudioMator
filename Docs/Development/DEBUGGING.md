@@ -22,7 +22,7 @@ The helper records the `xcodebuild` and log-capture statuses independently. A fa
 .deriveddata-codex/Validation/<YYYYMMDD-HHMMSS>-<pid>/
 ```
 
-A run records `source.txt` (source identity), `policy.log`, `core.log`, `core-gate.json`, `app.log`, `AppTests.xcresult`, `test-summary.json`, `test-tree.json`, `test-gate.json`, `release.log`, and `artifact.log` as the phases execute. Inspect these when a gate fails; the script tails the failing log. `--tests-only` skips `release.log` and `artifact.log`.
+A run records `source.txt` (source identity and hashes), `docs.log`, `policy.log`, `core.log`, `core-gate.json`, `app.log`, `AppTests.xcresult`, `test-summary.json`, `test-tree.json`, `test-gate.json`, `release.log`, and `artifact.log` as the phases execute. Inspect these when a gate fails. `--tests-only` skips `release.log` and `artifact.log`.
 
 ### Focused tests
 

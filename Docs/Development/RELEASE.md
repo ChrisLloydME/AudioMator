@@ -1,6 +1,6 @@
 # Release Engineering
 
-This document describes the release process that exists in the repository and clearly separates implemented automation from manual or missing steps. Values were verified by source inspection on 2026-11-18; no build, archive, signing, or notarization was performed for this audit.
+This document describes the repository's release gate and the maintainer steps for distribution.
 
 ## What Is Implemented
 
@@ -10,7 +10,7 @@ This document describes the release process that exists in the repository and cl
 | Unsigned Debug/Release build | Implemented; `scripts/validate-release.sh` builds unsigned Release |
 | Unsigned Xcode Archive | Not part of the current gate; last recorded with published 0.8.0 ([historical evidence](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive)) |
 | Unsigned app-hosted test run in CI | Implemented |
-| Minimum-OS/Mach-O validation script | Implemented |
+| Release artifact validation | Checks bundle ID, macOS deployment versions, Mach-O platforms, universal app and TagLib binaries, and bundled licenses |
 | Signed/notarized archive creation | **Not implemented** |
 | DMG/PKG/installer packaging | **Not implemented** |
 | GitHub Release creation or asset upload | **Not implemented** |
@@ -28,7 +28,7 @@ There is one CI workflow, `Validation`. It uploads test logs and `.xcresult` evi
 | Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `26112` in both app configurations |
 | Release tag | GitHub Releases, in the form `V<version>B<build>` | Local tag `V2.7B26112` exists at `9599e016` (2026-11-12) |
 
-Current values are also recorded in [Configuration](../Reference/CONFIGURATION.md); verify them in `AudioMator.xcodeproj/project.pbxproj` before a release. The current project values match the local tag `V2.7B26112` (its tagged project also declares `2.7`/`26112`); `git describe` reports 92 commits since that tag, and remote tag presence was not checked. A new publication therefore needs a maintainer decision on new `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` values and a tag that does not already exist.
+Verify the project values and the tag before a release. The current values match the existing local tag `V2.7B26112`. Choose new release version/build values and an unused tag before publishing. See [Configuration](../Reference/CONFIGURATION.md).
 
 The in-app update checker:
 
@@ -46,7 +46,7 @@ Both Debug and Release currently share the same marketing/build values but use d
 The following steps are the minimum supported procedure. The repository implements the build, gate, and artifact checks; signing, notarization, packaging, publication, and UI acceptance remain manual.
 
 1. **Choose the version and build.** Edit `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in both app target configurations, and confirm the Release bundle ID. Do not reuse an existing published tag.
-2. **Run the unified gate.** `bash scripts/validate-release.sh` runs the policy tests (29 at this revision), 97 core tests, the complete serial app-hosted suite (1010 source-declared tests at this revision), an unsigned Release build, and artifact validation, and records evidence under `.deriveddata-codex/Validation/`.
+2. **Run the unified gate.** `bash scripts/validate-release.sh` checks documentation links, runs the policy, core and full serial app-hosted suites, then validates an unsigned Release app from a clean build using the committed package lock. Evidence is stored under `.deriveddata-codex/Validation/`. See [Testing](TESTING.md#release-gate-evidence) for the reviewed test inventories.
 3. **Smoke test on temporary copies.** Verify import, read, single/batch edit, save, reload, rename, renumber, metadata/filename conversion, and failure reporting. Manual.
 4. **Sign.** Sign the app and embedded frameworks with a Developer ID identity, preserving hardened runtime and entitlements. Not automated and not configured in the repository.
 5. **Notarize and staple.** Submit to Apple's notary service and staple the ticket. Not automated and not verified in this repository.
@@ -78,7 +78,7 @@ The repository does not include a certificate, provisioning profile, export opti
 `.github/workflows/core-logic.yml` (`Validation`):
 
 - runs `swift test` (15-minute timeout),
-- runs `bash scripts/validate-release.sh` (45-minute timeout), which includes the complete serial app-hosted suite, unsigned Release build, and `scripts/validate-macos-artifact.sh`,
+- runs `bash scripts/validate-release.sh` (45-minute timeout), which includes the docs check, the complete serial app-hosted suite, the clean unsigned Release build, and `scripts/validate-macos-artifact.sh`,
 - uploads `.deriveddata-codex/Validation/` evidence with `actions/upload-artifact`, including on failure.
 
 It has read-only repository permissions, no release secrets and no release job. Passing CI does not produce a distributable app.
@@ -86,7 +86,7 @@ It has read-only repository permissions, no release secrets and no release job. 
 ## Compatibility Checks
 
 - Deployment target: macOS 15.0. The validation script enforces that the bundle's `LSMinimumSystemVersion` equals 15.0 and that no Mach-O in the bundle declares a higher minimum.
-- Architecture: the last recorded unsigned Release build produced a universal executable (`x86_64` and `arm64`), but that was an earlier dependency revision. The validation script does not check architectures, so verify with `lipo -info` if that matters.
+- Architecture: the validator requires `arm64` and `x86_64` in both the main executable and `TagLibAudioMetadataTagLib` framework binary. Every embedded Mach-O must target macOS.
 - Package: exact `TagLibAudioMetadata` 0.8.2 pin (revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`). A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27.2 stable toolchain; Swift 5 language mode with complete strict concurrency.
 
@@ -127,7 +127,7 @@ There is no Dependabot/Renovate configuration and no automated dependency update
 
 Before distribution, verify the legal paperwork that ships inside the app:
 
-- The built app's `Contents/Resources` contains `AudioMator-AGPL-3.0.txt`, `TagLib-LGPL-2.1.txt`, `TagLib-MPL-1.1.txt`, `TagLibAudioMetadata-MIT.txt`, and `utfcpp-Boost-1.0.txt`. The current Debug build product has these five files at the top level; the Release bundle must be checked manually, because `validate-macos-artifact.sh` does not inspect resources.
+- `validate-macos-artifact.sh` checks that the five [bundled license files](../THIRD_PARTY_NOTICES.md) are present and non-empty in the Release app's `Contents/Resources` directory.
 - Settings → About → Acknowledgements lists AudioMator, TagLib, TagLibAudioMetadata, and utf8-cpp (utfcpp), and every license button opens a non-empty text.
 - The TagLib entry names both the LGPL-2.1 and MPL-1.1 paths.
 - The acknowledged `TagLibAudioMetadata` version matches `Package.resolved`, and the acknowledged TagLib version matches the bundled framework's reported version.
@@ -151,7 +151,7 @@ Because updates are manual:
 - [ ] Version/build updated in both configurations and tag not previously published.
 - [ ] Release bundle ID confirmed.
 - [ ] `swift test` passes.
-- [ ] `bash scripts/validate-release.sh` passes (policy, core, serial app-hosted, Release build, artifact).
+- [ ] `bash scripts/validate-release.sh` passes (docs, policy, core, serial app-hosted, clean Release build, artifact).
 - [ ] Temporary-fixture smoke tests pass.
 - [ ] License and notice review above passes, including the five bundled license texts in the Release bundle.
 - [ ] In-app Acknowledgements lists every bundled component and opens every license text.

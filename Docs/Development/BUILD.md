@@ -135,7 +135,7 @@ The app-hosted test target launches the app as its test host. Always keep the se
 bash scripts/validate-release.sh
 ```
 
-This is the normal release gate. It runs the policy and crash-recovery tests, the Foundation-only core tests, the complete serial app-hosted suite, the unsigned Release build, and `validate-macos-artifact.sh`. It records source identity, logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. It never launches the app interactively.
+The release gate checks documentation links and anchors, then runs the policy and crash-recovery tests, the Foundation-only core tests and the complete serial app-hosted suite. It uses `clean build` for an unsigned Release app and runs `validate-macos-artifact.sh` on that bundle. Xcode uses the committed `Package.resolved` with `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile` in the normal lane. The gate records source identity (including hashes of tracked changes and nonignored untracked files), logs, the `.xcresult`, the test summary, the complete test tree, and acceptance JSON under `.deriveddata-codex/Validation/`. Any failed phase stops the gate. Interactive acceptance is a separate maintainer step.
 
 The local candidate form is documented under [Local package candidate gate](#local-package-candidate-gate). The test-only form is `bash scripts/validate-release.sh --tests-only`, which skips the Release build and artifact phases.
 
@@ -182,12 +182,12 @@ scripts/validate-macos-artifact.sh \
 
 The script checks:
 
-- `LSMinimumSystemVersion` exactly equals the expected value,
-- every Mach-O under `Contents` has `platform MACOS`,
-- every Mach-O has an `LC_BUILD_VERSION` minimum, and
-- every minimum is at most the expected macOS version.
+- `CFBundleIdentifier` equals `com.LloydME.AudioMator` and `LSMinimumSystemVersion` equals the requested minimum.
+- The main executable and `TagLibAudioMetadataTagLib` framework binary each contain `arm64` and `x86_64`.
+- Each Mach-O under `Contents` targets macOS and declares an `LC_BUILD_VERSION` minimum at or below the requested minimum.
+- Each of the five [bundled license files](../THIRD_PARTY_NOTICES.md) is present and non-empty in `Contents/Resources`.
 
-It does not verify signing, notarization, entitlements, architectures, bundle ID, marketing/build versions, or bundled license texts.
+Signing, notarization, entitlements, marketing/build values, and license text contents require separate verification.
 
 ## Build Settings That Affect Development
 
@@ -205,7 +205,7 @@ It does not verify signing, notarization, entitlements, architectures, bundle ID
 bash scripts/validate-release.sh --local-package /absolute/path/TagLibAudioMetadata
 ```
 
-This generates the ignored `.tmp/MappingIntegration.xcworkspace`, runs the same policy/core/app/Release/artifact phases with the candidate, and records the package commit, dirty status, diff hash, and untracked-file hashes. It does not use an alternate derived-data root. The default command still resolves the published lock; the local gate does not validate or change that remote release. Only use this form when explicitly evaluating a package candidate.
+This generates the ignored `.tmp/MappingIntegration.xcworkspace`, runs the same docs, policy, core, app, Release and artifact phases with the candidate, and records the package commit, dirty status, diff hash and untracked-file hashes. It uses `.deriveddata-codex`. Use the default command to validate the published pin and this form only when explicitly evaluating a local candidate.
 
 ## Common Build Problems
 

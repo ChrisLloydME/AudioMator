@@ -39,7 +39,7 @@ Individual components preserve a positive total when the number is cleared, seri
 
 ## Artwork
 
-Standard single-cover integration tests pass. Multi-cover write support is **not claimed**, and no workaround is installed.
+The Inspector writes a single cover. The M4A fixture verifies that unrelated semantic and raw edits preserve an existing JPEG/PNG cover pair. The test seeds both covers using the package API, and broader multi-cover layouts and role editing remain outside this coverage.
 
 A 0.5.3-era probe attempted to set two `StructuredArtwork` entries with identical JPEG payloads, picture type codes 3 and 4, and a description of `"Before"` on the second entry through the public `applyMetadataPatch` API. It failed with `verificationFailed(["Patched artwork differs after save."])`. That probe is a dated historical observation, is not part of current acceptance evidence, and does not establish a current package defect. Expected package behavior: accepted artwork input round-trips under documented normalization, or validation fails before mutation with a clear unsupported-role diagnosis.
 

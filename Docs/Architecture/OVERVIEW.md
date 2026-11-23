@@ -79,7 +79,7 @@ The allowed dependency direction and its documented exceptions are in [Dependenc
    - the Online Metadata window (`OnlineMetadataBrowserView`),
    - the Filename & Metadata window (`MetadataFilenameWindowView`),
    - the Metadata Editor window (`MetadataEditorWindowView`).
-5. Registers app-info, field-guide, sidebar, toolbar-edit, and view-layout commands, plus a Help-menu "Show Welcome Screen" action.
+5. Registers app-info, field-guide, sidebar, toolbar-edit, and view-layout commands. The field-guide command appears in the Help menu.
 
 The `AudioMatorTestHost` path substitutes temporary preferences and a temporary issue-log file so the serial XCTest host does not restore developer bookmarks. Feature views receive dependencies explicitly; there is no service locator and no feature-level singleton for metadata I/O.
 

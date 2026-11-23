@@ -244,7 +244,7 @@ This replaces the existing Comment value on those files. IDs are deterministic f
 
 Settings contains six tabs:
 
-- **General** — welcome screen on launch, warn before discarding Inspector edits, MuseAmp compatibility.
+- **General** — welcome screen on launch, **Show Now** to reopen the welcome screen, warn before discarding Inspector edits, MuseAmp compatibility.
 - **Interface** — visible toolbar buttons, list columns, and Inspector metadata fields, each with a restore action.
 - **Folders** — file-access authorizations and watched folders.
 - **Conflicts** — Inspector/Metadata Editor conflict strategy.

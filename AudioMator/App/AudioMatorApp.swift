@@ -87,14 +87,6 @@ struct AudioMatorApp: App {
             SidebarCommands()
             ToolbarEditCommands(viewModel: viewModel, sharedState: sharedState)
             ViewLayoutCommands()
-
-            CommandGroup(after: .help) {
-                Button {
-                    NotificationCenter.default.post(name: .showWelcomeSplash, object: nil)
-                } label: {
-                    Label("Show Welcome Screen", systemImage: "sparkles.rectangle.stack")
-                }
-            }
         }
         .defaultSize(width: 1_360, height: 760)
         .windowResizability(.contentMinSize)

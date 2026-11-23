@@ -21,6 +21,8 @@ struct InspectorPane: View {
     @State private var inspectorQuickLabel: String = ""
     @State private var inspectorQuickText: String = ""
     @State private var inspectorQuickBinding: Binding<String>? = nil
+    @State private var inspectorQuickStartedMixed: Bool = false
+    @State private var inspectorQuickDraftScope: InspectorActiveDraftScope? = nil
     @State private var isInspectorQuickPresented: Bool = false
     @State private var photoLibraryArtworkTarget: ArtworkImportTarget?
     @State private var photoLibraryArtworkIntent: ArtworkTransferIntent?
@@ -165,8 +167,30 @@ struct InspectorPane: View {
         for field: MultiFileEditableTextField,
         in current: MultiFileEditModel
     ) -> Bool {
-        let isUntouchedMixed = current.mixedTextFields.contains(field) && !current.modifiedTextFields.contains(field)
+        let isUntouchedMixed = current.isUntouchedMixedTextField(field)
         return isUntouchedMixed || newValue != current.text(for: field)
+    }
+
+    enum QuickEditCommitDecision: Equatable {
+        case apply(String)
+        case skipUntouchedMixedClear
+        case discardStaleScope
+    }
+
+    static func quickEditCommitDecision(
+        startedMixed: Bool,
+        text: String,
+        allowClearingUntouchedMixed: Bool,
+        expectedScope: InspectorActiveDraftScope?,
+        currentScope: InspectorActiveDraftScope?
+    ) -> QuickEditCommitDecision {
+        guard let expectedScope, currentScope == expectedScope else {
+            return .discardStaleScope
+        }
+        if startedMixed && text.isEmpty && !allowClearingUntouchedMixed {
+            return .skipUntouchedMixedClear
+        }
+        return .apply(text)
     }
 
     private var multiExplicitBinding: Binding<MultiFileExplicitEditState> {
@@ -277,6 +301,11 @@ struct InspectorPane: View {
         .sheet(isPresented: $isInspectorQuickPresented) {
             inspectorQuickEditSheet
         }
+        .onChange(of: viewModel.activeInspectorDraftScope) { _, newScope in
+            if isInspectorQuickPresented, newScope != inspectorQuickDraftScope {
+                dismissInspectorQuickEdit()
+            }
+        }
         .sheet(item: artworkLookupSessionBinding) { _ in
             AlbumArtworkLookupSheet(viewModel: viewModel)
         }
@@ -334,22 +363,66 @@ struct InspectorPane: View {
             Divider()
 
             HStack(spacing: 8) {
+                if inspectorQuickStartedMixed && inspectorQuickText.isEmpty {
+                    Button("Clear for Selected Files", role: .destructive) {
+                        commitInspectorQuickEdit(allowClearingUntouchedMixed: true)
+                    }
+                }
+
                 Spacer()
 
                 Button("Cancel") {
-                    isInspectorQuickPresented = false
+                    dismissInspectorQuickEdit()
                 }
                 .keyboardShortcut(.cancelAction)
 
                 Button("Save") {
-                    inspectorQuickBinding?.wrappedValue = inspectorQuickText
-                    isInspectorQuickPresented = false
+                    commitInspectorQuickEdit()
                 }
                 .keyboardShortcut(.defaultAction)
+                .disabled(inspectorQuickStartedMixed && inspectorQuickText.isEmpty)
             }
         }
         .padding(20)
         .frame(width: 860, height: 540)
+    }
+
+    private func presentInspectorQuickEdit(
+        label: String,
+        text: Binding<String>,
+        isUntouchedMixed: Bool
+    ) {
+        guard !isInspectorQuickPresented,
+              let activeScope = viewModel.activeInspectorDraftScope else {
+            return
+        }
+        inspectorQuickLabel = label
+        inspectorQuickText = text.wrappedValue
+        inspectorQuickBinding = text
+        inspectorQuickStartedMixed = isUntouchedMixed
+        inspectorQuickDraftScope = activeScope
+        isInspectorQuickPresented = true
+    }
+
+    private func dismissInspectorQuickEdit() {
+        isInspectorQuickPresented = false
+        inspectorQuickBinding = nil
+        inspectorQuickStartedMixed = false
+        inspectorQuickDraftScope = nil
+    }
+
+    private func commitInspectorQuickEdit(allowClearingUntouchedMixed: Bool = false) {
+        let decision = Self.quickEditCommitDecision(
+            startedMixed: inspectorQuickStartedMixed,
+            text: inspectorQuickText,
+            allowClearingUntouchedMixed: allowClearingUntouchedMixed,
+            expectedScope: inspectorQuickDraftScope,
+            currentScope: viewModel.activeInspectorDraftScope
+        )
+        if case .apply(let value) = decision {
+            inspectorQuickBinding?.wrappedValue = value
+        }
+        dismissInspectorQuickEdit()
     }
 
     private func pickArtworkFromFinder(for target: ArtworkImportTarget) {
@@ -832,13 +905,29 @@ struct InspectorPane: View {
                 label: field.displayName, text: binding(for: file, keyPath: \.originalReleaseDate), dateField: field
             )
         case .trackNumber:
-            editableRow(label: field.displayName, text: trackNumberFieldBinding(for: file))
+            editableRow(
+                label: field.displayName,
+                text: trackNumberFieldBinding(for: file),
+                captureRevertSnapshot: trackPairRevertSnapshot(for: file)
+            )
         case .totalTracks:
-            editableRow(label: field.displayName, text: trackTotalFieldBinding(for: file))
+            editableRow(
+                label: field.displayName,
+                text: trackTotalFieldBinding(for: file),
+                captureRevertSnapshot: trackPairRevertSnapshot(for: file)
+            )
         case .discNumber:
-            editableRow(label: field.displayName, text: discNumberFieldBinding(for: file))
+            editableRow(
+                label: field.displayName,
+                text: discNumberFieldBinding(for: file),
+                captureRevertSnapshot: discPairRevertSnapshot(for: file)
+            )
         case .totalDiscs:
-            editableRow(label: field.displayName, text: discTotalFieldBinding(for: file))
+            editableRow(
+                label: field.displayName,
+                text: discTotalFieldBinding(for: file),
+                captureRevertSnapshot: discPairRevertSnapshot(for: file)
+            )
         case .comment:
             editableRow(label: field.displayName, text: binding(for: file, keyPath: \.comment))
         case .albumArtist:
@@ -864,133 +953,90 @@ struct InspectorPane: View {
         }
     }
 
+    private func trackPairRevertSnapshot(for file: AudioFile) -> () -> (() -> Void) {
+        {
+            let snapshot = (currentEdit(for: file) ?? SingleFileEditModel(from: file)).trackPairSnapshot
+            return {
+                updateEdit(for: file) { $0.restoreTrackPair(snapshot) }
+            }
+        }
+    }
+
+    private func discPairRevertSnapshot(for file: AudioFile) -> () -> (() -> Void) {
+        {
+            let snapshot = (currentEdit(for: file) ?? SingleFileEditModel(from: file)).discPairSnapshot
+            return {
+                updateEdit(for: file) { $0.restoreDiscPair(snapshot) }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func multiEditableRow(
+        label: String,
+        field: MultiFileEditableTextField,
+        dateField: InspectorMetadataField? = nil
+    ) -> some View {
+        editableRow(
+            label: label,
+            text: multiBinding(for: field),
+            placeholder: viewModel.multiEdit?.placeholder(for: field),
+            isUntouchedMixed: viewModel.multiEdit?.isUntouchedMixedTextField(field) ?? false,
+            dateField: dateField,
+            captureRevertSnapshot: {
+                let snapshot = viewModel.multiEdit?.textFieldRevertSnapshot(for: field)
+                return {
+                    guard let snapshot, var current = viewModel.multiEdit else { return }
+                    current.restoreTextField(snapshot)
+                    viewModel.multiEdit = current
+                }
+            }
+        )
+    }
+
     @ViewBuilder
     private func multiMetadataFieldRow(_ field: InspectorMetadataField, merged: MergedAudioFile) -> some View {
         switch field {
         case .title:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .title),
-                placeholder: viewModel.multiEdit?.placeholder(for: .title)
-            )
+            multiEditableRow(label: field.displayName, field: .title)
         case .artist:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .artist),
-                placeholder: viewModel.multiEdit?.placeholder(for: .artist)
-            )
+            multiEditableRow(label: field.displayName, field: .artist)
         case .album:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .album),
-                placeholder: viewModel.multiEdit?.placeholder(for: .album)
-            )
+            multiEditableRow(label: field.displayName, field: .album)
         case .composer:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .composer),
-                placeholder: viewModel.multiEdit?.placeholder(for: .composer)
-            )
+            multiEditableRow(label: field.displayName, field: .composer)
         case .genre:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .genre),
-                placeholder: viewModel.multiEdit?.placeholder(for: .genre)
-            )
+            multiEditableRow(label: field.displayName, field: .genre)
         case .year:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .year),
-                placeholder: viewModel.multiEdit?.placeholder(for: .year),
-                dateField: field
-            )
+            multiEditableRow(label: field.displayName, field: .year, dateField: field)
         case .date:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .date),
-                placeholder: viewModel.multiEdit?.placeholder(for: .date),
-                dateField: field
-            )
+            multiEditableRow(label: field.displayName, field: .date, dateField: field)
         case .releaseDate:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .releaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .releaseDate),
-                dateField: field
-            )
+            multiEditableRow(label: field.displayName, field: .releaseDate, dateField: field)
         case .originalReleaseDate:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .originalReleaseDate),
-                placeholder: viewModel.multiEdit?.placeholder(for: .originalReleaseDate),
-                dateField: field
-            )
+            multiEditableRow(label: field.displayName, field: .originalReleaseDate, dateField: field)
         case .trackNumber:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .trackNumber),
-                placeholder: viewModel.multiEdit?.placeholder(for: .trackNumber)
-            )
+            multiEditableRow(label: field.displayName, field: .trackNumber)
         case .totalTracks:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .trackTotal),
-                placeholder: viewModel.multiEdit?.placeholder(for: .trackTotal)
-            )
+            multiEditableRow(label: field.displayName, field: .trackTotal)
         case .discNumber:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .discNumber),
-                placeholder: viewModel.multiEdit?.placeholder(for: .discNumber)
-            )
+            multiEditableRow(label: field.displayName, field: .discNumber)
         case .totalDiscs:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .discTotal),
-                placeholder: viewModel.multiEdit?.placeholder(for: .discTotal)
-            )
+            multiEditableRow(label: field.displayName, field: .discTotal)
         case .comment:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .comment),
-                placeholder: viewModel.multiEdit?.placeholder(for: .comment)
-            )
+            multiEditableRow(label: field.displayName, field: .comment)
         case .albumArtist:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .albumArtist),
-                placeholder: viewModel.multiEdit?.placeholder(for: .albumArtist)
-            )
+            multiEditableRow(label: field.displayName, field: .albumArtist)
         case .contentGroup:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .contentGroup),
-                placeholder: viewModel.multiEdit?.placeholder(for: .contentGroup)
-            )
+            multiEditableRow(label: field.displayName, field: .contentGroup)
         case .grouping:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .grouping),
-                placeholder: viewModel.multiEdit?.placeholder(for: .grouping)
-            )
+            multiEditableRow(label: field.displayName, field: .grouping)
         case .work:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .work),
-                placeholder: viewModel.multiEdit?.placeholder(for: .work)
-            )
+            multiEditableRow(label: field.displayName, field: .work)
         case .publisher:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .publisher),
-                placeholder: viewModel.multiEdit?.placeholder(for: .publisher)
-            )
+            multiEditableRow(label: field.displayName, field: .publisher)
         case .copyright:
-            editableRow(
-                label: field.displayName,
-                text: multiBinding(for: .copyright),
-                placeholder: viewModel.multiEdit?.placeholder(for: .copyright)
-            )
+            multiEditableRow(label: field.displayName, field: .copyright)
         case .explicit:
             multiExplicitRow(
                 label: field.displayName,
@@ -1090,18 +1136,26 @@ struct InspectorPane: View {
         label: String,
         text: Binding<String>,
         placeholder: String? = nil,
-        dateField: InspectorMetadataField? = nil
+        isUntouchedMixed: Bool = false,
+        dateField: InspectorMetadataField? = nil,
+        captureRevertSnapshot: (() -> (() -> Void))? = nil
     ) -> some View {
         HStack(alignment: .center, spacing: 12) {
             Text(label)
                 .font(.headline)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
-            InspectorEditableValueField(text: text, placeholder: placeholder) {
-                inspectorQuickLabel = label
-                inspectorQuickText = text.wrappedValue
-                inspectorQuickBinding = text
-                isInspectorQuickPresented = true
+            InspectorEditableValueField(
+                text: text,
+                placeholder: placeholder,
+                activeScope: viewModel.activeInspectorDraftScope,
+                captureRevertSnapshot: captureRevertSnapshot
+            ) {
+                presentInspectorQuickEdit(
+                    label: label,
+                    text: text,
+                    isUntouchedMixed: isUntouchedMixed
+                )
             }
             .frame(maxWidth: .infinity, minHeight: inspectorRowContentHeight, alignment: .trailing)
             if let dateField {
@@ -1110,10 +1164,11 @@ struct InspectorPane: View {
         }
         .contentShape(Rectangle())
         .onTapGesture(count: 2) {
-            inspectorQuickLabel = label
-            inspectorQuickText = text.wrappedValue
-            inspectorQuickBinding = text
-            isInspectorQuickPresented = true
+            presentInspectorQuickEdit(
+                label: label,
+                text: text,
+                isUntouchedMixed: isUntouchedMixed
+            )
         }
         .padding(.vertical, inspectorRowVerticalPadding)
     }
@@ -1237,13 +1292,78 @@ struct FlexibleScrollableInspectorValueText: View {
     }
 }
 
+struct InspectorInlineDoubleClickHandoff: Equatable {
+    struct Anchor: Equatable {
+        let timestamp: TimeInterval
+        let windowNumber: Int
+        let locationInWindow: CGPoint
+    }
+
+    private(set) var anchor: Anchor?
+
+    static let maximumDistance: CGFloat = 6
+
+    mutating func begin(
+        at timestamp: TimeInterval,
+        windowNumber: Int,
+        locationInWindow: CGPoint
+    ) {
+        anchor = Anchor(
+            timestamp: timestamp,
+            windowNumber: windowNumber,
+            locationInWindow: locationInWindow
+        )
+    }
+
+    mutating func reset() {
+        anchor = nil
+    }
+
+    /// Evaluates a subsequent left-mouse-down while inline editing is active
+    /// and untouched. Always disarms once evaluated.
+    mutating func consumeLeftMouseDown(
+        clickCount: Int,
+        timestamp: TimeInterval,
+        windowNumber: Int,
+        locationInWindow: CGPoint,
+        doubleClickInterval: TimeInterval,
+        hasMutated: Bool
+    ) -> Bool {
+        defer { anchor = nil }
+        guard !hasMutated,
+              let anchor,
+              clickCount >= 2,
+              windowNumber == anchor.windowNumber else {
+            return false
+        }
+
+        let elapsed = timestamp - anchor.timestamp
+        guard elapsed >= 0, elapsed <= doubleClickInterval else {
+            return false
+        }
+
+        let distance = hypot(
+            locationInWindow.x - anchor.locationInWindow.x,
+            locationInWindow.y - anchor.locationInWindow.y
+        )
+        return distance <= Self.maximumDistance
+    }
+}
+
 struct InspectorEditableValueField: View {
     @Binding var text: String
     var placeholder: String? = nil
+    var activeScope: InspectorActiveDraftScope? = nil
+    var captureRevertSnapshot: (() -> (() -> Void))? = nil
     let onDoubleClick: () -> Void
 
     @FocusState private var isFocused: Bool
     @State private var isEditing = false
+    @State private var editingScope: InspectorActiveDraftScope? = nil
+    @State private var revertInlineEdit: (() -> Void)? = nil
+    @State private var hasMutatedDuringSession = false
+    @State private var doubleClickHandoff = InspectorInlineDoubleClickHandoff()
+    @State private var doubleClickMonitor: Any? = nil
 
     var body: some View {
         ZStack(alignment: .trailing) {
@@ -1252,15 +1372,8 @@ struct InspectorEditableValueField: View {
                 .allowsHitTesting(!isEditing)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    isEditing = true
+                    beginInlineEditing()
                 }
-                .simultaneousGesture(
-                    TapGesture(count: 2)
-                        .onEnded {
-                            finishEditing()
-                            onDoubleClick()
-                        }
-                )
 
             if isEditing {
                 TextField("", text: inlineTextBinding, prompt: placeholder.map(Text.init))
@@ -1279,9 +1392,12 @@ struct InspectorEditableValueField: View {
                     .onSubmit {
                         finishEditing()
                     }
+                    .onExitCommand {
+                        cancelInlineEditing()
+                    }
                     .onChange(of: isFocused) { _, focused in
                         if !focused {
-                            isEditing = false
+                            finishEditing()
                         }
                     }
             }
@@ -1292,19 +1408,111 @@ struct InspectorEditableValueField: View {
             maxHeight: inspectorRowContentHeight,
             alignment: .trailing
         )
+        .onChange(of: activeScope) { _, newScope in
+            if isEditing, let editingScope, newScope != editingScope {
+                finishEditing()
+            }
+        }
+        .onDisappear {
+            teardownDoubleClickMonitor()
+        }
     }
 
     private var inlineTextBinding: Binding<String> {
         Binding(
             get: { text },
             set: { newValue in
+                guard isEditing else { return }
+                if let editingScope, activeScope != editingScope {
+                    finishEditing()
+                    return
+                }
                 guard newValue != text else { return }
+                hasMutatedDuringSession = true
+                teardownDoubleClickMonitor()
                 text = newValue
             }
         )
     }
 
+    private func beginInlineEditing() {
+        guard !isEditing else { return }
+        if activeScope == nil && captureRevertSnapshot != nil {
+            return
+        }
+
+        editingScope = activeScope
+        hasMutatedDuringSession = false
+        if let captureRevertSnapshot {
+            revertInlineEdit = captureRevertSnapshot()
+        } else {
+            let initialText = text
+            revertInlineEdit = {
+                text = initialText
+            }
+        }
+        isEditing = true
+        armDoubleClickHandoff()
+    }
+
+    private func armDoubleClickHandoff() {
+        teardownDoubleClickMonitor()
+        guard let event = NSApp.currentEvent else { return }
+        doubleClickHandoff.begin(
+            at: event.timestamp,
+            windowNumber: event.windowNumber,
+            locationInWindow: event.locationInWindow
+        )
+
+        doubleClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .keyDown]) { incomingEvent in
+            if incomingEvent.type == .keyDown {
+                teardownDoubleClickMonitor()
+                return incomingEvent
+            }
+
+            let shouldPromote = doubleClickHandoff.consumeLeftMouseDown(
+                clickCount: incomingEvent.clickCount,
+                timestamp: incomingEvent.timestamp,
+                windowNumber: incomingEvent.windowNumber,
+                locationInWindow: incomingEvent.locationInWindow,
+                doubleClickInterval: NSEvent.doubleClickInterval,
+                hasMutated: hasMutatedDuringSession
+            )
+            teardownDoubleClickMonitor()
+            guard shouldPromote, isEditing else {
+                return incomingEvent
+            }
+
+            let scopeMatches = editingScope == nil || activeScope == editingScope
+            finishEditing()
+            if scopeMatches {
+                onDoubleClick()
+            }
+            return nil
+        }
+    }
+
+    private func teardownDoubleClickMonitor() {
+        doubleClickHandoff.reset()
+        if let monitor = doubleClickMonitor {
+            NSEvent.removeMonitor(monitor)
+            doubleClickMonitor = nil
+        }
+    }
+
+    private func cancelInlineEditing() {
+        guard isEditing else { return }
+        if editingScope == nil || activeScope == editingScope {
+            revertInlineEdit?()
+        }
+        finishEditing()
+    }
+
     private func finishEditing() {
+        teardownDoubleClickMonitor()
+        revertInlineEdit = nil
+        editingScope = nil
+        hasMutatedDuringSession = false
         isFocused = false
         isEditing = false
     }
@@ -1347,18 +1555,27 @@ struct InspectorValueScrollRouter {
 
     private(set) var axisLatch: AxisLatch = .undecided
     private(set) var didForwardPreciseBeginToParent = false
+    private var hasActiveMayBegin = false
+    private var undecidedDelta: CGSize = .zero
 
     private static let deltaThreshold: CGFloat = 0.01
+    private static let axisLatchThreshold: CGFloat = 2.0
     private static let nonPreciseScale: CGFloat = 12
 
     mutating func handle(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
         if !input.hasPreciseScrollingDeltas {
-            axisLatch = .undecided
-            didForwardPreciseBeginToParent = false
+            resetGestureState()
             return handleDiscreteWheel(input)
         }
 
         return handlePreciseScroll(input)
+    }
+
+    private mutating func resetGestureState() {
+        axisLatch = .undecided
+        didForwardPreciseBeginToParent = false
+        hasActiveMayBegin = false
+        undecidedDelta = .zero
     }
 
     private func handleDiscreteWheel(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
@@ -1394,69 +1611,93 @@ struct InspectorValueScrollRouter {
     }
 
     private mutating func handlePreciseScroll(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
-        if input.phase.isEmpty && input.momentumPhase.isEmpty {
-            axisLatch = .undecided
-            didForwardPreciseBeginToParent = false
+        let isPhaseless = input.phase.isEmpty && input.momentumPhase.isEmpty
+        if isPhaseless {
+            resetGestureState()
         }
 
-        let isNewGesture = input.phase.contains(.mayBegin) || input.phase.contains(.began)
-        if isNewGesture {
+        let isMayBegin = input.phase.contains(.mayBegin)
+        let isBegan = input.phase.contains(.began)
+        let isNewGesture = isMayBegin || isBegan
+
+        if isMayBegin {
+            resetGestureState()
+            hasActiveMayBegin = true
+        } else if isBegan {
             axisLatch = .undecided
-            didForwardPreciseBeginToParent = false
+            undecidedDelta = .zero
+            if hasActiveMayBegin {
+                // Continue balancing the preceding .mayBegin already forwarded to the parent.
+                hasActiveMayBegin = false
+            } else {
+                didForwardPreciseBeginToParent = false
+            }
+        } else {
+            hasActiveMayBegin = false
         }
 
         let isGestureCancelled = input.phase.contains(.cancelled)
         let isMomentumEnding = input.momentumPhase.contains(.ended) || input.momentumPhase.contains(.cancelled)
 
         guard input.maxOffsetX > 0 else {
-            if isGestureCancelled || isMomentumEnding {
-                axisLatch = .undecided
-                didForwardPreciseBeginToParent = false
+            if input.phase.contains(.ended) || isGestureCancelled || isMomentumEnding {
+                resetGestureState()
+            } else if isNewGesture {
+                didForwardPreciseBeginToParent = true
             }
             return .forwardToParent
         }
 
         let absX = abs(input.deltaX)
         let absY = abs(input.deltaY)
-        let hasDelta = absX > Self.deltaThreshold || absY > Self.deltaThreshold
 
         if axisLatch == .undecided {
-            if hasDelta {
-                axisLatch = absX > absY ? .horizontal : .vertical
-            } else {
-                if isNewGesture {
-                    didForwardPreciseBeginToParent = true
-                } else if input.phase.contains(.ended) || isGestureCancelled || isMomentumEnding {
-                    didForwardPreciseBeginToParent = false
+            if isPhaseless {
+                if absX > Self.deltaThreshold || absY > Self.deltaThreshold {
+                    axisLatch = absX > absY ? .horizontal : .vertical
+                } else {
+                    return .forwardToParent
                 }
-                return .forwardToParent
+            } else {
+                undecidedDelta.width += input.deltaX
+                undecidedDelta.height += input.deltaY
+                let absAccumX = abs(undecidedDelta.width)
+                let absAccumY = abs(undecidedDelta.height)
+                if max(absAccumX, absAccumY) >= Self.axisLatchThreshold {
+                    axisLatch = absAccumX > absAccumY ? .horizontal : .vertical
+                    undecidedDelta = .zero
+                } else {
+                    if isNewGesture {
+                        didForwardPreciseBeginToParent = true
+                    } else if input.phase.contains(.ended) || isGestureCancelled || isMomentumEnding {
+                        resetGestureState()
+                    }
+                    return .forwardToParent
+                }
             }
         }
 
         switch axisLatch {
         case .vertical:
             if isGestureCancelled || isMomentumEnding {
-                axisLatch = .undecided
-                didForwardPreciseBeginToParent = false
+                resetGestureState()
             }
             return .forwardToParent
 
         case .horizontal:
             if isGestureCancelled {
                 let shouldCloseParentBegin = didForwardPreciseBeginToParent
-                axisLatch = .undecided
-                didForwardPreciseBeginToParent = false
+                resetGestureState()
                 return shouldCloseParentBegin ? .forwardToParent : .consume
             }
 
             if isMomentumEnding {
-                axisLatch = .undecided
-                didForwardPreciseBeginToParent = false
+                resetGestureState()
                 return .consume
             }
 
             if input.phase.contains(.ended) && input.momentumPhase.isEmpty {
-                // Balance an earlier zero-delta .began forwarded to the parent while
+                // Balance an earlier zero-delta .mayBegin/.began forwarded to the parent while
                 // keeping axisLatch == .horizontal for any following momentumPhase.
                 if didForwardPreciseBeginToParent {
                     didForwardPreciseBeginToParent = false

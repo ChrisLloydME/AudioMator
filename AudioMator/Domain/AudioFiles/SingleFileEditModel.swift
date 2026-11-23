@@ -415,6 +415,32 @@ nonisolated struct SingleFileEditModel {
         )
     }
 
+    nonisolated struct NumberPairRevertSnapshot: Equatable, Sendable {
+        let number: Int
+        let total: Int
+        let rawText: String
+    }
+
+    var trackPairSnapshot: NumberPairRevertSnapshot {
+        NumberPairRevertSnapshot(number: track, total: trackTotal, rawText: trackNumberText)
+    }
+
+    var discPairSnapshot: NumberPairRevertSnapshot {
+        NumberPairRevertSnapshot(number: disc, total: discTotal, rawText: discNumberText)
+    }
+
+    mutating func restoreTrackPair(_ snapshot: NumberPairRevertSnapshot) {
+        track = snapshot.number
+        trackTotal = snapshot.total
+        trackNumberText = snapshot.rawText
+    }
+
+    mutating func restoreDiscPair(_ snapshot: NumberPairRevertSnapshot) {
+        disc = snapshot.number
+        discTotal = snapshot.total
+        discNumberText = snapshot.rawText
+    }
+
     private mutating func applyTrackPair(_ pair: AudioTagNumberPair) {
         track = pair.number
         trackTotal = pair.total
@@ -704,6 +730,58 @@ struct MultiFileEditModel {
             case .shared, .mixed:
                 return true
             }
+        }
+    }
+
+    struct TextFieldRevertSnapshot: Equatable {
+        let field: MultiFileEditableTextField
+        let value: String
+        let wasModified: Bool
+        let trackPair: SingleFileEditModel.NumberPairRevertSnapshot?
+        let discPair: SingleFileEditModel.NumberPairRevertSnapshot?
+    }
+
+    func isUntouchedMixedTextField(_ field: MultiFileEditableTextField) -> Bool {
+        mixedTextFields.contains(field) && !modifiedTextFields.contains(field)
+    }
+
+    func textFieldRevertSnapshot(for field: MultiFileEditableTextField) -> TextFieldRevertSnapshot {
+        let trackPair: SingleFileEditModel.NumberPairRevertSnapshot?
+        let discPair: SingleFileEditModel.NumberPairRevertSnapshot?
+        switch field {
+        case .trackNumber, .trackTotal:
+            trackPair = values.trackPairSnapshot
+            discPair = nil
+        case .discNumber, .discTotal:
+            trackPair = nil
+            discPair = values.discPairSnapshot
+        default:
+            trackPair = nil
+            discPair = nil
+        }
+
+        return TextFieldRevertSnapshot(
+            field: field,
+            value: text(for: field),
+            wasModified: modifiedTextFields.contains(field),
+            trackPair: trackPair,
+            discPair: discPair
+        )
+    }
+
+    mutating func restoreTextField(_ snapshot: TextFieldRevertSnapshot) {
+        if let trackPair = snapshot.trackPair {
+            values.restoreTrackPair(trackPair)
+        } else if let discPair = snapshot.discPair {
+            values.restoreDiscPair(discPair)
+        } else {
+            snapshot.field.apply(snapshot.value, to: &values)
+        }
+
+        if snapshot.wasModified {
+            modifiedTextFields.insert(snapshot.field)
+        } else {
+            modifiedTextFields.remove(snapshot.field)
         }
     }
 

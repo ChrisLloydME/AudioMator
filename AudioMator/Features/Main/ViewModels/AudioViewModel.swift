@@ -106,6 +106,11 @@ struct MetadataSaveProgress: Equatable {
     }
 }
 
+struct InspectorActiveDraftScope: Equatable {
+    let sessionID: InspectorDraftSessionID
+    let selectedIDs: Set<AudioFile.ID>
+}
+
 struct ConfirmedSelectionActionCapture: Sendable {
     let files: [AudioFile]
     let capturedSelectionIDs: Set<AudioFile.ID>
@@ -416,6 +421,22 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     var inspectorDraftIdentity: InspectorDraftIdentity? {
         inspectorDraft?.identity
+    }
+
+    /// Active draft session scope for open Inspector editors (inline field and
+    /// Edit Metadata Field sheet). Survives benign clean refreshes (which keep
+    /// `session.id` and `selectedAudioIDs`) while invalidating on selection
+    /// changes, source switches, Cancel, or entry into pending review.
+    var activeInspectorDraftScope: InspectorActiveDraftScope? {
+        guard inspectorPendingReview == nil,
+              let session = inspectorDraft,
+              Set(session.targetIDs) == selectedAudioIDs else {
+            return nil
+        }
+        return InspectorActiveDraftScope(
+            sessionID: session.id,
+            selectedIDs: selectedAudioIDs
+        )
     }
 
     var isInspectorDraftDirty: Bool {

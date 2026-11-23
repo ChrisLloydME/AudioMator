@@ -114,7 +114,7 @@ enum NetworkServiceDisclosure {
         Entry(
             id: .metadataHelpReferences,
             title: String(localized: "Metadata help references"),
-            domains: ["id3.org", "www.xiph.org", "picard-docs.musicbrainz.org", "musicbrainz.org", "developer.apple.com", "acoustid.org", "taglib.org"],
+            domains: ["id3.org", "www.xiph.org", "wiki.xiph.org", "picard-docs.musicbrainz.org", "musicbrainz.org", "developer.apple.com", "acoustid.org", "taglib.org", "learn.microsoft.com", "www.rfc-editor.org"],
             sentDataSummary: String(localized: "Only an explicitly selected reference URL is opened in your default browser. AudioMator does not send file paths or metadata. The browser handles the website request."),
             purpose: String(localized: "Reading official field documentation. The built-in guide is available offline.")
         ),

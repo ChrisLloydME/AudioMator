@@ -10,22 +10,86 @@ nonisolated enum MetadataFieldGuide {
         let url: URL
     }
 
+    struct Example: Identifiable, Sendable {
+        let id: String
+        let value: String
+        let note: String
+    }
+
+    struct ValueGuidance: Sendable {
+        enum PickerTimeFormat: Sendable {
+            case id3OrUTCText
+            case utcTextOnly
+        }
+
+        let examples: [Example]
+        let formatNote: String
+        let editingSummary: String
+        let pickerAvailabilityNote: String
+        let pickerTimeFormat: PickerTimeFormat
+
+        var sharedEditingNote: String {
+            switch pickerTimeFormat {
+            case .id3OrUTCText:
+                String(localized: "Direct typing or pasting adds no format checks, missing parts, or time-zone conversion, though the file’s tag still determines what saves. Where the picker appears, it offers Year, Year & Month, and Full Date (with optional Add Time and Time Zone), keeps pure dates as chosen, converts timed values to UTC in Tag Value Preview (without Z if any target uses ID3v2.4), and updates the draft on Apply until you save.")
+            case .utcTextOnly:
+                String(localized: "Direct typing or pasting adds no format checks, missing parts, or time-zone conversion, though the file’s tag still determines what saves. Where the picker appears, it offers Year, Year & Month, and Full Date (with optional Add Time and Time Zone), keeps pure dates as chosen, converts timed values to UTC with Z in Tag Value Preview, and updates the draft on Apply until you save.")
+            }
+        }
+
+        var searchableText: [String] {
+            examples.flatMap { [$0.value, $0.note] } + [
+                formatNote,
+                editingSummary,
+                pickerAvailabilityNote,
+                sharedEditingNote,
+            ]
+        }
+    }
+
     struct Entry: Identifiable, Sendable {
         let key: MetadataFieldKey?
         private let displayID: String?
         private let displayTitle: String?
         let purpose: String
         let sourceID: String
-        init(key: MetadataFieldKey, purpose: String, sourceID: String) {
-            self.key = key; self.purpose = purpose; self.sourceID = sourceID
-            displayID = nil; displayTitle = nil
+        let additionalSourceIDs: [String]
+        let valueGuidance: ValueGuidance?
+
+        init(
+            key: MetadataFieldKey,
+            purpose: String,
+            sourceID: String,
+            additionalSourceIDs: [String] = [],
+            valueGuidance: ValueGuidance? = nil
+        ) {
+            self.key = key
+            self.purpose = purpose
+            self.sourceID = sourceID
+            self.additionalSourceIDs = additionalSourceIDs
+            self.valueGuidance = valueGuidance
+            displayID = nil
+            displayTitle = nil
         }
+
         init(displayID: String, title: String, purpose: String) {
-            key = nil; self.displayID = displayID; displayTitle = title
-            self.purpose = purpose; sourceID = "apple"
+            key = nil
+            self.displayID = displayID
+            displayTitle = title
+            self.purpose = purpose
+            sourceID = "apple"
+            additionalSourceIDs = []
+            valueGuidance = nil
         }
+
         var id: String { key?.rawValue ?? displayID ?? "" }
         var schema: MetadataFieldSchema? { key.flatMap { MetadataFieldRegistry.schema(for: $0) } }
+        var sourceIDs: [String] { [sourceID] + additionalSourceIDs }
+        var resolvedSources: [Source] {
+            sourceIDs.compactMap { id in
+                MetadataFieldGuide.sources.first { $0.id == id }
+            }
+        }
         var title: String {
             guard let key else { return displayTitle ?? id }
             return MetadataFieldGuide.displayName(for: key)
@@ -33,6 +97,7 @@ nonisolated enum MetadataFieldGuide {
         func matches(_ query: String) -> Bool {
             let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
             let text = ([title, purpose, id, schema?.semanticKey ?? ""]
+                + (valueGuidance?.searchableText ?? [])
                 + (schema?.propertyMapKeys ?? [])
                 + (schema?.nativeTargets.map(\.nativeIdentity) ?? [])).joined(separator: " ")
             return terms.allSatisfy { text.localizedStandardContains($0) }
@@ -74,10 +139,15 @@ nonisolated enum MetadataFieldGuide {
         Source(id: "mapping", title: "MusicBrainz Picard — Tag reference", url: URL(string: "https://picard-docs.musicbrainz.org/en/v2.13/appendices/tag_mapping.html")!),
         Source(id: "artist", title: "MusicBrainz — Artist", url: URL(string: "https://musicbrainz.org/doc/Artist")!),
         Source(id: "id3", title: "ID3.org — ID3v2 frames", url: URL(string: "https://id3.org/id3v2.4.0-frames%C2%A0")!),
+        Source(id: "id3Structure", title: "ID3.org — ID3v2.4 main structure (timestamps)", url: URL(string: "https://id3.org/id3v2.4.0-structure")!),
         Source(id: "xiph", title: "Xiph.Org — Vorbis comments", url: URL(string: "https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html")!),
+        Source(id: "xiphWiki", title: "XiphWiki — VorbisComment guidance", url: URL(string: "https://wiki.xiph.org/VorbisComment")!),
         Source(id: "basic", title: "MusicBrainz Picard — Basic tags", url: URL(string: "https://picard-docs.musicbrainz.org/en/v2.13/variables/tags_basic.html")!),
         Source(id: "advanced", title: "MusicBrainz Picard — Credits and advanced tags", url: URL(string: "https://picard-docs.musicbrainz.org/en/v2.13/variables/tags_advanced.html")!),
         Source(id: "apple", title: "Apple Developer — Media metadata identifiers", url: URL(string: "https://developer.apple.com/documentation/avfoundation/avmetadataidentifier")!),
+        Source(id: "microsoftWMYear", title: "Microsoft Learn — Windows Media WM/Year", url: URL(string: "https://learn.microsoft.com/en-us/windows/win32/wmformat/wm-year")!),
+        Source(id: "microsoftWMAttributes", title: "Microsoft Learn — Windows Media metadata attributes", url: URL(string: "https://learn.microsoft.com/en-us/windows/win32/wmformat/attribute-list")!),
+        Source(id: "rfc3339", title: "RFC Editor — RFC 3339 timestamps", url: URL(string: "https://www.rfc-editor.org/info/rfc3339")!),
         Source(id: "release", title: "MusicBrainz — Release", url: URL(string: "https://musicbrainz.org/doc/Release")!),
         Source(id: "recording", title: "MusicBrainz — Recording", url: URL(string: "https://musicbrainz.org/doc/Recording")!),
         Source(id: "work", title: "MusicBrainz — Work", url: URL(string: "https://musicbrainz.org/doc/Work")!),
@@ -90,10 +160,34 @@ nonisolated enum MetadataFieldGuide {
         Entry(key: .artist, purpose: String(localized: "Who performs this track."), sourceID: "xiph"),
         Entry(key: .album, purpose: String(localized: "The release this track belongs to."), sourceID: "xiph"),
         Entry(key: .albumArtist, purpose: String(localized: "The main credit for the whole album."), sourceID: "basic"),
-        Entry(key: .year, purpose: String(localized: "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date."), sourceID: "id3"),
-        Entry(key: .standaloneDate, purpose: String(localized: "A separate Date value already used by some files. Leave it empty unless you need it; AudioMator never fills it from Year or Release Date."), sourceID: "xiph"),
-        Entry(key: .releaseDate, purpose: String(localized: "When this edition was released."), sourceID: "release"),
-        Entry(key: .originalReleaseDate, purpose: String(localized: "The earliest release date associated with the release."), sourceID: "basic"),
+        Entry(
+            key: .year,
+            purpose: String(localized: "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date."),
+            sourceID: "id3",
+            additionalSourceIDs: ["id3Structure", "microsoftWMYear", "apple", "rfc3339"],
+            valueGuidance: yearGuidance
+        ),
+        Entry(
+            key: .standaloneDate,
+            purpose: String(localized: "A separate Date value already used by some files. Leave it empty unless you need it; AudioMator never fills it from Year or Release Date."),
+            sourceID: "xiph",
+            additionalSourceIDs: ["xiphWiki", "mapping", "rfc3339"],
+            valueGuidance: standaloneDateGuidance
+        ),
+        Entry(
+            key: .releaseDate,
+            purpose: String(localized: "When this edition was released."),
+            sourceID: "release",
+            additionalSourceIDs: ["id3", "id3Structure", "mapping", "rfc3339"],
+            valueGuidance: releaseDateGuidance
+        ),
+        Entry(
+            key: .originalReleaseDate,
+            purpose: String(localized: "The earliest release date associated with the release."),
+            sourceID: "basic",
+            additionalSourceIDs: ["id3", "id3Structure", "mapping", "microsoftWMAttributes", "rfc3339"],
+            valueGuidance: originalReleaseDateGuidance
+        ),
         Entry(key: .track, purpose: String(localized: "This track’s position within its disc."), sourceID: "basic"),
         Entry(key: .trackTotal, purpose: String(localized: "How many tracks are on that disc."), sourceID: "basic"),
         Entry(key: .disc, purpose: String(localized: "This disc’s position in a multi-disc release."), sourceID: "basic"),
@@ -162,7 +256,13 @@ nonisolated enum MetadataFieldGuide {
         Entry(key: .itunesCatalogID, purpose: String(localized: "The store’s content identifier; not a label catalogue number."), sourceID: "apple"),
         Entry(key: .itunesGenreID, purpose: String(localized: "The store’s numeric genre identifier."), sourceID: "apple"),
         Entry(key: .itunesMediaType, purpose: String(localized: "The store’s media-kind code."), sourceID: "apple"),
-        Entry(key: .itunesPurchaseDate, purpose: String(localized: "When the item was purchased."), sourceID: "apple"),
+        Entry(
+            key: .itunesPurchaseDate,
+            purpose: String(localized: "When the item was purchased."),
+            sourceID: "apple",
+            additionalSourceIDs: ["rfc3339"],
+            valueGuidance: itunesPurchaseDateGuidance
+        ),
         Entry(key: .itunesNorm, purpose: String(localized: "Existing Sound Check data; leave unchanged unless you know its encoding."), sourceID: "apple"),
         Entry(key: .itunesSMPB, purpose: String(localized: "Existing iTunes playback data associated with encoder delay and padding. Preserve it; AudioMator does not interpret its internal encoding."), sourceID: "taglib"),
         Entry(key: .originalAlbum, purpose: String(localized: "The original release’s album name."), sourceID: "id3"),
@@ -194,4 +294,109 @@ nonisolated enum MetadataFieldGuide {
         Entry(displayID: "channels", title: String(localized: "Channels"), purpose: String(localized: "The number of audio channels, such as two for stereo. This is read-only here.")),
         Entry(displayID: "format", title: String(localized: "Format"), purpose: String(localized: "The audio container or codec reported for the file. Renaming a file does not convert its audio.")),
     ]
+
+    private static let yearGuidance = ValueGuidance(
+        examples: [
+            Example(
+                id: "year-yyyy",
+                value: "2024",
+                note: String(localized: "Four-digit year. Standard for ID3v2.3 and Windows Media; widely accepted across formats.")
+            ),
+            Example(
+                id: "year-date",
+                value: "2024-06-02",
+                note: String(localized: "Calendar date (or YYYY-MM). Defined by ID3v2.4 and RIFF INFO; practical convention for MP4, Vorbis, and APEv2.")
+            ),
+            Example(
+                id: "year-id3-utc",
+                value: "2024-06-01T16:30:00",
+                note: String(localized: "ID3v2.4 UTC timestamp (spec format, no Z). Append Z (RFC 3339) as a practical convention for timed text tags.")
+            ),
+        ],
+        formatNote: String(localized: "MP4 and text tags do not fix one date syntax; treat these as reference examples rather than input rules."),
+        editingSummary: String(localized: "Edit in the Inspector (visible by default) or Metadata Editor. Year stays independent of Date, Release Date, and Original Release Date, and routes that support full dates or timestamps keep that precision."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF; raw YEAR on ID3v2.4 and mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only."),
+        pickerTimeFormat: .id3OrUTCText
+    )
+
+    private static let standaloneDateGuidance = ValueGuidance(
+        examples: [
+            Example(
+                id: "date-iso",
+                value: "2024-06-02",
+                note: String(localized: "Practical recommendation (ISO 8601 date, or YYYY / YYYY-MM) from XiphWiki and MusicBrainz Picard.")
+            ),
+            Example(
+                id: "date-rfc3339",
+                value: "2024-06-01T16:30:00Z",
+                note: String(localized: "Practical RFC 3339 UTC timestamp when storing a time.")
+            ),
+        ],
+        formatNote: String(localized: "Vorbis comments and other text tags leave syntax unspecified; ID3v2.3 uses DDMM and is read-only here."),
+        editingSummary: String(localized: "Show Date in Settings → Interface to edit it in the Inspector, or use Metadata Editor. It stays independent of Year, Release Date, and Original Release Date."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack; choosing the named Date suggestion when adding a field uses raw DATE on those files and STANDALONEDATE (text-only) elsewhere. Mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only."),
+        pickerTimeFormat: .utcTextOnly
+    )
+
+    private static let releaseDateGuidance = ValueGuidance(
+        examples: [
+            Example(
+                id: "release-date-iso",
+                value: "2024-06-02",
+                note: String(localized: "Calendar date (or YYYY / YYYY-MM). Defined by ID3v2.4; practical convention for text tags.")
+            ),
+            Example(
+                id: "release-date-id3-utc",
+                value: "2024-06-01T16:30:00",
+                note: String(localized: "ID3v2.4 UTC timestamp (spec format, no Z). Append Z (RFC 3339) as a practical convention for timed text tags.")
+            ),
+        ],
+        formatNote: String(localized: "Non-ID3v2.4 writable tags store freeform text with no mandated syntax. Other tools such as MusicBrainz Picard often map edition release dates to Year or Date instead."),
+        editingSummary: String(localized: "Edit in the Inspector (visible by default) or Metadata Editor. Release Date stays independent of Year, Date, and Original Release Date."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw RELEASEDATE on those formats; existing RELEASETIME rows display as Release Date without renaming their key and stay text-only."),
+        pickerTimeFormat: .id3OrUTCText
+    )
+
+    private static let originalReleaseDateGuidance = ValueGuidance(
+        examples: [
+            Example(
+                id: "orig-date-iso",
+                value: "1973-03-01",
+                note: String(localized: "Calendar date (or YYYY / YYYY-MM). Defined by ID3v2.4 and used by MusicBrainz Picard.")
+            ),
+            Example(
+                id: "orig-date-year",
+                value: "1973",
+                note: String(localized: "Four-digit year. Defined for ID3v2.3 (read-only here) and conventional for Windows Media.")
+            ),
+            Example(
+                id: "orig-date-id3-utc",
+                value: "1973-03-01T00:00:00",
+                note: String(localized: "ID3v2.4 UTC timestamp (spec format, no Z). Append Z (RFC 3339) as a practical convention for timed text tags.")
+            ),
+        ],
+        formatNote: String(localized: "Windows Media defines a text string traditionally holding a four-digit year; MP4, Vorbis, and APEv2 text tags leave syntax unspecified."),
+        editingSummary: String(localized: "Show Original Release Date in Settings → Interface to edit it in the Inspector, or use Metadata Editor. It stays independent of Year, Date, and Release Date."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw ORIGINALDATE except on ASF/WMA; ASF/WMA raw keys and ORIGINAL YEAR stay text-only."),
+        pickerTimeFormat: .id3OrUTCText
+    )
+
+    private static let itunesPurchaseDateGuidance = ValueGuidance(
+        examples: [
+            Example(
+                id: "purchase-rfc3339",
+                value: "2024-06-01T16:30:00Z",
+                note: String(localized: "Practical RFC 3339 UTC timestamp recommendation for text tags (ID3v2.4, Vorbis, APEv2).")
+            ),
+            Example(
+                id: "purchase-date",
+                value: "2024-06-02",
+                note: String(localized: "Practical calendar-date recommendation for text tags when only the date is known.")
+            ),
+        ],
+        formatNote: String(localized: "Apple’s AVFoundation documentation leaves the native MP4 purd syntax unspecified; store files and tools vary in practice (for example, space-separated date-time strings or ISO 8601 UTC). Conventions for text tags and native MP4 purd do not govern each other."),
+        editingSummary: String(localized: "Edit in Metadata Editor only—this field is not an Inspector row and stays separate from all release and recording date fields."),
+        pickerAvailabilityNote: String(localized: "Choose Date… appears only for raw ITUNESPURCHASEDATE when every selected file uses ID3v2.4, Vorbis comments, or APEv2. It does not appear for MP4/M4A—where raw ITUNESPURCHASEDATE writes a separate freeform atom rather than native purd—or for existing ID3v2.3 tags, custom keys, or mixed selections with an ineligible file."),
+        pickerTimeFormat: .utcTextOnly
+    )
 }

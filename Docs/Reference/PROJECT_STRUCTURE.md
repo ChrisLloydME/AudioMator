@@ -81,7 +81,7 @@ Feature-owned views, view models, and presentation models.
 | Folder | Responsibility |
 | --- | --- |
 | `Main/` | Main window, sidebar, middle list, Inspector, artwork lookup, track renumber sheet, `AudioViewModel` and write extensions, batch executor, save issue log, operation-result HUD |
-| `DateTimePicker/` | Picker eligibility, native AppKit controls and the date editing sheet shared by the Inspector and Metadata Editor |
+| `DateTimePicker/` | Semantic and raw-key eligibility, native date controls, time-zone selection and the shared picker sheet. Calendar serialization and draft state live in `Core/Audio/MetadataDateTimeCore.swift` |
 | `MetadataEditor/` | Raw metadata value-map editor window, table, field entry, text utilities |
 | `MetadataFilenameTool/` | Filename & Metadata window, converter modes, previews, templates, field transfer |
 | `OnlineMetadataBrowser/` | Shared online metadata window shell, source picker, embedded web view, virtualized list |
@@ -136,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 126 test functions in eight `XCTestCase` classes across seven source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target. See [Testing](../Development/TESTING.md#test-targets) for the current inventory.
 
 ## `scripts`
 

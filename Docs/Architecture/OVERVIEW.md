@@ -32,6 +32,7 @@ flowchart TB
     subgraph Features
         Main[Main window + AudioViewModel]
         Editor[Metadata Editor]
+        Dates[Shared date and time picker]
         Tool[Metadata Filename Tool]
         Online[Online Metadata shell + provider browsers]
         Help[Metadata Field Guide]
@@ -70,10 +71,10 @@ The allowed dependency direction and its documented exceptions are in [Dependenc
 `AudioMator/App/AudioMatorApp.swift` is the only composition root:
 
 1. Creates one `TagLibAudioMetadataPipeline` and one `SaveIssueLogStore`.
-2. Injects the pipeline, log store, bookmark stores, and isolated preferences into `AudioViewModel`.
-3. Creates `SharedState`, `MusicBrainzBrowserStore`, `LRCLIBLyricsBrowserStore`, `MetadataFilenameToolStore`, and a `MetadataEditorStore` bound to the same pipeline.
+2. Injects the pipeline, log store, bookmark stores, and preferences into `AudioViewModel`.
+3. Creates `SharedState`, the provider browser and activation stores, `MetadataFilenameToolStore`, and a `MetadataEditorStore` bound to the same pipeline.
 4. Declares six scenes:
-   - the main `WindowGroup` (`ContentView`), minimum 900×600,
+   - the main `WindowGroup` (`ContentView`), default 1,360 × 760 points,
    - the Metadata Field Guide `Window` (`MetadataFieldGuideView`; window restoration disabled),
    - `Settings` (`SettingsView`),
    - the Online Metadata window (`OnlineMetadataBrowserView`),
@@ -99,6 +100,7 @@ The `AudioMatorTestHost` path substitutes temporary preferences and a temporary 
 - The middle list uses an AppKit-backed table (`MiddleListTable`) bridged into SwiftUI for native selection and column behavior. Selection is mirrored back to `AudioViewModel`; rejected draft-discard changes restore the previous native selection.
 - Sidebar sources are Quick Import (current session) and Watched Folders (the flat watched library plus individual watched folders that expand into their on-disk subfolder hierarchy via `WatchedFolderHierarchy`). Switching source or subfolder changes the visible file collection and prunes selection to visible tracks.
 - The Inspector binds to `SingleFileEditModel` or `MultiFileEditModel`. It does not own file state.
+- The Inspector and Metadata Editor share the date picker and its Foundation codec. The Inspector gates it on the semantic write target, and Metadata Editor checks the exact raw key. See [Metadata Pipeline](METADATA_PIPELINE.md#year-and-release-date).
 - Metadata Editor, Filename & Metadata, and Online Metadata are separate `Window` scenes with their own stores. They receive the shared `AudioViewModel` and pipeline by injection. The Metadata Field Guide is a separate read-only `Window` scene.
 - Settings is a separate `Settings` scene with six tabs: General, Interface, Folders, Conflicts, Logs, About.
 - Progress and transient results are shown through a main-window overlay/HUD queue; non-success summaries also feed the local save issue log.
@@ -226,7 +228,7 @@ No view owns authoritative file state. Views bind to observable owners and send 
 
 Errors are converted to structured outcomes close to the operation:
 
-- `MetadataFileMutationResult`: success (with optional reload warning), failure, cancelled.
+- `MetadataFileMutationResult`: success with an optional reload warning, a file-level failure or writer rejection, or cancellation.
 - `AudioMetadataCommitStatus`: durable, or durability uncertain after commit.
 - `RenameExecutionOutcome`: committed receipts, verified rollback, unresolved with a read-only classification, rejected, or busy. A prepared or committed journal record survives process termination for explicit restart recovery.
 - Provider errors: typed client errors mapped to user-facing messages.

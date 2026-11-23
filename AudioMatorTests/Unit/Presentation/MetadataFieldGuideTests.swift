@@ -37,6 +37,17 @@ nonisolated final class MetadataFieldGuideTests: XCTestCase {
         }
     }
 
+    func testSourceURLPathsContainNoWhitespaceOrControlCharacters() throws {
+        let forbidden = CharacterSet.whitespacesAndNewlines.union(.controlCharacters)
+        for source in MetadataFieldGuide.sources {
+            let encodedPath = source.url.path(percentEncoded: true)
+            let path = try XCTUnwrap(encodedPath.removingPercentEncoding, source.id)
+            XCTAssertNil(path.rangeOfCharacter(from: forbidden), source.id)
+            XCTAssertFalse(encodedPath.localizedCaseInsensitiveContains("%C2%A0"), source.id)
+        }
+        XCTAssertEqual(MetadataFieldGuide.sources.first { $0.id == "id3" }?.url.path, "/id3v2.4.0-frames")
+    }
+
     @MainActor
     func testReferenceLinksMatchThePrivacyDisclosure() {
         let domains = Set(MetadataFieldGuide.sources.compactMap { $0.url.host })

@@ -4,11 +4,12 @@ AudioMator pins published **TagLibAudioMetadata 0.8.2**, revision `6b03cb97d96f2
 
 ## Current Published Boundary
 
-Version 0.8.1 supplies automatic edited-group numbering recovery and retirement. The MP4 absent-Year/present-Date regression for Comment/Lyrics remains part of the current test suite and passes through both the package boundary and the app adapter (`MappingPackageConformanceTests`). No application companion-date or raw-write workaround is installed. Field-selection intent, Inspector/Editor state and expected-version safety remain app responsibilities; native codec behavior remains package-owned.
+The current 0.8.2 pin supplies automatic edited-group numbering recovery and retirement. `MappingPackageConformanceTests` exercises the MP4 absent-Year/present-Date regression for Comment and Lyrics through the public package boundary and the app adapter. AudioMator owns field-selection intent, Inspector and Editor state, and expected-version safety. The package owns native codec behavior.
 
 ## Explicit Capability Restrictions
 
 - Existing ID3v2.3 independent-date edits remain read-only unless the package supplies verified writable evidence for the concrete layout. `TagLibDateMappingIntegrationTests` asserts that ID3v2.3 DATE writes remain safely read-only. The app preflights actual-file evidence; an extension-level capability does not authorize an unsafe write.
+- The Metadata Editor preserves the raw key it writes. ID3v2.4 raw `DATE` displays as Year and stays text-only. For the named Date suggestion, verified Vorbis Comment and WavPack targets use raw `DATE`. Other targets use the text-only `STANDALONEDATE` key, separate from the Inspector's semantic Date slot. See the [Metadata Field Guide](../Product/METADATA_FIELD_GUIDE.md#shared-field-names-in-metadata-editor).
 - MP4 RATE is read-only for typed writes. Native media-kind integer codes are preserved; the app does not invent label/code bindings.
 - Matroska registrations do not establish a supported native codec; the field guide labels them as planned mappings, and the app does not advertise Matroska as writable.
 - Number formatting can normalize in containers such as MP4. Numeric pair values are authoritative, and AudioMator does not manufacture private text atoms.

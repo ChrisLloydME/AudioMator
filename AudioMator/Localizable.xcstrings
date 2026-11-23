@@ -1410,6 +1410,9 @@
     "Any" : {
 
     },
+    "Apple’s AVFoundation documentation leaves the native MP4 purd syntax unspecified; store files and tools vary in practice (for example, space-separated date-time strings or ISO 8601 UTC). Conventions for text tags and native MP4 purd do not govern each other." : {
+
+    },
     "Applied" : {
 
     },
@@ -2359,6 +2362,15 @@
         }
       }
     },
+    "Calendar date (or YYYY / YYYY-MM). Defined by ID3v2.4 and used by MusicBrainz Picard." : {
+
+    },
+    "Calendar date (or YYYY / YYYY-MM). Defined by ID3v2.4; practical convention for text tags." : {
+
+    },
+    "Calendar date (or YYYY-MM). Defined by ID3v2.4 and RIFF INFO; practical convention for MP4, Vorbis, and APEv2." : {
+
+    },
     "Can't Edit Artwork for This Selection" : {
 
     },
@@ -2655,6 +2667,9 @@
 
     },
     "Choose Date…" : {
+
+    },
+    "Choose Date… appears only for raw ITUNESPURCHASEDATE when every selected file uses ID3v2.4, Vorbis comments, or APEv2. It does not appear for MP4/M4A—where raw ITUNESPURCHASEDATE writes a separate freeform atom rather than native purd—or for existing ID3v2.3 tags, custom keys, or mixed selections with an ineligible file." : {
 
     },
     "Choose exactly which iTunes values should overwrite the current file tags." : {
@@ -4284,6 +4299,12 @@
         }
       }
     },
+    "Direct typing or pasting adds no format checks, missing parts, or time-zone conversion, though the file’s tag still determines what saves. Where the picker appears, it offers Year, Year & Month, and Full Date (with optional Add Time and Time Zone), keeps pure dates as chosen, converts timed values to UTC in Tag Value Preview (without Z if any target uses ID3v2.4), and updates the draft on Apply until you save." : {
+
+    },
+    "Direct typing or pasting adds no format checks, missing parts, or time-zone conversion, though the file’s tag still determines what saves. Where the picker appears, it offers Year, Year & Month, and Full Date (with optional Add Time and Time Zone), keeps pure dates as chosen, converts timed values to UTC with Z in Tag Value Preview, and updates the draft on Apply until you save." : {
+
+    },
     "Disc" : {
       "comment" : "Short UI label. Context: disc-number metadata context. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:13, AudioMator/Domain/UIState/MiddleListColumn.swift:49, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:128, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:247.",
       "extractionState" : "stale",
@@ -4552,6 +4573,15 @@
         }
       }
     },
+    "Edit in Metadata Editor only—this field is not an Inspector row and stays separate from all release and recording date fields." : {
+
+    },
+    "Edit in the Inspector (visible by default) or Metadata Editor. Release Date stays independent of Year, Date, and Original Release Date." : {
+
+    },
+    "Edit in the Inspector (visible by default) or Metadata Editor. Year stays independent of Date, Release Date, and Original Release Date, and routes that support full dates or timestamps keep that precision." : {
+
+    },
     "Edit Metadata Field" : {
       "comment" : "User-facing UI text. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:250, AudioMator/Features/MetadataEditor/Views/MetadataEditorWindow.swift:957.",
       "localizations" : {
@@ -4678,6 +4708,9 @@
           }
         }
       }
+    },
+    "Editing in AudioMator" : {
+
     },
     "Edits apply to all selected files. Fields you leave untouched stay as they are." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Main/Views/InspectorPane.swift:453.",
@@ -5596,6 +5629,15 @@
         }
       }
     },
+    "Format and Examples" : {
+
+    },
+    "Four-digit year. Defined for ID3v2.3 (read-only here) and conventional for Windows Media." : {
+
+    },
+    "Four-digit year. Standard for ID3v2.3 and Windows Media; widely accepted across formats." : {
+
+    },
     "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors." : {
       "comment" : "Credits MuseAmp's upstream project and original contributors.",
       "localizations" : {
@@ -5815,6 +5857,9 @@
 
     },
     "How many tracks are on that disc." : {
+
+    },
+    "ID3v2.4 UTC timestamp (spec format, no Z). Append Z (RFC 3339) as a practical convention for timed text tags." : {
 
     },
     "Identifiers" : {
@@ -7468,6 +7513,9 @@
     "MP3 and some WAV, AIFF and DSD files use ID3 tags. FLAC and supported Ogg files use Vorbis comments; WMA uses ASF. A WAV file can contain both ID3 and RIFF INFO. These are tag formats, not guarantees based on a filename." : {
 
     },
+    "MP4 and text tags do not fix one date syntax; treat these as reference examples rather than input rules." : {
+
+    },
     "Multiple locations match" : {
 
     },
@@ -8442,6 +8490,9 @@
         }
       }
     },
+    "Non-ID3v2.4 writable tags store freeform text with no mandated syntax. Other tools such as MusicBrainz Picard often map edition release dates to Year or Date instead." : {
+
+    },
     "Not Now" : {
 
     },
@@ -9022,6 +9073,18 @@
 
     },
     "Planned mapping; editing is not available." : {
+
+    },
+    "Practical calendar-date recommendation for text tags when only the date is known." : {
+
+    },
+    "Practical recommendation (ISO 8601 date, or YYYY / YYYY-MM) from XiphWiki and MusicBrainz Picard." : {
+
+    },
+    "Practical RFC 3339 UTC timestamp recommendation for text tags (ID3v2.4, Vorbis, APEv2)." : {
+
+    },
+    "Practical RFC 3339 UTC timestamp when storing a time." : {
 
     },
     "Pre-release" : {
@@ -11884,7 +11947,13 @@
         }
       }
     },
+    "Show Date in Settings → Interface to edit it in the Inspector, or use Metadata Editor. It stays independent of Year, Release Date, and Original Release Date." : {
+
+    },
     "Show Now" : {
+
+    },
+    "Show Original Release Date in Settings → Interface to edit it in the Inspector, or use Metadata Editor. It stays independent of Year, Date, and Release Date." : {
 
     },
     "Show Recovery Folder in Finder" : {
@@ -12564,6 +12633,9 @@
     "The episode number." : {
 
     },
+    "The explanation and format guidance draw on the official references below. AudioMator’s storage and editing choices are described above." : {
+
+    },
     "The explanation draws on the official reference below. AudioMator’s storage and editing choices are described above." : {
 
     },
@@ -12823,6 +12895,18 @@
 
     },
     "The import records can’t be matched to the selected files." : {
+
+    },
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF; raw YEAR on ID3v2.4 and mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+
+    },
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack; choosing the named Date suggestion when adding a field uses raw DATE on those files and STANDALONEDATE (text-only) elsewhere. Mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+
+    },
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw ORIGINALDATE except on ASF/WMA; ASF/WMA raw keys and ORIGINAL YEAR stay text-only." : {
+
+    },
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw RELEASEDATE on those formats; existing RELEASETIME rows display as Release Date without renaming their key and stay text-only." : {
 
     },
     "The Inspector draft changed before the artwork for %@ finished loading, so nothing was applied. Select the intended files again and choose the artwork again." : {
@@ -14493,6 +14577,9 @@
     "Viewing selected Apple Music, iTunes, and MusicBrainz pages. HTTPS page navigation is limited to these domains and their subdomains." : {
 
     },
+    "Vorbis comments and other text tags leave syntax unspecified; ID3v2.3 uses DDMM and is read-only here." : {
+
+    },
     "Warn Before Discarding Inspector Edits" : {
 
     },
@@ -14637,6 +14724,9 @@
 
     },
     "Why folder access is required" : {
+
+    },
+    "Windows Media defines a text string traditionally holding a four-digit year; MP4, Vorbis, and APEv2 text tags leave syntax unspecified." : {
 
     },
     "Write" : {

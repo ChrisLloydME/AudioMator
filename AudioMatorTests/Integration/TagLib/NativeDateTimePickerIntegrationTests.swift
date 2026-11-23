@@ -384,7 +384,7 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         edit.date = "Spring 2024"
         edit.releaseDate = "06/02/2024 00:30"
         edit.originalReleaseDate = "Late 1990s"
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let writeResult = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file)
         if case .failure(let reason) = writeResult {
@@ -421,23 +421,37 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         XCTAssertEqual(csvEntry.previewValues[.date], "Q2 2002")
         XCTAssertEqual(csvEntry.previewValues[.releaseDate], "06/02/2024")
         XCTAssertEqual(csvEntry.previewValues[.originalReleaseDate], "1990s")
+        let csvSummary = await viewModel.applyMetadataExchangeWriteEntries(csvPlan.writeEntries)
+        XCTAssertEqual(csvSummary?.succeeded, 1, String(describing: csvSummary?.failureIssues))
+        let afterCSV = try await pipeline.loadAudioFile(at: flac, id: file.id)
+        XCTAssertEqual(afterCSV.year, "Autumn 2001")
+        XCTAssertEqual(afterCSV.date, "Q2 2002")
+        XCTAssertEqual(afterCSV.releaseDate, "06/02/2024")
+        XCTAssertEqual(afterCSV.originalReleaseDate, "1990s")
 
         // 3. Text import passes non-ISO date values through without date-specific rejection.
         let textPlan = MetadataExchangePlanner.makeTextImportPlan(
             template: "{{year}} | {{releaseDate}}",
             sourceText: "circa 1979 | May 1980",
-            targetFiles: [afterClear],
+            targetFiles: [afterCSV],
             clearBlankImportedValues: false
         )
         XCTAssertNil(textPlan.validationMessage)
         let textEntry = try XCTUnwrap(textPlan.writeEntries.first)
         XCTAssertEqual(textEntry.previewValues[.year], "circa 1979")
         XCTAssertEqual(textEntry.previewValues[.releaseDate], "May 1980")
+        let textSummary = await viewModel.applyMetadataExchangeWriteEntries(textPlan.writeEntries)
+        XCTAssertEqual(textSummary?.succeeded, 1, String(describing: textSummary?.failureIssues))
+        let afterText = try await pipeline.loadAudioFile(at: flac, id: file.id)
+        XCTAssertEqual(afterText.year, "circa 1979")
+        XCTAssertEqual(afterText.releaseDate, "May 1980")
+        XCTAssertEqual(afterText.date, "Q2 2002")
 
         // 4. Filename extraction passes non-ISO date values through without date-specific rejection.
         let namedURL = flac.deletingLastPathComponent().appendingPathComponent("Spring 2024 - circa 1998.flac")
-        try FileManager.default.moveItem(at: flac, to: namedURL)
-        let namedFile = try await pipeline.loadAudioFile(at: namedURL, id: file.id)
+        try FileManager.default.copyItem(at: flac, to: namedURL)
+        let namedFile = try await pipeline.loadAudioFile(at: namedURL, id: UUID())
+        viewModel.mergeQuickImportFiles([namedFile])
         let filenamePlan = makeFilenameMetadataPlan(
             template: "{{releaseDate}} - {{originalReleaseDate}}",
             targetFiles: [namedFile],
@@ -447,6 +461,12 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         let filenameEntry = try XCTUnwrap(filenamePlan.writeEntries.first)
         XCTAssertEqual(filenameEntry.previewValues[.releaseDate], "Spring 2024")
         XCTAssertEqual(filenameEntry.previewValues[.originalReleaseDate], "circa 1998")
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan(filenamePlan.writeEntries)
+        XCTAssertEqual(filenameSummary?.succeeded, 1, String(describing: filenameSummary?.failureIssues))
+        let afterFilename = try await pipeline.loadAudioFile(at: namedURL, id: namedFile.id)
+        XCTAssertEqual(afterFilename.releaseDate, "Spring 2024")
+        XCTAssertEqual(afterFilename.originalReleaseDate, "circa 1998")
+        XCTAssertEqual(afterFilename.year, "circa 1979")
     }
 
     @MainActor
@@ -495,6 +515,15 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         )
         XCTAssertFalse(staleApplied)
         XCTAssertEqual(viewModel.edit?.releaseDate, "2023-05-01")
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+
+        XCTAssertTrue(viewModel.applyInspectorDatePickerValue(
+            "2023-05-01",
+            for: .releaseDate,
+            expectedScope: refreshedScope,
+            expectedEligibility: eligibility
+        ))
+        XCTAssertEqual(viewModel.currentInspectorDatePickerScope(), refreshedScope)
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
 
         // A fresh picker Apply stages into the active draft without writing to disk until Save.

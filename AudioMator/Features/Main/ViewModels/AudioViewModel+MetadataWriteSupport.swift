@@ -235,12 +235,16 @@ extension AudioViewModel {
             var model = (editSourceFileID == fileID ? edit : nil) ?? SingleFileEditModel(from: file)
             switch field {
             case .year:
+                guard value != model.year else { return true }
                 model.year = value
             case .date:
+                guard value != model.date else { return true }
                 model.date = value
             case .releaseDate:
+                guard value != model.releaseDate else { return true }
                 model.releaseDate = value
             case .originalReleaseDate:
+                guard value != model.originalReleaseDate else { return true }
                 model.originalReleaseDate = value
             default:
                 return false
@@ -264,6 +268,8 @@ extension AudioViewModel {
             default:
                 return false
             }
+            let isUntouchedMixed = current.isUntouchedMixedTextField(multiField)
+            guard isUntouchedMixed || value != current.text(for: multiField) else { return true }
             current.setText(value, for: multiField)
             multiEdit = current
             return true

@@ -181,6 +181,56 @@ final class MetadataDateTimeCoreTests: XCTestCase {
         XCTAssertEqual(reopenedLater.formattedValue, "2024-11-03T06:30")
     }
 
+    func testDSTHourPrecisionKeepsBothNewYorkOccurrencesToggleable() throws {
+        let zone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        var session = MetadataDateTimePickerSession(
+            initialText: "2024-11-03T05:30",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: zone
+        )
+        session.setTimePrecision(.hour)
+        let requested = session.localComponents
+        let options = session.dstResolutionOptions
+        XCTAssertEqual(options.map(\.id), ["earlier", "later"])
+
+        for (id, expected) in [("earlier", "2024-11-03T05"), ("later", "2024-11-03T06"), ("earlier", "2024-11-03T05")] {
+            let option = try XCTUnwrap(options.first { $0.id == id })
+            session.selectDSTResolution(optionID: id)
+            let staged = try XCTUnwrap(session.valueToStage(for: option))
+            XCTAssertEqual(staged.value, expected)
+            XCTAssertEqual(session.formattedValue, expected)
+            XCTAssertEqual(MetadataDateTimeCodec.components(for: staged.instant, in: zone)?.minute, 0)
+            XCTAssertEqual(session.localComponents, requested)
+            XCTAssertEqual(session.dstResolutionOptions, options)
+        }
+    }
+
+    func testDSTHourPrecisionOffersMinutesWhenRoundingWouldCrossStJohnsTransition() throws {
+        let zone = try XCTUnwrap(TimeZone(identifier: "America/St_Johns"))
+        var session = MetadataDateTimePickerSession(
+            initialText: "2024-11-03T05",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: zone
+        )
+        session.setTime(hour: 1, minute: 15)
+        let requested = session.localComponents
+        let options = session.dstResolutionOptions
+        let later = try XCTUnwrap(options.first { $0.id == "later" })
+        session.selectDSTResolution(optionID: "earlier")
+        XCTAssertEqual(session.formattedValue, "2024-11-03T03")
+        session.selectDSTResolution(optionID: later.id)
+        XCTAssertNil(session.valueToStage(for: later))
+        XCTAssertNil(session.formattedValue)
+        XCTAssertFalse(session.canApply)
+        XCTAssertEqual(session.finerTimePrecision, .minute)
+        XCTAssertEqual(session.localComponents, requested)
+        XCTAssertEqual(session.dstResolutionOptions, options)
+
+        session.useFinerTimePrecision()
+        XCTAssertEqual(session.formattedValue, "2024-11-03T04:45")
+        XCTAssertEqual(session.valueToStage(for: later)?.value, session.formattedValue)
+    }
+
     func testDSTNonexistentSpringForwardTimeRequiresExplicitResolution() throws {
         let newYork = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
         var session = MetadataDateTimePickerSession(
@@ -212,6 +262,32 @@ final class MetadataDateTimeCoreTests: XCTestCase {
         XCTAssertNil(session.localTimeResolution)
         XCTAssertFalse(session.requiresDSTResolution)
         XCTAssertEqual(session.formattedValue, "2024-03-10")
+    }
+
+    func testDSTHourPrecisionSpringForwardKeepsChoicesWithoutDuplicateUTCPreviews() throws {
+        let zone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        var session = MetadataDateTimePickerSession(
+            initialText: "2024-03-10T07",
+            destinationFormat: .id3v24Timestamp,
+            systemTimeZone: zone
+        )
+        session.setTime(hour: 2, minute: 30)
+        let requested = session.localComponents
+        let options = session.dstResolutionOptions
+        XCTAssertEqual(options.map(\.id), ["shiftForward", "transitionStart", "shiftBackward"])
+        XCTAssertEqual(options.compactMap { session.valueToStage(for: $0)?.value }, ["2024-03-10T07", "2024-03-10T06"])
+
+        session.selectDSTResolution(optionID: "transitionStart")
+        XCTAssertEqual(session.formattedValue, "2024-03-10T07")
+        session.selectDSTResolution(optionID: "shiftBackward")
+        XCTAssertEqual(session.formattedValue, "2024-03-10T06")
+        session.selectDSTResolution(optionID: "shiftForward")
+        XCTAssertNil(session.formattedValue)
+        XCTAssertEqual(session.finerTimePrecision, .minute)
+        XCTAssertEqual(session.localComponents, requested)
+        XCTAssertEqual(session.dstResolutionOptions, options)
+        session.useFinerTimePrecision()
+        XCTAssertEqual(session.formattedValue, "2024-03-10T07:30")
     }
 
     func testRegionalTimeZoneSelectionOverridesSystemTimeZoneForUTCConversion() throws {
@@ -609,6 +685,22 @@ final class MetadataDateTimeCoreTests: XCTestCase {
         XCTAssertTrue(dstFractional.setTimeZone(identifier: "America/New_York"))
         XCTAssertEqual(dstFractional.selectedDSTOptionID, "earlier")
         XCTAssertEqual(dstFractional.formattedValue, "2024-11-03T05:30:45.123Z")
+    }
+
+    func testLongFractionalSecondsKeepTheirWholeSecondAtTheUTCYearLimit() {
+        let stored = "9999-12-31T23:59:59.9999999999876500Z"
+        var session = MetadataDateTimePickerSession(
+            initialText: stored,
+            destinationFormat: .utcTextTimestamp,
+            systemTimeZone: .gmt
+        )
+        XCTAssertTrue(session.didParseExistingValue)
+        XCTAssertEqual(session.formattedValue, stored)
+        XCTAssertTrue(session.setTimeZone(identifier: "America/New_York"))
+        XCTAssertEqual(session.localComponents.second, 59)
+        XCTAssertEqual(session.formattedValue, stored)
+        XCTAssertTrue(session.setTimeZone(identifier: "UTC"))
+        XCTAssertEqual(session.formattedValue, stored)
     }
 
     func testWriteFailureFieldAnnotationDistinguishesDateFromUpdateAndCompoundDateLabels() {

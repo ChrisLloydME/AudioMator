@@ -103,7 +103,7 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 Notable coverage:
 
 - `InspectorInteractionTests` hosts the 820 × 540 Text Transform sheet in Find & Replace mode and checks that the Preview fits its 780-point row width and provides at least 120 points of visible height.
-- Core date picker tests verify partial dates, DST handling, UTC conversion and narrow-window viewport bounds. The app-hosted date picker suite covers known raw routes and the Metadata Editor Add Field path from filling the initially selected value through exact FLAC `DATE` readback. Viewport logic tests do not measure a macOS sheet presented in a window.
+- Core date picker tests verify partial dates, UTC conversion, fractional-second round trips, fall-back occurrence toggling, spring-forward choices with distinct UTC previews, and the finer-precision fallback when truncation would cross a DST transition. The app-hosted date picker suite verifies exact FLAC readback from Metadata Editor Add Field and from freeform dates written via CSV, text, and filename plans. Viewport logic tests cover narrow-window bounds separately from manual sheet presentation.
 - Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.

@@ -65,7 +65,7 @@ Business rules and value models that do not own UI or concrete file transactions
 | Folder | Responsibility |
 | --- | --- |
 | `AudioFiles/` | `AudioFile`, fingerprint, edit models, metadata model core, container field identities |
-| `FileSources/` | Source modes, bookmark records, mutation directory access plan |
+| `FileSources/` | Source modes, sidebar selection, watched-folder hierarchy (`WatchedFolderHierarchy`), bookmark records, mutation directory access plan |
 | `MetadataEditing/` | Pipeline contract, conflict policy/baseline, text pipeline, mutation coordinator |
 | `MetadataExchange/` | Converter modes/fields, exchange profile, template syntax, CSV, import/export planning, field transfer |
 | `MuseAmp/` | Deterministic MuseAmp ID generation |
@@ -118,7 +118,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1065 test functions and 116 `XCTestCase` classes across 116 test files plus 7 `TestSupport` files (123 Swift files total), alongside fixtures.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1072 test functions and 117 `XCTestCase` classes across 117 test files plus 7 `TestSupport` files (124 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -136,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 119 test functions in seven `XCTestCase` classes across six source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 33-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 126 test functions in eight `XCTestCase` classes across seven source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target.
 
 ## `scripts`
 

@@ -262,27 +262,23 @@ struct MetadataTextUtilitiesSheet: View {
 
             if let preview, !preview.rows.isEmpty {
                 ScrollView([.vertical, .horizontal]) {
-                    Grid(horizontalSpacing: 10, verticalSpacing: 0) {
-                        GridRow {
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        HStack(spacing: MetadataTextUtilityPreviewLayout.columnSpacing) {
                             previewHeaderCell("File")
-                                .gridColumnAlignment(.leading)
-                                .frame(width: 140, alignment: .leading)
+                                .frame(width: MetadataTextUtilityPreviewLayout.labelWidth, alignment: .leading)
                             previewHeaderCell("Field")
-                                .gridColumnAlignment(.leading)
-                                .frame(width: 140, alignment: .leading)
+                                .frame(width: MetadataTextUtilityPreviewLayout.labelWidth, alignment: .leading)
                             previewHeaderCell("Current values")
-                                .gridColumnAlignment(.leading)
-                                .frame(width: 250, alignment: .leading)
+                                .frame(width: MetadataTextUtilityPreviewLayout.valueWidth, alignment: .leading)
                             previewHeaderCell("Preview values")
-                                .gridColumnAlignment(.leading)
-                                .frame(width: 250, alignment: .leading)
+                                .frame(width: MetadataTextUtilityPreviewLayout.valueWidth, alignment: .leading)
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(Color(nsColor: .controlBackgroundColor))
 
                         ForEach(preview.rows) { row in
-                            MetadataTextUtilityPreviewGridRow(row: row)
+                            MetadataTextUtilityPreviewTableRow(row: row)
                         }
                     }
                 }
@@ -354,27 +350,33 @@ struct MetadataTextUtilitiesSheet: View {
     }
 }
 
-private struct MetadataTextUtilityPreviewGridRow: View {
+private enum MetadataTextUtilityPreviewLayout {
+    static let columnSpacing: CGFloat = 10
+    static let labelWidth: CGFloat = 140
+    static let valueWidth: CGFloat = 250
+}
+
+private struct MetadataTextUtilityPreviewTableRow: View {
     let row: MetadataTextUtilityPreviewRow
 
     var body: some View {
-        GridRow {
+        HStack(alignment: .top, spacing: MetadataTextUtilityPreviewLayout.columnSpacing) {
             Text(row.fileName)
                 .font(.body)
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .truncationMode(.tail)
-                .frame(width: 140, alignment: .leading)
+                .frame(width: MetadataTextUtilityPreviewLayout.labelWidth, alignment: .leading)
             Text(row.fieldKey)
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.primary)
                 .lineLimit(2)
                 .truncationMode(.tail)
-                .frame(width: 140, alignment: .leading)
+                .frame(width: MetadataTextUtilityPreviewLayout.labelWidth, alignment: .leading)
             MetadataRawValueListText(values: row.beforeValues)
-                .frame(width: 250, alignment: .leading)
+                .frame(width: MetadataTextUtilityPreviewLayout.valueWidth, alignment: .leading)
             MetadataRawValueListText(values: row.afterValues)
-                .frame(width: 250, alignment: .leading)
+                .frame(width: MetadataTextUtilityPreviewLayout.valueWidth, alignment: .leading)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -387,7 +389,7 @@ private struct MetadataTextUtilityPreviewGridRow: View {
     }
 }
 
-/// Ordered value list used by the preview grid. Element boundaries are visible
+/// Ordered value list used by the preview table. Element boundaries are visible
 /// separators and an embedded line break inside one element is shown as `⏎`.
 private struct MetadataRawValueListText: View {
     let values: [String]

@@ -245,6 +245,14 @@ final class AudioMatorCoreLogicTests: XCTestCase {
         )
 
         XCTAssertNil(matcher.match("Boards - Aquarius - Version"))
+        XCTAssertEqual(matcher.matchResult("Boards - Aquarius - Version"), .ambiguous)
+        XCTAssertEqual(matcher.matchResult("Boards"), .noMatch)
+
+        let ignoredPrefixMatcher = FilenameMetadataTemplateMatcher(
+            document: FileRenameTemplateDocument(rawValue: "{{_ignore}} - {{_ignore}} / {{date}}"),
+            replaceUnderscoresWithSpaces: false
+        )
+        XCTAssertEqual(ignoredPrefixMatcher.matchResult("A - B - C / Spring 2024"), .ambiguous)
     }
 
     func testFilenameMetadataMatcherKeepsUniqueTypedBacktrackingMatch() throws {

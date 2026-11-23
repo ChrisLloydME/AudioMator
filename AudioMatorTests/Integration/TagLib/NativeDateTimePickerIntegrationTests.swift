@@ -384,7 +384,7 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         edit.date = "Spring 2024"
         edit.releaseDate = "06/02/2024 00:30"
         edit.originalReleaseDate = "Late 1990s"
-        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline)
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [file])
         viewModel.mergeQuickImportFiles([file])
         let writeResult = await viewModel.persistReviewedEditForTest(edit, to: file, comparedTo: file)
         if case .failure(let reason) = writeResult {
@@ -421,23 +421,37 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         XCTAssertEqual(csvEntry.previewValues[.date], "Q2 2002")
         XCTAssertEqual(csvEntry.previewValues[.releaseDate], "06/02/2024")
         XCTAssertEqual(csvEntry.previewValues[.originalReleaseDate], "1990s")
+        let csvSummary = await viewModel.applyMetadataExchangeWriteEntries(csvPlan.writeEntries)
+        XCTAssertEqual(csvSummary?.succeeded, 1, String(describing: csvSummary?.failureIssues))
+        let afterCSV = try await pipeline.loadAudioFile(at: flac, id: file.id)
+        XCTAssertEqual(afterCSV.year, "Autumn 2001")
+        XCTAssertEqual(afterCSV.date, "Q2 2002")
+        XCTAssertEqual(afterCSV.releaseDate, "06/02/2024")
+        XCTAssertEqual(afterCSV.originalReleaseDate, "1990s")
 
         // 3. Text import passes non-ISO date values through without date-specific rejection.
         let textPlan = MetadataExchangePlanner.makeTextImportPlan(
             template: "{{year}} | {{releaseDate}}",
             sourceText: "circa 1979 | May 1980",
-            targetFiles: [afterClear],
+            targetFiles: [afterCSV],
             clearBlankImportedValues: false
         )
         XCTAssertNil(textPlan.validationMessage)
         let textEntry = try XCTUnwrap(textPlan.writeEntries.first)
         XCTAssertEqual(textEntry.previewValues[.year], "circa 1979")
         XCTAssertEqual(textEntry.previewValues[.releaseDate], "May 1980")
+        let textSummary = await viewModel.applyMetadataExchangeWriteEntries(textPlan.writeEntries)
+        XCTAssertEqual(textSummary?.succeeded, 1, String(describing: textSummary?.failureIssues))
+        let afterText = try await pipeline.loadAudioFile(at: flac, id: file.id)
+        XCTAssertEqual(afterText.year, "circa 1979")
+        XCTAssertEqual(afterText.releaseDate, "May 1980")
+        XCTAssertEqual(afterText.date, "Q2 2002")
 
         // 4. Filename extraction passes non-ISO date values through without date-specific rejection.
         let namedURL = flac.deletingLastPathComponent().appendingPathComponent("Spring 2024 - circa 1998.flac")
-        try FileManager.default.moveItem(at: flac, to: namedURL)
-        let namedFile = try await pipeline.loadAudioFile(at: namedURL, id: file.id)
+        try FileManager.default.copyItem(at: flac, to: namedURL)
+        let namedFile = try await pipeline.loadAudioFile(at: namedURL, id: UUID())
+        viewModel.mergeQuickImportFiles([namedFile])
         let filenamePlan = makeFilenameMetadataPlan(
             template: "{{releaseDate}} - {{originalReleaseDate}}",
             targetFiles: [namedFile],
@@ -447,6 +461,12 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         let filenameEntry = try XCTUnwrap(filenamePlan.writeEntries.first)
         XCTAssertEqual(filenameEntry.previewValues[.releaseDate], "Spring 2024")
         XCTAssertEqual(filenameEntry.previewValues[.originalReleaseDate], "circa 1998")
+        let filenameSummary = await viewModel.applyFilenameMetadataPlan(filenamePlan.writeEntries)
+        XCTAssertEqual(filenameSummary?.succeeded, 1, String(describing: filenameSummary?.failureIssues))
+        let afterFilename = try await pipeline.loadAudioFile(at: namedURL, id: namedFile.id)
+        XCTAssertEqual(afterFilename.releaseDate, "Spring 2024")
+        XCTAssertEqual(afterFilename.originalReleaseDate, "circa 1998")
+        XCTAssertEqual(afterFilename.year, "circa 1979")
     }
 
     @MainActor
@@ -497,6 +517,15 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.releaseDate, "2023-05-01")
         XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
 
+        XCTAssertTrue(viewModel.applyInspectorDatePickerValue(
+            "2023-05-01",
+            for: .releaseDate,
+            expectedScope: refreshedScope,
+            expectedEligibility: eligibility
+        ))
+        XCTAssertEqual(viewModel.currentInspectorDatePickerScope(), refreshedScope)
+        XCTAssertFalse(viewModel.hasUnsavedInspectorChanges)
+
         // A fresh picker Apply stages into the active draft without writing to disk until Save.
         let diskBytesBeforeApply = try Data(contentsOf: flac)
         let freshApplied = viewModel.applyInspectorDatePickerValue(
@@ -509,6 +538,56 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
         XCTAssertEqual(viewModel.edit?.releaseDate, "2025-07-04")
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
         XCTAssertEqual(try Data(contentsOf: flac), diskBytesBeforeApply)
+    }
+
+    @MainActor
+    func testInspectorSaveKeepsSingleDateRejectionUnderPreferDiskChanges() async throws {
+        let reason = "Failed to update tag metadata."
+        let (viewModel, file) = try await makeInspectorWithRejectingWriter(writerError(reason))
+        viewModel.edit?.date = "Spring 2024"
+        let failure = try await inspectorSaveFailure(viewModel, file: file)
+        XCTAssertEqual(failure.details, "\(reason)\nAffected field: Date")
+    }
+
+    @MainActor
+    func testInspectorSaveTreatsWrappedFilesystemFailuresAsFileLevel() async throws {
+        let causes: [any Error] = [POSIXError(.ENOSPC), CocoaError(.fileReadUnknown)]
+        for cause in causes {
+            let reason = "The file operation failed."
+            let rejection = writerError(reason, underlying: writerError("During write", underlying: cause))
+            XCTAssertEqual(MetadataFileMutationFailureCategory.classify(rejection), .fileLevel)
+            let (viewModel, file) = try await makeInspectorWithRejectingWriter(rejection)
+            viewModel.edit?.date = "Spring 2024"
+            let failure = try await inspectorSaveFailure(viewModel, file: file)
+            XCTAssertEqual(failure.details, reason)
+        }
+    }
+
+    @MainActor
+    func testInspectorSaveDoesNotAttributeMultiFieldRejectionsToDiscardedOrUnidentifiedFields() async throws {
+        let reason = "Failed to update tag metadata."
+        for hasConflict in [false, true] {
+            let (viewModel, file) = try await makeInspectorWithRejectingWriter(writerError(reason))
+            viewModel.edit?.date = "Spring 2024"
+            viewModel.edit?.title = "Edited title"
+            if hasConflict {
+                let copy = file.url.deletingLastPathComponent().appendingPathComponent("external.flac")
+                try FileManager.default.copyItem(at: file.url, to: copy)
+                _ = try TagLibMetadataManager.applyRawMetadataPatch(
+                    RawMetadataPatch(valuesToSet: ["DATE": ["A different date on disk"]]),
+                    to: copy
+                )
+                // Simulate an external tag edit that preserves the original inode.
+                let bytes = try Data(contentsOf: copy)
+                let handle = try FileHandle(forUpdating: file.url)
+                defer { try? handle.close() }
+                try handle.truncate(atOffset: 0)
+                try handle.write(contentsOf: bytes)
+                try handle.synchronize()
+            }
+            let failure = try await inspectorSaveFailure(viewModel, file: file)
+            XCTAssertEqual(failure.details, reason)
+        }
     }
 
     @MainActor
@@ -560,7 +639,8 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
             "文件自上次载入后已发生更改。"
         )
 
-        // Writer rejections annotate Date when only "update" or compound date labels appear.
+        // A single Date rejection needs annotation when the writer only names
+        // a compound label or uses the word "update".
         let updateRejection = annotatingWriteFailureWithFields(
             "Failed to update tag metadata.",
             fieldLabels: ["Date"],
@@ -574,9 +654,7 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
             fieldLabels: ["Date", "Release Date"],
             category: .writeRejection
         )
-        XCTAssertTrue(releaseDateOnlyRejection.contains("Date"))
-        XCTAssertTrue(releaseDateOnlyRejection.contains("Release Date"))
-        XCTAssertTrue(releaseDateOnlyRejection.contains("\n"))
+        XCTAssertEqual(releaseDateOnlyRejection, "Release Date could not be saved.")
 
         let originalReleaseOnlyRejection = annotatingWriteFailureWithFields(
             "Original Release Date could not be saved.",
@@ -596,6 +674,22 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
             ),
             alreadyNamed
         )
+    }
+
+    func testWriteFailureFieldBoundariesTreatEachEndOfMixedScriptLabelsIndependently() {
+        let examples = [
+            ("Date", "Failed to update the tag", false),
+            ("Date", "无效Date值", true),
+            ("ISRC", "无效ISRC值", true),
+            ("发行国家/地区", "Invalid发行国家/地区value", true),
+            ("ISRC编号", "invalidISRC编号", false),
+            ("ISRC编号", "ISRC编号value", true),
+            ("编号ISRC", "value编号ISRC", true),
+            ("编号ISRC", "编号ISRCvalue", false),
+        ]
+        for (label, reason, expected) in examples {
+            XCTAssertEqual(MetadataWriteFailureFieldAnnotation.namesEveryField([label], in: reason), expected, reason)
+        }
     }
 
     @MainActor
@@ -678,6 +772,45 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
 
     // MARK: - Helpers
 
+    private func writerError(_ message: String, underlying: (any Error)? = nil) -> NSError {
+        var info: [String: Any] = [NSLocalizedDescriptionKey: message]
+        info[NSUnderlyingErrorKey] = underlying
+        return NSError(domain: "WriterTest", code: 1, userInfo: info)
+    }
+
+    @MainActor
+    private func makeInspectorWithRejectingWriter(_ rejection: NSError) async throws -> (AudioViewModel, AudioFile) {
+        let url = try writableFixture(named: "testAudioFile.flac")
+        let pipeline = TemporaryFixtureTagLibPipeline(writeFailure: rejection)
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: pipeline, writableFixtures: [file])
+        viewModel.conflictPolicyDefaults.set(
+            MetadataConflictPolicy.preferDiskChanges.rawValue,
+            forKey: MetadataConflictPolicy.defaultsKey
+        )
+        viewModel.mergeQuickImportFiles([file])
+        viewModel.setSelectedAudioIDs([file.id])
+        return (viewModel, file)
+    }
+
+    @MainActor
+    private func inspectorSaveFailure(_ viewModel: AudioViewModel, file: AudioFile) async throws -> MetadataWriteHUD {
+        let before = try Data(contentsOf: file.url)
+        viewModel.saveInspectorEdits()
+        XCTAssertNotNil(viewModel.metadataSaveProgress)
+        let deadline = ContinuousClock.now + .seconds(5)
+        while viewModel.metadataSaveProgress != nil, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertNil(viewModel.metadataSaveProgress)
+        XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
+        XCTAssertEqual(try Data(contentsOf: file.url), before)
+        let failure = try XCTUnwrap(viewModel.metadataWriteHUD)
+        XCTAssertEqual(failure.style, .failure)
+        XCTAssertEqual(failure.summary, file.url.lastPathComponent)
+        return failure
+    }
+
     @MainActor
     private func waitUntilLoaded(_ store: MetadataEditorStore) async throws {
         let deadline = Date().addingTimeInterval(2)
@@ -710,6 +843,11 @@ nonisolated final class NativeDateTimePickerIntegrationTests: XCTestCase {
 /// folder permission UI; all reads and commits still use the real TagLib adapter.
 private struct TemporaryFixtureTagLibPipeline: AudioMetadataPipeline {
     private let base = TagLibAudioMetadataPipeline()
+    private let writeFailure: NSError?
+
+    init(writeFailure: NSError? = nil) {
+        self.writeFailure = writeFailure
+    }
 
     nonisolated func loadAudioFile(at url: URL, id: UUID) async throws -> AudioFile {
         try await base.loadAudioFile(at: url, id: id)
@@ -743,7 +881,8 @@ private struct TemporaryFixtureTagLibPipeline: AudioMetadataPipeline {
         to url: URL,
         expectedVersion: MetadataFileVersion?
     ) throws -> AudioMetadataWriteResult {
-        try base.writeMetadata(edit, to: url, expectedVersion: expectedVersion)
+        if let writeFailure { throw writeFailure }
+        return try base.writeMetadata(edit, to: url, expectedVersion: expectedVersion)
     }
 
     nonisolated func writeRawMetadataPatch(
@@ -760,7 +899,8 @@ private struct TemporaryFixtureTagLibPipeline: AudioMetadataPipeline {
         expectedVersion: MetadataFileVersion,
         expectedAudioContent: MetadataAudioContentIdentity
     ) throws -> AudioMetadataWriteResult {
-        try base.writeMetadata(
+        if let writeFailure { throw writeFailure }
+        return try base.writeMetadata(
             edit,
             to: url,
             expectedVersion: expectedVersion,

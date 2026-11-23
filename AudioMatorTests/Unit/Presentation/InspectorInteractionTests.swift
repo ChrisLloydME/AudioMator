@@ -193,13 +193,302 @@ nonisolated final class InspectorInteractionTests: XCTestCase {
             )),
             .scrollHorizontal(to: 90)
         )
+        // Smaller vertical scroll after larger horizontal scroll must still forward cleanly.
         XCTAssertEqual(
             router.handle(InspectorValueScrollInput(
-                deltaX: 0, deltaY: -10, hasPreciseScrollingDeltas: true,
+                deltaX: 0, deltaY: -5, hasPreciseScrollingDeltas: true,
                 phase: [], momentumPhase: [], currentOffsetX: 90, maxOffsetX: 200
             )),
             .forwardToParent
         )
+        // Sub-2pt phaseless vertical delta still uses deltaThreshold and forwards.
+        XCTAssertEqual(
+            router.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: -0.5, hasPreciseScrollingDeltas: true,
+                phase: [], momentumPhase: [], currentOffsetX: 90, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+    }
+
+    @MainActor
+    func testTrackpadMayBeginBalancingMicroJitterAndNoStaleLeak() {
+        // Case 1: .mayBegin followed directly by non-zero horizontal .began balances .ended to parent.
+        var router = InspectorValueScrollRouter()
+        XCTAssertEqual(
+            router.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .mayBegin, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+        XCTAssertEqual(
+            router.handle(InspectorValueScrollInput(
+                deltaX: 12, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .began, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .scrollHorizontal(to: 38)
+        )
+        XCTAssertEqual(router.axisLatch, .horizontal)
+        XCTAssertEqual(
+            router.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .ended, momentumPhase: [], currentOffsetX: 38, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+        XCTAssertFalse(router.didForwardPreciseBeginToParent)
+
+        // Case 2: .mayBegin -> tiny horizontal jitter on .began -> real vertical swipe latches vertical.
+        var jitterRouter = InspectorValueScrollRouter()
+        XCTAssertEqual(
+            jitterRouter.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .mayBegin, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+        XCTAssertEqual(
+            jitterRouter.handle(InspectorValueScrollInput(
+                deltaX: 0.02, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .began, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+        XCTAssertEqual(jitterRouter.axisLatch, .undecided)
+        XCTAssertEqual(
+            jitterRouter.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: -12, hasPreciseScrollingDeltas: true,
+                phase: .changed, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .forwardToParent
+        )
+        XCTAssertEqual(jitterRouter.axisLatch, .vertical)
+
+        // Case 3: Previous gesture scrolled away without .ended; a later gesture starting directly
+        // with .began(non-zero) must NOT inherit stale didForwardPreciseBeginToParent.
+        XCTAssertEqual(
+            jitterRouter.handle(InspectorValueScrollInput(
+                deltaX: 12, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .began, momentumPhase: [], currentOffsetX: 50, maxOffsetX: 200
+            )),
+            .scrollHorizontal(to: 38)
+        )
+        XCTAssertFalse(jitterRouter.didForwardPreciseBeginToParent)
+        XCTAssertEqual(
+            jitterRouter.handle(InspectorValueScrollInput(
+                deltaX: 0, deltaY: 0, hasPreciseScrollingDeltas: true,
+                phase: .ended, momentumPhase: [], currentOffsetX: 38, maxOffsetX: 200
+            )),
+            .consume
+        )
+    }
+
+    @MainActor
+    func testInlineDoubleClickHandoffPromotesOnlyRapidUntouchedSameSpotClick() {
+        var handoff = InspectorInlineDoubleClickHandoff()
+        handoff.begin(at: 10.0, windowNumber: 7, locationInWindow: CGPoint(x: 120, y: 40))
+
+        XCTAssertTrue(
+            handoff.consumeLeftMouseDown(
+                clickCount: 2,
+                timestamp: 10.18,
+                windowNumber: 7,
+                locationInWindow: CGPoint(x: 122, y: 41),
+                doubleClickInterval: 0.5,
+                hasMutated: false
+            )
+        )
+        // Disarmed after first evaluation.
+        XCTAssertFalse(
+            handoff.consumeLeftMouseDown(
+                clickCount: 2,
+                timestamp: 10.20,
+                windowNumber: 7,
+                locationInWindow: CGPoint(x: 122, y: 41),
+                doubleClickInterval: 0.5,
+                hasMutated: false
+            )
+        )
+
+        // Rejects after typing, timeout, single click, distant click, or another window.
+        for (clickCount, timestamp, windowNumber, point, hasMutated) in [
+            (2, 10.15, 7, CGPoint(x: 120, y: 40), true),
+            (2, 10.75, 7, CGPoint(x: 120, y: 40), false),
+            (1, 10.15, 7, CGPoint(x: 120, y: 40), false),
+            (2, 10.15, 7, CGPoint(x: 140, y: 40), false),
+            (2, 10.15, 8, CGPoint(x: 120, y: 40), false)
+        ] {
+            handoff.begin(at: 10.0, windowNumber: 7, locationInWindow: CGPoint(x: 120, y: 40))
+            XCTAssertFalse(
+                handoff.consumeLeftMouseDown(
+                    clickCount: clickCount,
+                    timestamp: timestamp,
+                    windowNumber: windowNumber,
+                    locationInWindow: point,
+                    doubleClickInterval: 0.5,
+                    hasMutated: hasMutated
+                )
+            )
+        }
+    }
+
+    @MainActor
+    func testQuickEditCommitDecisionProtectsUntouchedMixedAndRejectsStaleScope() {
+        let scopeA = InspectorActiveDraftScope(sessionID: InspectorDraftSessionID(), selectedIDs: [UUID()])
+        let scopeB = InspectorActiveDraftScope(sessionID: InspectorDraftSessionID(), selectedIDs: scopeA.selectedIDs)
+
+        XCTAssertEqual(
+            InspectorPane.quickEditCommitDecision(
+                startedMixed: true,
+                text: "",
+                allowClearingUntouchedMixed: false,
+                expectedScope: scopeA,
+                currentScope: scopeA
+            ),
+            .skipUntouchedMixedClear
+        )
+        XCTAssertEqual(
+            InspectorPane.quickEditCommitDecision(
+                startedMixed: true,
+                text: "",
+                allowClearingUntouchedMixed: true,
+                expectedScope: scopeA,
+                currentScope: scopeA
+            ),
+            .apply("")
+        )
+        XCTAssertEqual(
+            InspectorPane.quickEditCommitDecision(
+                startedMixed: true,
+                text: "Unified Value",
+                allowClearingUntouchedMixed: false,
+                expectedScope: scopeA,
+                currentScope: scopeA
+            ),
+            .apply("Unified Value")
+        )
+        XCTAssertEqual(
+            InspectorPane.quickEditCommitDecision(
+                startedMixed: false,
+                text: "Draft",
+                allowClearingUntouchedMixed: false,
+                expectedScope: scopeA,
+                currentScope: scopeB
+            ),
+            .discardStaleScope
+        )
+    }
+
+    @MainActor
+    func testActiveInspectorDraftScopeSurvivesCleanRefreshAndInvalidatesOnCancelSelectionOrPendingReview() {
+        let fileA = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/scope-a.mp3"), title: "A")
+        let fileB = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/scope-b.mp3"), title: "B")
+        let viewModel = AudioViewModelTestFactory.make(metadataPipeline: TagLibAudioMetadataPipeline())
+        viewModel.mergeQuickImportFiles([fileA, fileB])
+        viewModel.setSelectedAudioIDs([fileA.id])
+
+        guard let initialScope = viewModel.activeInspectorDraftScope else {
+            return XCTFail("Expected active Inspector draft scope for selected file")
+        }
+
+        // Benign clean refresh bumps editGeneration while keeping sessionID and selectedIDs.
+        let beforeIdentity = viewModel.inspectorDraftIdentity
+        viewModel.refreshInspectorDraftAfterAcceptedPublication()
+        XCTAssertNotEqual(viewModel.inspectorDraftIdentity, beforeIdentity)
+        XCTAssertEqual(viewModel.activeInspectorDraftScope, initialScope)
+
+        // Explicit Cancel creates a new draft session and invalidates open editors.
+        viewModel.cancelEditing()
+        let postCancelScope = viewModel.activeInspectorDraftScope
+        XCTAssertNotNil(postCancelScope)
+        XCTAssertNotEqual(postCancelScope, initialScope)
+
+        // Switching selection invalidates the previous scope.
+        viewModel.setSelectedAudioIDs([fileB.id])
+        let selectionBScope = viewModel.activeInspectorDraftScope
+        XCTAssertNotNil(selectionBScope)
+        XCTAssertNotEqual(selectionBScope, postCancelScope)
+
+        // Dirty draft moving to pending review clears the active editor scope.
+        viewModel.edit?.title = "Dirty B"
+        viewModel.quickImportFiles = [fileA]
+        viewModel.quickImportFilesByID = [fileA.id: fileA]
+        viewModel.rebuildVisibleFiles(preservingOutOfScopeDraft: true)
+        XCTAssertTrue(viewModel.hasInspectorPendingReview)
+        XCTAssertNil(viewModel.activeInspectorDraftScope)
+    }
+
+    @MainActor
+    func testEscapeRevertRestoresPairedNumbersAndUntouchedMixedWithoutLosingUnrelatedDraftEdits() {
+        // Single-file: paired track paste ("7/12") reverted restores track, total, and raw text,
+        // while keeping an unrelated earlier title edit intact.
+        let singleFile = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/revert-single.mp3"),
+            title: "Original Title",
+            track: 1,
+            trackTotal: 10,
+            trackNumberText: "01/10"
+        )
+        var singleEdit = SingleFileEditModel(from: singleFile)
+        singleEdit.title = "Edited Title"
+
+        let trackSnapshot = singleEdit.trackPairSnapshot
+        singleEdit.setTrackNumberFieldText("7/12")
+        XCTAssertEqual(singleEdit.track, 7)
+        XCTAssertEqual(singleEdit.trackTotal, 12)
+        XCTAssertEqual(singleEdit.trackNumberText, "7/12")
+
+        singleEdit.restoreTrackPair(trackSnapshot)
+        XCTAssertEqual(singleEdit.track, 1)
+        XCTAssertEqual(singleEdit.trackTotal, 10)
+        XCTAssertEqual(singleEdit.trackNumberText, "01/10")
+        XCTAssertEqual(singleEdit.title, "Edited Title")
+
+        // Multi-file: reverting paired track paste restores trackTotal and untouched-mixed state
+        // while keeping unrelated album edits intact.
+        let fileA = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/revert-multi-a.mp3"),
+            title: "Track A",
+            album: "Old Album",
+            track: 1,
+            trackTotal: 10,
+            trackNumberText: "1/10"
+        )
+        let fileB = AudioFileTestFactory.make(
+            url: URL(fileURLWithPath: "/tmp/revert-multi-b.mp3"),
+            title: "Track B",
+            album: "Old Album",
+            track: 2,
+            trackTotal: 10,
+            trackNumberText: "2/10"
+        )
+        var multiEdit = MultiFileEditModel(files: [fileA, fileB])
+        multiEdit.setText("New Album", for: .album)
+
+        let multiTrackSnapshot = multiEdit.textFieldRevertSnapshot(for: .trackNumber)
+        multiEdit.setText("7/12", for: .trackNumber)
+        XCTAssertEqual(multiEdit.values.track, 7)
+        XCTAssertEqual(multiEdit.values.trackTotal, 12)
+        XCTAssertTrue(multiEdit.modifiedTextFields.contains(.trackNumber))
+
+        multiEdit.restoreTextField(multiTrackSnapshot)
+        XCTAssertEqual(multiEdit.values.trackTotal, 10)
+        XCTAssertTrue(multiEdit.isUntouchedMixedTextField(.trackNumber))
+        XCTAssertEqual(multiEdit.modifiedTextFields, [.album])
+        let appliedA = multiEdit.applyingChanges(to: fileA)
+        XCTAssertEqual(appliedA.album, "New Album")
+        XCTAssertEqual(appliedA.track, 1)
+        XCTAssertEqual(appliedA.trackTotal, 10)
+
+        // Multi-file untouched mixed text field edited and escaped stays untouched mixed (never clears).
+        let multiTitleSnapshot = multiEdit.textFieldRevertSnapshot(for: .title)
+        multiEdit.setText("Temporary", for: .title)
+        XCTAssertFalse(multiEdit.isUntouchedMixedTextField(.title))
+        multiEdit.restoreTextField(multiTitleSnapshot)
+        XCTAssertTrue(multiEdit.isUntouchedMixedTextField(.title))
+        XCTAssertEqual(multiEdit.applyingChanges(to: fileA).title, "Track A")
+        XCTAssertEqual(multiEdit.applyingChanges(to: fileB).title, "Track B")
     }
 
     @MainActor
@@ -263,6 +552,49 @@ nonisolated final class InspectorInteractionTests: XCTestCase {
             XCTAssertGreaterThan(scrollView.maximumHorizontalOffset, 0)
             XCTAssertEqual(scrollView.currentHorizontalOffset, scrollView.maximumHorizontalOffset, accuracy: 0.5)
         }
+    }
+
+    @MainActor
+    func testFindAndReplacePreviewFitsFullWidthAndHeightInHostingView() async throws {
+        let layout = MetadataTextUtilityPreviewLayout.self
+        XCTAssertEqual(layout.availableContentWidth, 780)
+        XCTAssertEqual(layout.totalRowWidth, layout.availableContentWidth)
+
+        let url = try MetadataTestTokens.makeFixtureCopy()
+        defer { MetadataTestTokens.removeFixtureCopy(at: url) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        let store = MetadataEditorStore(metadataPipeline: pipeline)
+        store.present(targetFiles: [file])
+        let deadline = ContinuousClock.now + .seconds(5)
+        while store.isLoading, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(store.isEditable, store.loadErrorMessage ?? "Metadata Editor did not finish loading")
+        store.upsertField(key: "TITLE", values: [String(repeating: "Original value ", count: 64)])
+
+        let host = NSHostingView(rootView: MetadataTextUtilitiesSheet(
+            store: store,
+            fieldKeys: ["TITLE"],
+            initialOperation: .findAndReplace,
+            initialFindText: "Original",
+            initialReplacementText: "Replacement",
+            onClose: {}
+        ))
+        let frame = NSRect(x: 0, y: 0, width: 820, height: 540)
+        let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.frame = frame
+        host.layoutSubtreeIfNeeded()
+
+        let scrollView = try XCTUnwrap(findSubview(ofType: NSScrollView.self, in: host))
+        let viewport = scrollView.contentView
+        XCTAssertGreaterThanOrEqual(viewport.bounds.height, 120)
+        XCTAssertEqual(viewport.bounds.width, layout.availableContentWidth, accuracy: 0.5)
+        XCTAssertFalse(scrollView.hasHorizontalScroller)
+        let visibleFrame = host.convert(viewport.bounds, from: viewport)
+        XCTAssertTrue(host.bounds.contains(visibleFrame))
     }
 
     @MainActor

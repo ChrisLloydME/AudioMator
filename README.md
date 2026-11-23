@@ -67,7 +67,7 @@ The full local release gate is:
 bash scripts/validate-release.sh
 ```
 
-It runs the policy tests, Foundation-only core tests, the complete serial app-hosted suite, an unsigned Release build, and artifact validation, recording evidence under `.deriveddata-codex/Validation/`.
+It checks documentation links, runs the policy, core and complete serial app-hosted tests, and validates the artifact from a clean unsigned Release build using the committed package lock. Evidence is stored under `.deriveddata-codex/Validation/`.
 
 The app-hosted test suite must run serially:
 

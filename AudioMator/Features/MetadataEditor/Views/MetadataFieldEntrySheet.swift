@@ -178,7 +178,7 @@ struct MetadataFieldEntrySheet: View {
             }
         }
         .padding(20)
-        .frame(width: 860, height: 540)
+        .frame(width: 820, height: 540)
     }
 
     private var valueEditorArea: some View {

@@ -61,7 +61,7 @@ nonisolated struct WatchedFolderHierarchy: Equatable, Sendable {
         var seenCandidateStandardizedPaths = Set<String>()
 
         let candidateDirectoryURLs = directoryURLs + audioFileURLs.map {
-            $0.standardizedFileURL.deletingLastPathComponent()
+            $0.standardizedFileURL.resolvingSymlinksInPath().deletingLastPathComponent()
         }
 
         for rawDirectoryURL in candidateDirectoryURLs {
@@ -166,7 +166,7 @@ nonisolated struct WatchedFolderHierarchy: Equatable, Sendable {
     }
 
     func containsFile(at fileURL: URL, withinRelativePathKey selectedRelativePathKey: String) -> Bool {
-        let parentURL = fileURL.standardizedFileURL.deletingLastPathComponent()
+        let parentURL = fileURL.standardizedFileURL.resolvingSymlinksInPath().deletingLastPathComponent()
         guard let directoryRelativePathKey = relativePathKey(forDirectoryURL: parentURL) else {
             return false
         }

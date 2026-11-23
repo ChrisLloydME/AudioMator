@@ -37,9 +37,12 @@ nonisolated final class InspectorDirtyStateTests: XCTestCase {
         vm.multiEdit?.setText("Shared", for: .album)
         var confirmations = 0
         var transitions = 0
-        ContentView.performSidebarSelectionChange(hasUnsavedInspectorChanges: vm.hasUnsavedInspectorChanges,
-            suppressesDiscardWarning: false, requestDiscardConfirmation: { _ in confirmations += 1 },
-            discardInspectorEdits: { XCTFail("No draft should be discarded") }, commitSelection: { transitions += 1 })
+        ContentView.confirmInspectorDiscard(
+            using: vm,
+            suppressesDiscardWarning: false,
+            requestDiscardConfirmation: { _ in confirmations += 1 },
+            action: { transitions += 1 }
+        )
         XCTAssertEqual(confirmations, 0)
         XCTAssertEqual(transitions, 1)
     }

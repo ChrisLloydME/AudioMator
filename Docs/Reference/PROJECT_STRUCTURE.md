@@ -81,7 +81,7 @@ Feature-owned views, view models, and presentation models.
 | Folder | Responsibility |
 | --- | --- |
 | `Main/` | Main window, sidebar, middle list, Inspector, artwork lookup, track renumber sheet, `AudioViewModel` and write extensions, batch executor, save issue log, operation-result HUD |
-| `DateTimePicker/` | Picker eligibility, native AppKit controls and the date editing sheet shared by the Inspector and Metadata Editor |
+| `DateTimePicker/` | Semantic and raw-key eligibility, native date controls, time-zone selection and the shared picker sheet. Calendar serialization and draft state live in `Core/Audio/MetadataDateTimeCore.swift` |
 | `MetadataEditor/` | Raw metadata value-map editor window, table, field entry, text utilities |
 | `MetadataFilenameTool/` | Filename & Metadata window, converter modes, previews, templates, field transfer |
 | `OnlineMetadataBrowser/` | Shared online metadata window shell, source picker, embedded web view, virtualized list |
@@ -136,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite: 126 test functions in eight `XCTestCase` classes across seven source files. It has no UI, TagLib, or live-network dependency. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target. See [Testing](../Development/TESTING.md#test-targets) for the current inventory.
 
 ## `scripts`
 
@@ -144,15 +144,15 @@ SensitiveLoggingPolicyTests.swift
 | --- | --- |
 | `codex-build.sh` | Fail-closed Debug generic macOS build: checked Git discovery, explicit skip or `CODEX_BUILD_COMPLETED` marker, no implicit pruning |
 | `prune-app-bundles.sh` | Explicit maintainer cleanup that removes non-canonical `.deriveddata*` directories and app bundles (not run by the build helper) |
-| `validate-release.sh` | Unified release gate: policy tests, core tests, full serial app tests, unsigned Release build, artifact validation, and recorded evidence |
-| `check-core-evidence.py` | Requires every source-declared core test identity to pass in the core log |
-| `check-test-evidence.py` | Requires exact source-to-`xcresult` test identity equality, critical regressions, and no skips/failures |
+| `validate-release.sh` | Checks documentation links, runs policy, core and serial app tests, then runs a clean unsigned Release build and validates the artifact. Records source and test evidence |
+| `check-core-evidence.py` | Requires every source-declared core test to pass and checks the reviewed floor and critical identities |
+| `check-test-evidence.py` | Checks exact source-to-`xcresult` app test identity equality, the reviewed floor, critical regressions, and zero skips/failures |
 | `check-commit-messages.py` | Advisory commit-subject checker for the commit-message contract |
 | `check-doc-links.py` | Checks relative links and heading anchors in tracked Markdown documentation |
 | `tests/test_test_evidence.py` | Policy tests for the evidence gates |
 | `tests/test_codex_build_policy.py` | Shell policy tests for the build helper: disposable trees, Git/Xcode/`tee` stubs, call counts, exit statuses, markers and artifact preservation |
 | `tests/test_rename_crash_recovery.py` | Real child-process `SIGKILL` crash-gate recovery tests compiling production rename journal and exclusive-move sources across 7 crash gates |
-| `validate-macos-artifact.sh` | Checks bundle minimum OS and every Mach-O platform/minimum |
+| `validate-macos-artifact.sh` | Checks the Release bundle ID, macOS minimum and Mach-O platforms, both required architectures in the app and TagLib, and five non-empty license resources |
 | `build-taglib-bridge-smoke.sh` | Builds the bridge smoke executable from package/bridge sources (maintainer-run; agents must not run it) |
 | `taglib_bridge_smoke.mm` | Smoke tool source |
 

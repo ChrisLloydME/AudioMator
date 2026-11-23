@@ -106,6 +106,11 @@ struct MetadataSaveProgress: Equatable {
     }
 }
 
+struct InspectorActiveDraftScope: Equatable {
+    let sessionID: InspectorDraftSessionID
+    let selectedIDs: Set<AudioFile.ID>
+}
+
 struct ConfirmedSelectionActionCapture: Sendable {
     let files: [AudioFile]
     let capturedSelectionIDs: Set<AudioFile.ID>
@@ -418,6 +423,22 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         inspectorDraft?.identity
     }
 
+    /// Active draft session scope for open Inspector editors (inline field and
+    /// Edit Metadata Field sheet). Survives benign clean refreshes (which keep
+    /// `session.id` and `selectedAudioIDs`) while invalidating on selection
+    /// changes, source switches, Cancel, or entry into pending review.
+    var activeInspectorDraftScope: InspectorActiveDraftScope? {
+        guard inspectorPendingReview == nil,
+              let session = inspectorDraft,
+              Set(session.targetIDs) == selectedAudioIDs else {
+            return nil
+        }
+        return InspectorActiveDraftScope(
+            sessionID: session.id,
+            selectedIDs: selectedAudioIDs
+        )
+    }
+
     var isInspectorDraftDirty: Bool {
         guard inspectorPendingReview == nil, inspectorDraft != nil else {
             return inspectorPendingReview != nil
@@ -427,10 +448,11 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
 
     func setSidebarSelection(_ selection: SidebarSelection?) {
         let normalized = normalizedSidebarSelection(selection ?? .quickImport)
-        if activeSidebarSelection != normalized {
+        let changesSource = activeSidebarSelection != normalized
+        if changesSource {
             activeSidebarSelection = normalized
         }
-        rebuildVisibleFiles()
+        rebuildVisibleFiles(preservingOutOfScopeDraft: !changesSource)
     }
 
     func watchedFolderHierarchy(for folderID: UUID) -> WatchedFolderHierarchy? {
@@ -558,7 +580,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     }
 
     /// Detached pending-review session for captured targets that disappeared
-    /// from every source membership. The draft payload and baselines are kept;
+    /// from the active source or from all memberships. Payload and baselines are kept;
     /// selection is pruned by the caller; Save stays suspended.
     private func enterInspectorPendingReview(unavailableTargetIDs: Set<UUID>) {
         guard var session = inspectorDraft else { return }
@@ -1853,7 +1875,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
         }
     }
 
-    func rebuildVisibleFiles() {
+    func rebuildVisibleFiles(preservingOutOfScopeDraft: Bool = true) {
         let selection = normalizedSidebarSelection(activeSidebarSelection)
         if activeSidebarSelection != selection {
             activeSidebarSelection = selection
@@ -1897,7 +1919,10 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
             }
 
             let unavailableCapturedIDs = Set(
-                session.targetIDs.filter { quickImportFilesByID[$0] == nil && watchedFolderRowOffsetsByFileID[$0] == nil }
+                session.targetIDs.filter { id in
+                    (preservingOutOfScopeDraft && !validIDs.contains(id))
+                        || (quickImportFilesByID[id] == nil && watchedFolderRowOffsetsByFileID[id] == nil)
+                }
             )
             if !unavailableCapturedIDs.isEmpty,
                isInspectorDraftPayloadDirty || !session.completedByID.isEmpty {
@@ -1928,7 +1953,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     private func updateInspectorPendingReviewAvailability() {
         guard var session = inspectorDraft, let current = session.pendingReview else { return }
         let committedIDs = committedSourceFileIDs()
-        let unavailable = Set(session.targetIDs.filter { !committedIDs.contains($0) })
+        let unavailable = Set(session.targetIDs.filter { !committedIDs.contains($0) || visibleFilesByID[$0] == nil })
         let updated = InspectorPendingReview(
             identity: session.identity,
             capturedTargetIDs: current.capturedTargetIDs,

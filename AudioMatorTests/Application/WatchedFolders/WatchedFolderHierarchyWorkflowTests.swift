@@ -260,11 +260,10 @@ nonisolated final class WatchedFolderHierarchyWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.hasUnsavedInspectorChanges)
 
         var confirmSelection: (() -> Void)?
-        ContentView.performSidebarSelectionChange(
-            hasUnsavedInspectorChanges: viewModel.hasUnsavedInspectorChanges,
+        ContentView.confirmInspectorDiscard(
+            using: viewModel,
             suppressesDiscardWarning: false,
-            requestDiscardConfirmation: { confirmSelection = $0 },
-            discardInspectorEdits: viewModel.cancelEditing
+            requestDiscardConfirmation: { confirmSelection = $0 }
         ) {
             ContentView.commitSidebarSelection(disc1.selection, using: viewModel, state: state)
         }
@@ -334,6 +333,52 @@ nonisolated final class WatchedFolderHierarchyWorkflowTests: XCTestCase {
         XCTAssertTrue(viewModel.watchedFolderHierarchies.isEmpty)
         XCTAssertEqual(viewModel.activeSidebarSelection, .quickImport)
         XCTAssertEqual(viewModel.files.map(\.id), [loadedFile.id])
+    }
+
+    @MainActor
+    func testAliasImportKeepsWatchedSubfolderMembershipAndRefreshPreservesDirtyDraft() async throws {
+        let pipeline = TagLibAudioMetadataPipeline()
+        let temp = try makeTemporaryDirectory(prefix: "AudioMatorWatchedAlias")
+        defer { try? FileManager.default.removeItem(at: temp) }
+        let root = temp.appendingPathComponent("Watched", isDirectory: true)
+        let disc = root.appendingPathComponent("Album/Disc 1", isDirectory: true)
+        let audio = try await makeUntaggedFLAC(at: disc.appendingPathComponent("01.flac"), pipeline: pipeline)
+        let alias = temp.appendingPathComponent("Alias.flac")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: audio)
+
+        let (viewModel, folder, cleanup) = try makeWatchedViewModel(rootURL: root, pipeline: pipeline)
+        defer { cleanup() }
+        let loaded = try await waitUntil {
+            viewModel.watchedFolderHierarchy(for: folder.id)?.rootChildren.first?.children.first != nil
+        }
+        XCTAssertTrue(loaded)
+        let album = try XCTUnwrap(viewModel.watchedFolderHierarchy(for: folder.id)?.rootChildren.first)
+        let discNode = try XCTUnwrap(album.children.first)
+        viewModel.setSidebarSelection(discNode.selection)
+        let watched = try XCTUnwrap(viewModel.files.first)
+        let id = watched.id
+        viewModel.setSelectedAudioIDs([id])
+        viewModel.edit?.title = "Retain this draft"
+
+        // Quick Import alias shares the same stable ID and keeps watched-subfolder visibility.
+        viewModel.mergeQuickImportFiles([watched.projectingDisplay(to: alias)])
+        XCTAssertEqual(viewModel.quickImportFiles.first?.id, id)
+        XCTAssertEqual(viewModel.quickImportFiles.first?.url, alias)
+        XCTAssertEqual(viewModel.files.map(\.id), [id])
+        XCTAssertEqual(viewModel.edit?.title, "Retain this draft")
+
+        // Removing Disc 1 falls back to Album while preserving the dirty draft in pending review
+        // even though Quick Import still holds the same file ID.
+        try FileManager.default.removeItem(at: disc)
+        viewModel.refreshWatchedFolder(id: folder.id)
+        let fellBack = try await waitUntil { viewModel.activeSidebarSelection != discNode.selection }
+        XCTAssertTrue(fellBack)
+        XCTAssertEqual(viewModel.activeSidebarSelection, album.selection)
+        XCTAssertEqual(viewModel.quickImportFiles.first?.id, id)
+        XCTAssertTrue(viewModel.selectedAudioIDs.isEmpty)
+        XCTAssertEqual(viewModel.inspectorPendingReview?.unavailableTargetIDs, [id])
+        XCTAssertEqual(viewModel.edit?.title, "Retain this draft")
+        XCTAssertFalse(viewModel.isInspectorPendingReviewResumable)
     }
 
     // MARK: - Helpers

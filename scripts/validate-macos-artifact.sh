@@ -37,6 +37,32 @@ if [[ "${BUNDLE_MINIMUM_VERSION}" != "${EXPECTED_MINIMUM_VERSION}" ]]; then
   exit 1
 fi
 
+BUNDLE_ID="$(plutil -extract CFBundleIdentifier raw "${INFO_PLIST}")"
+if [[ "${BUNDLE_ID}" != "com.LloydME.AudioMator" ]]; then
+  echo "Unexpected bundle identifier: ${BUNDLE_ID}" >&2
+  exit 1
+fi
+
+EXECUTABLE_NAME="$(plutil -extract CFBundleExecutable raw "${INFO_PLIST}")"
+for BINARY in "${APP_PATH}/Contents/MacOS/${EXECUTABLE_NAME}" \
+    "${APP_PATH}/Contents/Frameworks/TagLibAudioMetadataTagLib.framework/TagLibAudioMetadataTagLib"; do
+  if [[ ! -f "${BINARY}" ]] || ! ARCHITECTURES="$(lipo -archs "${BINARY}")" ||
+      [[ " ${ARCHITECTURES} " != *" arm64 "* || " ${ARCHITECTURES} " != *" x86_64 "* ]]; then
+    echo "Missing arm64 or x86_64 slice: ${BINARY}" >&2
+    exit 1
+  fi
+  echo "Validated arm64 and x86_64: ${BINARY#"${APP_PATH}/"}"
+done
+
+for LICENSE in AudioMator-AGPL-3.0.txt TagLib-LGPL-2.1.txt TagLib-MPL-1.1.txt \
+    TagLibAudioMetadata-MIT.txt utfcpp-Boost-1.0.txt; do
+  LICENSE_PATH="${APP_PATH}/Contents/Resources/${LICENSE}"
+  if [[ ! -f "${LICENSE_PATH}" || ! -s "${LICENSE_PATH}" ]]; then
+    echo "Missing or empty bundled license: ${LICENSE_PATH}" >&2
+    exit 1
+  fi
+done
+
 MACHO_COUNT=0
 while IFS= read -r -d '' CANDIDATE; do
   FILE_DESCRIPTION="$(file -b "${CANDIDATE}")"
@@ -44,7 +70,8 @@ while IFS= read -r -d '' CANDIDATE; do
 
   MACHO_COUNT=$((MACHO_COUNT + 1))
   BUILD_INFO="$(vtool -show-build "${CANDIDATE}")"
-  if [[ "${BUILD_INFO}" != *"platform MACOS"* ]]; then
+  PLATFORMS="$(awk '$1 == "platform" { print $2 }' <<< "${BUILD_INFO}")"
+  if [[ -z "${PLATFORMS}" ]] || [[ -n "$(awk '$0 != "MACOS"' <<< "${PLATFORMS}")" ]]; then
     echo "Non-macOS Mach-O found in app bundle: ${CANDIDATE}" >&2
     exit 1
   fi
@@ -70,4 +97,4 @@ if [[ ${MACHO_COUNT} -eq 0 ]]; then
   exit 1
 fi
 
-echo "Validated bundle minimum ${BUNDLE_MINIMUM_VERSION} and ${MACHO_COUNT} Mach-O files."
+echo "Validated ${BUNDLE_ID}, macOS ${BUNDLE_MINIMUM_VERSION}, ${MACHO_COUNT} Mach-O files and five bundled licenses."

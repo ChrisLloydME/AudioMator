@@ -205,8 +205,9 @@ Verified by source inspection on 2026-11-18:
 - bookmark corruption quarantine and persistence keys,
 - identity-verified capped directory monitoring (128 per watched folder),
 - request hosts, query parameters, embedded-page allowlist, and non-persistent WebKit storage,
-- five bundled license texts in the current Debug build product,
 - absence of signing/notarization/release automation.
+
+The unsigned [release gate](../Development/BUILD.md#unified-release-validation-gate) checks documentation links before tests. Its artifact phase verifies the Release bundle identifier, macOS platform and deployment versions, both required architectures in the main executable and TagLib, and the five non-empty bundled license texts.
 
 Not verified:
 
@@ -215,8 +216,7 @@ Not verified:
 - robustness against malformed files,
 - external package security,
 - signed/notarized distribution,
-- CI runner provisioning,
-- whether the Release bundle contains the five license texts (the current artifact script does not inspect resources).
+- CI runner provisioning.
 
 ## Save Issue-Log Recovery
 

@@ -35,7 +35,7 @@ Core format-support helpers
 
 ## The Metadata Contract Exception
 
-Domain reuses stable semantic types from `TagLibAudioMetadata`:
+Domain reuses these contract types from `TagLibAudioMetadata`:
 
 - `MetadataFieldKey` — field capability and identity,
 - `MetadataFileVersion` — opaque transaction revision,
@@ -47,11 +47,11 @@ This keeps one contract for field capabilities, revisions, and raw edits across 
 
 `Core/Audio/AudioFormatSupport.swift` builds the app's capability snapshot from `TagLibMetadataManager` extensions/capabilities and `MetadataFieldKey`. It is excluded from the SwiftPM fast target; the Foundation-only `AudioFormatSupportCore` and `MetadataDateTimeCore` remain part of its compilable surface, while the shared DateTimePicker feature uses the package’s field schema and the loaded tag layout to decide which controls to show.
 
-Still forbidden in Domain:
+Domain can inspect file attributes and destination occupancy for identity checks and planning. These responsibilities stay outside Domain:
 
 - calling `TagLibMetadataManager`,
 - constructing `MetadataSnapshot`, `MetadataPatch`, or structured format values,
-- reading or writing files,
+- concrete container metadata reads and filesystem mutations,
 - owning atomic commit or verification behavior.
 
 The concrete adapter and all loading/commit code stay in `Infrastructure/TagLib`. This is recorded in [ADR 0003](Decisions/0003-metadata-contract-and-taglib-adapter.md).
@@ -76,8 +76,8 @@ The concrete adapter and all loading/commit code stay in `Infrastructure/TagLib`
 
 `Package.swift` defines `AudioMatorCoreLogic` as a **selected-source test harness**, not a production module consumed by the app.
 
-- It compiles an explicit list of 33 Foundation-only production files (verified against `Package.swift`).
-- It excludes all UI, AppKit, SwiftUI, Combine, TagLib, networking, file system, update, and app-client code.
+- It compiles the explicit 35-file Foundation-only source list in `Package.swift`.
+- It includes pure path, fingerprint, scope-lease and date-picker helpers. UI, TagLib adapters, concrete file mutations, provider HTTP clients and update clients are app-target code.
 - The app target remains authoritative.
 
 A file added to the fast target must not import AppKit, SwiftUI, Combine, TagLibAudioMetadata, or a network API. If a pure helper is extracted from an app-only file, add it to the source list deliberately and test it.

@@ -296,12 +296,7 @@ struct ContentView: View {
     private func attemptSidebarSelectionChange(to newSelection: SidebarSelection?) {
         guard newSelection != state.selectedSidebarItem else { return }
 
-        Self.performSidebarSelectionChange(
-            hasUnsavedInspectorChanges: viewModel.hasUnsavedInspectorChanges,
-            suppressesDiscardWarning: suppressesUnsavedInspectorDiscardWarning,
-            requestDiscardConfirmation: presentUnsavedInspectorDiscardAlert,
-            discardInspectorEdits: discardInspectorEditsIfNeeded
-        ) {
+        confirmDiscardUnsavedInspectorEditsIfNeeded {
             Self.commitSidebarSelection(newSelection, using: viewModel, state: state)
         }
     }
@@ -315,30 +310,6 @@ struct ContentView: View {
         let resolvedSelection = viewModel.activeSidebarSelection
         if state.selectedSidebarItem != resolvedSelection {
             state.selectedSidebarItem = resolvedSelection
-        }
-    }
-
-    static func performSidebarSelectionChange(
-        hasUnsavedInspectorChanges: Bool,
-        suppressesDiscardWarning: Bool,
-        requestDiscardConfirmation: (@escaping () -> Void) -> Void,
-        discardInspectorEdits: @escaping () -> Void,
-        commitSelection: @escaping () -> Void
-    ) {
-        guard hasUnsavedInspectorChanges else {
-            commitSelection()
-            return
-        }
-
-        let continueAction = {
-            discardInspectorEdits()
-            commitSelection()
-        }
-
-        if suppressesDiscardWarning {
-            continueAction()
-        } else {
-            requestDiscardConfirmation(continueAction)
         }
     }
 
@@ -377,12 +348,21 @@ struct ContentView: View {
         }
     }
 
-    private func discardInspectorEditsIfNeeded() {
-        guard viewModel.hasUnsavedInspectorChanges else { return }
-        viewModel.cancelEditing()
+    private func confirmDiscardUnsavedInspectorEditsIfNeeded(_ action: @escaping () -> Void) {
+        Self.confirmInspectorDiscard(
+            using: viewModel,
+            suppressesDiscardWarning: suppressesUnsavedInspectorDiscardWarning,
+            requestDiscardConfirmation: presentUnsavedInspectorDiscardAlert,
+            action: action
+        )
     }
 
-    private func confirmDiscardUnsavedInspectorEditsIfNeeded(_ action: @escaping () -> Void) {
+    static func confirmInspectorDiscard(
+        using viewModel: AudioViewModel,
+        suppressesDiscardWarning: Bool,
+        requestDiscardConfirmation: @escaping (@escaping () -> Void) -> Void,
+        action: @escaping () -> Void
+    ) {
         guard viewModel.hasUnsavedInspectorChanges else {
             action()
             return
@@ -394,19 +374,25 @@ struct ContentView: View {
                 // Another draft replaced the one this alert represented; repeat
                 // the confirmation against the current draft instead of silently
                 // discarding newer edits.
-                confirmDiscardUnsavedInspectorEditsIfNeeded(action)
+                confirmInspectorDiscard(
+                    using: viewModel,
+                    suppressesDiscardWarning: suppressesDiscardWarning,
+                    requestDiscardConfirmation: requestDiscardConfirmation,
+                    action: action
+                )
                 return
             }
-            discardInspectorEditsIfNeeded()
+            if viewModel.hasUnsavedInspectorChanges {
+                viewModel.cancelEditing()
+            }
             action()
         }
 
-        guard !suppressesUnsavedInspectorDiscardWarning else {
+        if suppressesDiscardWarning {
             continueAction()
-            return
+        } else {
+            requestDiscardConfirmation(continueAction)
         }
-
-        presentUnsavedInspectorDiscardAlert(onContinue: continueAction)
     }
 
     private func presentUnsavedInspectorDiscardAlert(onContinue: @escaping () -> Void) {

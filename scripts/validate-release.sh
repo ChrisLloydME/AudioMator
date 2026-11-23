@@ -31,6 +31,8 @@ path.write_text('<Workspace version="1.0"><FileRef location=' + quoteattr('absol
     + '/><FileRef location=' + quoteattr('absolute:' + sys.argv[1]) + '/></Workspace>')
 WORKSPACE
     XCODE_INPUT=(-workspace .tmp/MappingIntegration.xcworkspace)
+else
+    XCODE_INPUT+=(-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile)
 fi
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 VALIDATION_DIR=".deriveddata-codex/Validation/$(date +%Y%m%d-%H%M%S)-$$"
@@ -39,8 +41,12 @@ echo "Validation evidence: $VALIDATION_DIR"
 {
     echo "Package source: $PACKAGE_SOURCE"
     git rev-parse HEAD
-    git diff --stat
-    git diff | shasum -a 256
+    git status --short --branch
+    git diff HEAD --stat
+    git diff HEAD --binary | shasum -a 256
+    git ls-files --others --exclude-standard -z | while IFS= read -r -d '' path; do
+        shasum -a 256 -- "$path"
+    done
     if [[ "$PACKAGE_SOURCE" != "published Package.resolved" ]]; then
         git -C "$PACKAGE_SOURCE" rev-parse HEAD
         git -C "$PACKAGE_SOURCE" status --short --branch
@@ -65,6 +71,7 @@ run_check() {
         return 1
     fi
 }
+run_check docs python3 scripts/check-doc-links.py
 run_check policy python3 -m unittest discover -s scripts/tests
 run_check core swift test --filter AudioMatorCoreLogicTests
 python3 scripts/check-core-evidence.py "$VALIDATION_DIR/core.log" 0 "$VALIDATION_DIR/core-gate.json"
@@ -86,7 +93,7 @@ if [[ "$TESTS_ONLY" == 1 ]]; then
 fi
 run_check release xcodebuild "${XCODE_INPUT[@]}" -scheme AudioMator \
     -configuration Release -destination 'generic/platform=macOS' \
-    -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO build
+    -derivedDataPath .deriveddata-codex CODE_SIGNING_ALLOWED=NO clean build
 run_check artifact bash scripts/validate-macos-artifact.sh \
     .deriveddata-codex/Build/Products/Release/AudioMator.app 15.0
 echo "Build/test gate passed ($PACKAGE_SOURCE); interactive UI acceptance remains manual. Evidence: $VALIDATION_DIR"

@@ -15,30 +15,33 @@ nonisolated enum MetadataFileMutationFailureCategory: Equatable, Sendable {
     case writeRejection
 
     static func classify(_ error: any Error) -> Self {
-        if error is AudioFileFingerprintValidationError
-            || error is RenameJournalRecoveryError
-            || error is MetadataAudioContentError
-            || error is MetadataConflictError {
-            return .fileLevel
-        }
-        if case TagLibManagerError.fileChanged = error {
-            return .fileLevel
-        }
-        if let cocoaError = error as? CocoaError, isFileLevelCocoaCode(cocoaError.code) {
-            return .fileLevel
-        }
-        if let posixError = error as? POSIXError, isFileLevelPOSIXCode(posixError.code) {
-            return .fileLevel
-        }
-        let nsError = error as NSError
-        if nsError.domain == NSCocoaErrorDomain,
-           isFileLevelCocoaCode(CocoaError.Code(rawValue: nsError.code)) {
-            return .fileLevel
-        }
-        if nsError.domain == NSPOSIXErrorDomain,
-           let code = POSIXErrorCode(rawValue: Int32(nsError.code)),
-           isFileLevelPOSIXCode(code) {
-            return .fileLevel
+        var next: (any Error)? = error
+        var visited: [ObjectIdentifier: NSError] = [:]
+        while let current = next {
+            let nsError = current as NSError
+            let identity = ObjectIdentifier(nsError)
+            guard visited[identity] == nil else { break }
+            visited[identity] = nsError
+
+            if current is AudioFileFingerprintValidationError
+                || current is RenameJournalRecoveryError
+                || current is MetadataAudioContentError
+                || current is MetadataConflictError {
+                return .fileLevel
+            }
+            if case TagLibManagerError.fileChanged = current {
+                return .fileLevel
+            }
+            if nsError.domain == NSCocoaErrorDomain,
+               isFileLevelCocoaCode(CocoaError.Code(rawValue: nsError.code)) {
+                return .fileLevel
+            }
+            if nsError.domain == NSPOSIXErrorDomain,
+               let rawCode = Int32(exactly: nsError.code),
+               let code = POSIXErrorCode(rawValue: rawCode), isFileLevelPOSIXCode(code) {
+                return .fileLevel
+            }
+            next = nsError.userInfo[NSUnderlyingErrorKey] as? any Error
         }
         return .writeRejection
     }
@@ -46,6 +49,8 @@ nonisolated enum MetadataFileMutationFailureCategory: Equatable, Sendable {
     private static func isFileLevelCocoaCode(_ code: CocoaError.Code) -> Bool {
         switch code {
         case .fileNoSuchFile,
+             .fileReadUnknown,
+             .fileWriteUnknown,
              .fileReadNoSuchFile,
              .fileReadNoPermission,
              .fileWriteNoPermission,
@@ -61,7 +66,9 @@ nonisolated enum MetadataFileMutationFailureCategory: Equatable, Sendable {
 
     private static func isFileLevelPOSIXCode(_ code: POSIXErrorCode) -> Bool {
         switch code {
-        case .ENOENT, .EACCES, .EPERM, .EROFS, .ENOSPC, .EBUSY, .ESTALE:
+        case .ENOENT, .EACCES, .EPERM, .EROFS, .ENOSPC, .EBUSY, .ESTALE,
+             .EIO, .EDQUOT, .EXDEV, .EISDIR, .ENOTDIR, .EMFILE, .ENFILE,
+             .EFBIG, .ETXTBSY, .ENAMETOOLONG:
             return true
         default:
             return false

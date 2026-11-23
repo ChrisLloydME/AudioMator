@@ -84,6 +84,12 @@ nonisolated extension FileRenameMetadataField {
 }
 
 nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
+    enum Match: Equatable, Sendable {
+        case unique([FileRenameMetadataField: String])
+        case ambiguous
+        case noMatch
+    }
+
     let document: FileRenameTemplateDocument
     let replaceUnderscoresWithSpaces: Bool
     private let matchingStepLimit: Int
@@ -102,12 +108,17 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
     }
 
     func match(_ source: String) -> [FileRenameMetadataField: String]? {
+        guard case .unique(let captures) = matchResult(source) else { return nil }
+        return captures
+    }
+
+    func matchResult(_ source: String) -> Match {
         guard
             matchingStepLimit > 0,
             source.utf8.count <= Self.maximumSourceUTF8ByteCount,
             document.segments.count <= Self.maximumTemplateSegmentCount
         else {
-            return nil
+            return .noMatch
         }
 
         var search = MatchSearch(remainingSteps: matchingStepLimit)
@@ -120,10 +131,9 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
             search: &search
         )
 
-        guard !search.didExhaustBudget, search.distinctMatches.count == 1 else {
-            return nil
-        }
-        return search.distinctMatches[0]
+        if search.isAmbiguous { return .ambiguous }
+        guard !search.didExhaustBudget, let captures = search.firstMatch else { return .noMatch }
+        return .unique(captures)
     }
 
     private func findMatches(
@@ -138,7 +148,7 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
 
         if segmentIndex >= segments.count {
             if sourceIndex == source.endIndex {
-                search.recordDistinctMatch(captures)
+                search.recordMatch(captures)
             }
             return
         }
@@ -169,7 +179,7 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
                     return
                 }
 
-                search.recordDistinctMatch(updatedCaptures)
+                search.recordMatch(updatedCaptures)
                 return
             }
 
@@ -261,10 +271,11 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
     private struct MatchSearch {
         var remainingSteps: Int
         var didExhaustBudget = false
-        var distinctMatches: [[FileRenameMetadataField: String]] = []
+        var firstMatch: [FileRenameMetadataField: String]?
+        var isAmbiguous = false
 
         var shouldStop: Bool {
-            didExhaustBudget || distinctMatches.count > 1
+            didExhaustBudget || isAmbiguous
         }
 
         mutating func consumeStep() -> Bool {
@@ -277,9 +288,12 @@ nonisolated struct FilenameMetadataTemplateMatcher: Sendable {
             return true
         }
 
-        mutating func recordDistinctMatch(_ captures: [FileRenameMetadataField: String]) {
-            guard !distinctMatches.contains(where: { $0 == captures }) else { return }
-            distinctMatches.append(captures)
+        mutating func recordMatch(_ captures: [FileRenameMetadataField: String]) {
+            if firstMatch == nil {
+                firstMatch = captures
+            } else {
+                isAmbiguous = true
+            }
         }
     }
 }

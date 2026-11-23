@@ -235,12 +235,16 @@ extension AudioViewModel {
             var model = (editSourceFileID == fileID ? edit : nil) ?? SingleFileEditModel(from: file)
             switch field {
             case .year:
+                guard value != model.year else { return true }
                 model.year = value
             case .date:
+                guard value != model.date else { return true }
                 model.date = value
             case .releaseDate:
+                guard value != model.releaseDate else { return true }
                 model.releaseDate = value
             case .originalReleaseDate:
+                guard value != model.originalReleaseDate else { return true }
                 model.originalReleaseDate = value
             default:
                 return false
@@ -264,6 +268,8 @@ extension AudioViewModel {
             default:
                 return false
             }
+            let isUntouchedMixed = current.isUntouchedMixedTextField(multiField)
+            guard isUntouchedMixed || value != current.text(for: multiField) else { return true }
             current.setText(value, for: multiField)
             multiEdit = current
             return true
@@ -273,10 +279,8 @@ extension AudioViewModel {
     }
 }
 
-/// Annotates a writer rejection with the affected field display name(s) when
-/// the underlying writer error does not already name them. File-level failures
-/// (revision, recovery, membership, conflict, and access errors) keep their
-/// file-level explanation without field annotations.
+/// Adds context for a single-field writer rejection when the reason omits the
+/// field name. Multi-field requests and file-level errors use the original reason.
 nonisolated func annotatingWriteFailureWithFields(
     _ reason: String,
     fieldLabels: [String],
@@ -284,7 +288,7 @@ nonisolated func annotatingWriteFailureWithFields(
 ) -> String {
     guard category == .writeRejection else { return reason }
     let uniqueLabels = MetadataWriteFailureFieldAnnotation.normalizedUniqueLabels(fieldLabels)
-    guard !uniqueLabels.isEmpty else { return reason }
+    guard uniqueLabels.count == 1, fieldLabels.count == 1, let label = uniqueLabels.first else { return reason }
     let compoundDateLabels = [
         MetadataFieldGuide.displayName(for: .releaseDate),
         MetadataFieldGuide.displayName(for: .originalReleaseDate),
@@ -302,9 +306,5 @@ nonisolated func annotatingWriteFailureWithFields(
         return reason
     }
 
-    let joined = ListFormatter.localizedString(byJoining: uniqueLabels)
-    if uniqueLabels.count == 1 {
-        return "\(reason)\n\(String(localized: "Affected field: \(joined)"))"
-    }
-    return "\(reason)\n\(String(localized: "Affected fields: \(joined)"))"
+    return "\(reason)\n\(String(localized: "Affected field: \(label)"))"
 }

@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-23. The current source declares **1081 app-hosted tests across 118 `XCTestCase` classes**, **126 SwiftPM core tests across 8 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were verified from source on 2026-11-23. The current source declares **1,094 app-hosted tests across 118 `XCTestCase` classes**, **130 SwiftPM core tests across 8 classes**, and **33 policy and crash-recovery tests** under `scripts/tests`.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
-| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 126 | 8 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1081 | 118 |
+| `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 130 | 8 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1,094 | 118 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 126 `XCTestCase` classes across both targets (118 app-hosted, 8 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -88,25 +88,29 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | --- | ---: | ---: | --- |
 | `Application/MetadataEditing` | 26 | 299 | pipeline contract, batch summaries, reload workflow, revision conflicts, view-model orchestration, conflict strategies, editor store, text pipeline, renumber execution |
 | `Application/MetadataExchange` | 6 | 112 | fixture parsing, profile v2, planner import/export/matching/limits, field transfer |
-| `Application/Rename` | 10 | 80 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
-| `Application/WatchedFolders` | 7 | 59 | hierarchical subfolder browsing, scoping, untagged FLAC batch-edit isolation and fallback when a subfolder disappears during browsing or a pending Inspector discard confirmation; identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
+| `Application/Rename` | 10 | 81 | durable rename journal and exclusive-move service, journal fault/cleanup/failure controls, startup recovery bootstrap and path blocks, transaction rollback, template parsing, filename extraction, refresh safety |
+| `Application/WatchedFolders` | 7 | 60 | hierarchical subfolder browsing, scoping, untagged FLAC batch-edit isolation and fallback when a subfolder disappears during browsing or a pending Inspector discard confirmation; identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 4 | 52 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 115 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
-| `Integration/TagLib` | 14 | 134 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
+| `Integration/TagLib` | 14 | 138 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 16 | 90 | artwork preview cache, inspector scroll routing/offset preservation/multi-edit binding guards, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
+| `Unit/Presentation` | 16 | 97 | artwork preview cache, inspector scroll routing/offset preservation/inline double-click handoff/Escape paired-number revert/draft scope survival/quick-edit mixed-value protection, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **125** | **1081** | |
+| **Total** | **125** | **1,094** | |
 
 Notable coverage:
 
-- Core date picker tests verify partial dates, DST handling, UTC conversion and narrow-window viewport bounds. The app-hosted date picker suite covers known raw routes and the Metadata Editor Add Field path from filling the initially selected value through exact FLAC `DATE` readback. Viewport logic tests do not measure a macOS sheet presented in a window.
+- `InspectorInteractionTests` hosts the 820 × 540 Text Transform sheet in Find & Replace mode and checks that the Preview fits its 780-point row width and provides at least 120 points of visible height.
+- Core date picker tests verify partial dates, UTC conversion, fractional-second round trips, fall-back occurrence toggling, spring-forward choices with distinct UTC previews, and the finer-precision fallback when truncation would cross a DST transition. The app-hosted date picker suite verifies exact FLAC readback from Metadata Editor Add Field and from freeform dates written via CSV, text, and filename plans. Viewport logic tests cover narrow-window bounds separately from manual sheet presentation.
+- `NativeDateTimePickerIntegrationTests` drives Inspector Save against real FLAC observations with injected writer errors. It checks file-scope reporting for wrapped filesystem failures, the single Date annotation under Prefer Disk Changes, and preservation of the original writer message for a multi-field request even when conflict resolution discards a field. Label matching is tested with adjacent ASCII and non-ASCII text.
+- `FilenameMetadataTemplateTests` distinguishes an ambiguous freeform date split from a plain non-match, checks that both rows have no write entry, and verifies that a more specific template can extract the original date text.
+- `MetadataFieldGuideTests` checks the exact ID3v2.4 reference path and rejects whitespace and control characters in the guide's source URL paths.
 - Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
-- `TagLibReadWriteIntegrationTests.testMP4RawMetadataDumpReportsEmbeddedCoverSize` writes a cover to an M4A fixture copy and checks the exact count and payload size in the app adapter's MP4 ItemMap text.
+- `TagLibReadWriteIntegrationTests.testMP4RawMetadataDumpReportsEmbeddedCoverSize` checks that the MP4 ItemMap reports the cover count and exact byte size of each JPEG or PNG payload. It checks preservation of the dump line and artwork bytes through unrelated semantic and raw writes and omission on both the untouched fixture and after removal.
 - Real TagLib writes use temporary copies of the six committed audio fixtures. Rename tests verify that a replacement changed in place and a superseded confirmation both keep the file protected. Reviewed-write tests also invalidate a later target during the first folder request and verify that no request is made for the blocked target’s folder.
 - Metadata Editor raw value arrays (`MetadataEditorRawValueArrayTests`, `MetadataFieldValueDraftTests`, `MetadataRawValuePresentationTests`, `MetadataEditorRawValueArrayPersistenceTests`) use the real store with an array-backed pipeline fake for per-element utility preview/apply (whole-value, prefix/suffix, case/trim, empty/duplicate/multiline elements, missing keys, reordering), stale-preview rejection, ordered field-entry add/remove/duplicate identity, no-op confirmations with zero writes, and captured Done before/after arrays. The persistence lane seeds temporary FLAC copies and asserts exact multiline/duplicate array readback with unrelated keys preserved, or an atomic failure with unchanged bytes.
 
@@ -122,7 +126,7 @@ Notable coverage:
 - Provider-activation routing tests use counting fake MusicBrainz/LRCLIB clients and the real stores, routing controller and consume-once session model: generic open and source-tile selection make zero provider calls, explicit Find in MusicBrainz submits the captured query exactly once in a new window and when retargeting an open window, a consumed intent cannot replay after window recreation, generic open returns to the picker without resending, empty selection is inert, a replacement Find cancels and supersedes the previous search, back-to-Sources cancels tracked work while retaining the seed, LRCLIB Previous/Next cancels the departing row without a search, synthetic-path/tagged LRCLIB query values are asserted, and the disclosure constants name the actual fields and folder-derived terms.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - `NetworkServiceDisclosureTests` checks registry completeness and compares disclosed request hosts and embedded provider page domain suffixes with an independent inventory. `MetadataFieldGuideTests` checks that the guide’s external browser links match the field guide disclosure entry.
-- Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget, plus `InspectorInteractionTests` covering `InspectorValueScrollRouter` (trackpad axis-latching, edge/momentum handling, phaseless precise events, and mouse-wheel handoff), `InspectorValueScrollView` offset preservation and unchanged-update skipping, `NSHostingView` sizing of `FlexibleScrollableInspectorValueText`, and multi-selection untouched-mixed vs. no-op binding guards. Live macOS focus feel, gesture recognition, and trackpad/mouse-wheel scrolling remain manual UI acceptance checks.
+- Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget, plus `InspectorInteractionTests` covering `InspectorValueScrollRouter` (trackpad axis-latching, `.mayBegin` balancing, micro-jitter tolerance, edge/momentum handling, phaseless precise events, and mouse-wheel handoff), `InspectorValueScrollView` offset preservation and unchanged-update skipping, `NSHostingView` sizing of `FlexibleScrollableInspectorValueText`, `InspectorInlineDoubleClickHandoff`, `InspectorPane.quickEditCommitDecision` and `AudioViewModel.activeInspectorDraftScope` clean-refresh survival, paired-number Escape revert snapshots, and multi-selection untouched-mixed vs. no-op binding guards. Live macOS focus feel, gesture recognition, Escape key delivery from the AppKit field editor, and trackpad/mouse-wheel scrolling remain manual UI acceptance checks.
 - `MetadataBoundaryMatrixTests` and `MetadataSaveJourneyTests` exercise sparse date-presence states, CSV/profile behavior, provider field selection, Inspector/Editor drafts, and real disk reloads.
 
 ## Fixtures
@@ -176,15 +180,17 @@ The `xcode-27` runner provision is external to the repository and was not verifi
 
 `bash scripts/validate-release.sh` is the current acceptance path. It:
 
-1. runs the policy and crash-recovery tests with `python3 -m unittest discover -s scripts/tests` (currently 32: 13 evidence-gate tests, 16 build-helper shell policy tests, and 3 real child-process `SIGKILL` rename crash-recovery tests covering 7 crash gates),
-2. runs the full core suite and checks complete named execution with `scripts/check-core-evidence.py`,
-3. runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`, plus every frozen critical identity and zero failures/skips/expected failures (the gate also enforces a 579-test reviewed floor and the 62-core floor; the inventory at the 2026-11-19 `878e2fc6` gate was 949 app-hosted and 70 core tests; the F5 wave reached 1010 app-hosted and 97 core tests; the 2026-11-20 independent-review remediation wave brings the named inventory to 1042 app-hosted, 97 core, and 32 policy/crash-gate tests),
-4. builds an unsigned Release app and runs the artifact validator,
-5. records source identity, logs, `.xcresult`, summary, test tree, and acceptance JSON under `.deriveddata-codex/Validation/`.
+1. Checks documentation links and anchors with `python3 scripts/check-doc-links.py`.
+2. Runs the 33 policy and crash-recovery tests with `python3 -m unittest discover -s scripts/tests`.
+3. Runs the full core suite and checks complete named execution with `scripts/check-core-evidence.py`. The reviewed floor is 130 tests, including every frozen core critical identity.
+4. Runs the complete serial app-hosted suite and requires exact source-to-`xcresult` identity equality via `scripts/check-test-evidence.py`. The reviewed floor is 1,094 tests, including every frozen app critical identity. The app suite requires zero failures, skips or expected failures.
+5. Builds an unsigned Release app with `clean build` and runs the [artifact validator](BUILD.md#artifact-compatibility-check). The normal Debug and Release lanes use the committed package lock.
 
-`bash scripts/validate-release.sh --tests-only` runs steps 1-3 and skips the Release build and artifact checks; it is not full release acceptance. A local package candidate may be evaluated with `--local-package`; that result is not published-tag acceptance.
+Evidence under `.deriveddata-codex/Validation/` includes source identity with untracked-file hashes, phase logs, the `.xcresult`, summaries, the test tree and acceptance JSON.
 
-The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths, and the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) for the current 1042-test remediation gate and 2026-11-20 follow-up addendum.
+`bash scripts/validate-release.sh --tests-only` runs the docs, policy, core and app-hosted checks. Full release acceptance includes the Release build and artifact checks. Use `--local-package` to evaluate an explicitly selected candidate package.
+
+The dated 2026-11-18 cleanup gate (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) passed 13 policy tests, 62 core tests, and 629 serial app-hosted tests with zero failures, skips, or expected failures, plus the unsigned Release build and artifact validation. See the [cleanup acceptance record](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) for commands and evidence paths and the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) for the historical remediation runs and 2026-11-20 follow-up.
 
 The historical published 0.8.0 gate (2026-11-16) passed 13 policy tests, 62 core tests and 580 serial app-hosted tests, Release build and artifact validation. An additional unsigned Archive passed structure, architecture, license, and dependency-path checks. See [release readiness](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md) for evidence paths and the manual distribution boundary.
 
@@ -263,7 +269,7 @@ per-category counts.
 6. **Quick Import security-scope leases are tested through an injected access adapter.** The refcounted start/stop balance, `notRequired`/`revoked` tracking and explicit-authorization retry are deterministic unit/work-counter tests. Real signed-sandbox bookmark grants, revocation by the system and reauthorization remain a manual gate on a signed sandboxed build; do not treat the injected adapter as proof of real scope behavior.
 7. **Full `AudioViewModel` watched-folder scanning and long-running batch UI** are only partially covered by synthesized orchestration tests.
 8. **App-side container-normalization warning rendering was removed.** The legacy number-text write route that produced the normalized-warning branch was deleted in the 2026-11-18 cleanup (ledger candidate INF-04, commit `97016668`); typed semantic number-component writes surface package warnings directly. Positive coverage for a package-emitted normalization warning remains absent.
-9. **No archived-binary security scan.** `validate-macos-artifact.sh` checks minimum OS and Mach-O platform only. Historical claims about scanning a release binary are not backed by a committed script.
+9. **No archived-binary security scan.** The [artifact validator](BUILD.md#artifact-compatibility-check) checks bundle identity, deployment compatibility and license resources. Signed distribution verification is manual.
 10. **Source-policy tests depend on repository layout.** Tests read files via `#filePath`; moving those files breaks the tests.
 11. **Dated test documents are stale by design.** Counts in this file drift; counts in `Docs/Engineering/` records describe the revision they name.
 

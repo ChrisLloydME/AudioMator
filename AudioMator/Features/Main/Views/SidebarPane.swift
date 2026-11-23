@@ -77,31 +77,15 @@ struct SidebarPane: View {
 
     private var watchedSidebarItems: [WatchedSidebarItem] {
         viewModel.watchedFolders.map { folder in
-            let childNodes = viewModel.watchedFolderHierarchies[folder.id]?.rootChildren ?? []
-            return WatchedSidebarItem(
-                selection: .watchedFolder(folder.id),
-                kind: .root(folder),
-                children: makeSubfolderItems(from: childNodes, rootFolder: folder)
-            )
-        }
-    }
-
-    private func makeSubfolderItems(
-        from nodes: [WatchedFolderNode],
-        rootFolder: WatchedFolder
-    ) -> [WatchedSidebarItem]? {
-        guard !nodes.isEmpty else { return nil }
-        return nodes.map { node in
             WatchedSidebarItem(
-                selection: node.selection,
-                kind: .subfolder(rootFolder: rootFolder, node: node),
-                children: makeSubfolderItems(from: node.children, rootFolder: rootFolder)
+                root: folder,
+                rootNodes: viewModel.watchedFolderHierarchies[folder.id]?.rootChildren ?? []
             )
         }
     }
 
     private func sidebarRow(
-        title: String,
+        title: LocalizedStringKey,
         systemImage: String
     ) -> some View {
         Label(title, systemImage: systemImage)
@@ -186,7 +170,29 @@ private struct WatchedSidebarItem: Identifiable {
 
     let selection: SidebarSelection
     let kind: Kind
-    let children: [WatchedSidebarItem]?
+    private let childNodes: [WatchedFolderNode]
+
+    init(root: WatchedFolder, rootNodes: [WatchedFolderNode]) {
+        selection = .watchedFolder(root.id)
+        kind = .root(root)
+        childNodes = rootNodes
+    }
+
+    private init(root: WatchedFolder, node: WatchedFolderNode) {
+        selection = node.selection
+        kind = .subfolder(rootFolder: root, node: node)
+        childNodes = node.children
+    }
+
+    var children: [WatchedSidebarItem]? {
+        guard !childNodes.isEmpty else { return nil }
+        let root: WatchedFolder
+        switch kind {
+        case .root(let folder), .subfolder(let folder, _):
+            root = folder
+        }
+        return childNodes.map { WatchedSidebarItem(root: root, node: $0) }
+    }
 
     var id: SidebarSelection { selection }
 }

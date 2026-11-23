@@ -142,6 +142,7 @@ struct MacSearchDropdownField: NSViewRepresentable {
             textView: NSTextView,
             doCommandBy commandSelector: Selector
         ) -> Bool {
+            guard !textView.hasMarkedText() else { return false }
             switch commandSelector {
             case #selector(NSResponder.moveDown(_:)):
                 return moveSelection(offset: 1)

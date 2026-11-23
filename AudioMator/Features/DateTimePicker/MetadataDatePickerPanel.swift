@@ -375,7 +375,11 @@ private struct MetadataDatePickerPanel: View {
             Text("The converted UTC year must be from 1 to 9999.").font(.caption)
         } else if !session.requiresDSTResolution && !session.canApply {
             VStack(alignment: .leading, spacing: 6) {
-                Text("This tag can’t store the selected time at this precision.").font(.caption)
+                if session.timePrecision == .hour, session.selectedDSTOption != nil {
+                    Text("Hour precision can’t preserve the selected daylight saving time choice.").font(.caption)
+                } else {
+                    Text("This tag can’t store the selected time at this precision.").font(.caption)
+                }
                 if let precision = session.finerTimePrecision {
                     Button(precision == .minute ? "Use Minute Precision" : "Use Second Precision") {
                         session.useFinerTimePrecision()
@@ -407,19 +411,16 @@ private struct MetadataDatePickerPanel: View {
     }
 
     private func dstOptionTitle(_ option: MetadataDSTResolutionOption) -> String {
-        let local = option.date.formatted(
-            Date.FormatStyle(date: .abbreviated, time: .shortened, timeZone: session.timeZone)
+        let staged = session.valueToStage(for: option)
+        let local = (staged?.instant ?? option.date).formatted(
+            Date.FormatStyle(
+                date: .abbreviated,
+                time: session.timePrecision == .second ? .standard : .shortened,
+                timeZone: session.timeZone
+            )
         )
         let label = "\(local) (\(option.formattedGMTOffset))"
-        guard session.destinationFormat.requiresUTC, let stored = MetadataDateTimeCodec.format(
-            localComponents: option.localComponents,
-            datePrecision: .date,
-            timePrecision: session.timePrecision,
-            timeZone: session.timeZone,
-            resolvedDate: option.date,
-            destinationFormat: session.destinationFormat,
-            fractionalSecondsDigits: session.timePrecision == .second ? session.fractionalSecondsDigits : nil
-        ) else {
+        guard session.destinationFormat.requiresUTC, let stored = staged?.value else {
             return label
         }
         return String(localized: "\(label), UTC: \(stored)")

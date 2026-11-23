@@ -49,6 +49,8 @@ All modes produce a preview plan before writing:
 
 Preview rows classify each target as ready, unchanged, invalid/parse error, ambiguous, unmatched, source unavailable, or duplicate. The plan carries each target's expected file fingerprint and, where applicable, metadata version.
 
+Filename extraction requires a unique split of the stem. Date fields can capture freeform text, so a separator inside a date can make more than one split valid. The planner records ambiguity separately from an unmatched filename and creates no write entry for either case.
+
 ### Import matching
 
 Imports with one or more locator columns match each record to selected files using all supplied locators:

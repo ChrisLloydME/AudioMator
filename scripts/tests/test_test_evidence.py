@@ -13,8 +13,9 @@ SPEC.loader.exec_module(GATE)
 
 class TestEvidencePolicy(unittest.TestCase):
     def setUp(self):
-        self.expected = GATE.CRITICAL | {f'OtherTests/test{i}()' for i in range(580 - len(GATE.CRITICAL))}
-        self.summary = dict(result='Passed', totalTestCount=580, passedTests=580,
+        count = GATE.APP_TEST_FLOOR + 1
+        self.expected = GATE.CRITICAL | {f'OtherTests/test{i}()' for i in range(count - len(GATE.CRITICAL))}
+        self.summary = dict(result='Passed', totalTestCount=count, passedTests=count,
                             failedTests=0, skippedTests=0, expectedFailures=0)
         self.tree = {'testNodes': [dict(nodeType='Test Case', nodeIdentifier=name, result='Passed',
             nodeIdentifierURL='test://AudioMator/AudioMatorTests/' + name) for name in sorted(self.expected)]}
@@ -67,8 +68,13 @@ class TestEvidencePolicy(unittest.TestCase):
 
     def test_current_source_inventory_has_critical_cases(self):
         expected = GATE.inventory(Path(__file__).resolve().parents[2] / 'AudioMatorTests')
-        self.assertGreaterEqual(len(expected), 580)
+        self.assertGreaterEqual(len(expected), GATE.APP_TEST_FLOOR)
         self.assertLessEqual(GATE.CRITICAL, expected)
+
+    def test_current_core_source_inventory_has_critical_cases(self):
+        expected = GATE.inventory(Path(__file__).resolve().parents[2] / 'Tests/AudioMatorCoreLogicTests')
+        self.assertGreaterEqual(len(expected), GATE.CORE_TEST_FLOOR)
+        self.assertLessEqual(GATE.CORE_CRITICAL, expected)
 
     def test_cli_malformed_or_changed_json_fails_closed_with_record(self):
         for summary, tree in (('{', '{}'), ('[]', '{}'), ('{}', '{"testNodes":[{}]}')):
@@ -82,15 +88,28 @@ class TestEvidencePolicy(unittest.TestCase):
                 self.assertFalse(json.loads((root / 'result').read_text())['accepted'])
 
     def test_core_inventory_requires_named_complete_execution(self):
-        expected = {f'CoreTests/test{i}()' for i in range(62)}
-        lines = [f"Test Case '-[AudioMatorCoreLogicTests.CoreTests test{i}]' passed (0.001 seconds)." for i in range(62)]
-        log = '\n'.join(lines) + '\nExecuted 62 tests, with 0 failures\n'
+        count = GATE.CORE_TEST_FLOOR + 1
+        expected = GATE.CORE_CRITICAL | {f'CoreTests/test{i}()' for i in range(count - len(GATE.CORE_CRITICAL))}
+
+        def passing_log(identities):
+            lines = [
+                f"Test Case '-[AudioMatorCoreLogicTests.{identity[:-2].replace('/', ' ')}]' passed (0.001 seconds)."
+                for identity in sorted(identities)
+            ]
+            return '\n'.join(lines) + f'\nExecuted {len(identities)} tests, with 0 failures\n'
+
+        log = passing_log(expected)
+        first_line = log.splitlines()[0]
         self.assertTrue(GATE.assess_core(log, expected, 0)['accepted'])
-        for tampered in (log.replace(lines[0], ''), log.replace('CoreTests test0', 'OtherTests test0'),
+        for tampered in (log.replace(first_line, ''), log.replace('CoreTests test0', 'OtherTests test0'),
                          log.replace('with 0 failures', 'with 1 failures'), log.split('Executed')[0],
                          log + "Test Case '-[OtherTests testX]' skipped"):
             self.assertFalse(GATE.assess_core(tampered, expected, 0)['accepted'])
         self.assertFalse(GATE.assess_core(log, expected, 1)['accepted'])
+        missing_critical = expected - {next(iter(GATE.CORE_CRITICAL))}
+        self.assertFalse(GATE.assess_core(passing_log(missing_critical), missing_critical, 0)['accepted'])
+        below_floor = expected - {'CoreTests/test0()', 'CoreTests/test1()'}
+        self.assertFalse(GATE.assess_core(passing_log(below_floor), below_floor, 0)['accepted'])
 
 
 if __name__ == '__main__':

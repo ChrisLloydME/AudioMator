@@ -138,7 +138,7 @@ nonisolated enum MetadataFieldGuide {
     static let sources: [Source] = [
         Source(id: "mapping", title: "MusicBrainz Picard — Tag reference", url: URL(string: "https://picard-docs.musicbrainz.org/en/v2.13/appendices/tag_mapping.html")!),
         Source(id: "artist", title: "MusicBrainz — Artist", url: URL(string: "https://musicbrainz.org/doc/Artist")!),
-        Source(id: "id3", title: "ID3.org — ID3v2 frames", url: URL(string: "https://id3.org/id3v2.4.0-frames%C2%A0")!),
+        Source(id: "id3", title: "ID3.org — ID3v2 frames", url: URL(string: "https://id3.org/id3v2.4.0-frames")!),
         Source(id: "id3Structure", title: "ID3.org — ID3v2.4 main structure (timestamps)", url: URL(string: "https://id3.org/id3v2.4.0-structure")!),
         Source(id: "xiph", title: "Xiph.Org — Vorbis comments", url: URL(string: "https://www.xiph.org/vorbis/doc/Vorbis_I_spec.html")!),
         Source(id: "xiphWiki", title: "XiphWiki — VorbisComment guidance", url: URL(string: "https://wiki.xiph.org/VorbisComment")!),
@@ -315,7 +315,7 @@ nonisolated enum MetadataFieldGuide {
         ],
         formatNote: String(localized: "MP4 and text tags do not fix one date syntax; treat these as reference examples rather than input rules."),
         editingSummary: String(localized: "Edit in the Inspector (visible by default) or Metadata Editor. Year stays independent of Date, Release Date, and Original Release Date, and routes that support full dates or timestamps keep that precision."),
-        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF; raw YEAR on ID3v2.4 and mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF. ID3v2.4 raw DATE is displayed as Year and stays text-only, as does ID3v2.4 raw YEAR. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE also stay text-only."),
         pickerTimeFormat: .id3OrUTCText
     )
 
@@ -334,7 +334,7 @@ nonisolated enum MetadataFieldGuide {
         ],
         formatNote: String(localized: "Vorbis comments and other text tags leave syntax unspecified; ID3v2.3 uses DDMM and is read-only here."),
         editingSummary: String(localized: "Show Date in Settings → Interface to edit it in the Inspector, or use Metadata Editor. It stays independent of Year, Release Date, and Original Release Date."),
-        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack; choosing the named Date suggestion when adding a field uses raw DATE on those files and STANDALONEDATE (text-only) elsewhere. Mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only."),
+        pickerAvailabilityNote: String(localized: "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack. The named Date suggestion uses raw DATE on those verified routes. Elsewhere it uses STANDALONEDATE, a text-only raw key separate from the Inspector’s standalone Date slot. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE stay text-only."),
         pickerTimeFormat: .utcTextOnly
     )
 

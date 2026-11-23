@@ -444,7 +444,9 @@ nonisolated enum MetadataDateTimeCodec {
         }
         let instant = baseInstant.addingTimeInterval(subsecond)
 
-        guard let localComponents = components(for: instant, in: displayTimeZone) else {
+        // Use the whole second for calendar calculations. Date can round a
+        // long fraction up to the next second, especially far from its epoch.
+        guard let localComponents = components(for: baseInstant, in: displayTimeZone) else {
             return nil
         }
 
@@ -576,6 +578,11 @@ nonisolated enum MetadataDateTimeCodec {
 
     static func isSupportedUTCYear(for instant: Date) -> Bool {
         components(for: instant, in: utcCalendar.timeZone) != nil
+    }
+
+    static func startOfUTCHour(containing wholeSecond: Date) -> Date? {
+        guard let utc = components(for: wholeSecond, in: utcTimeZone) else { return nil }
+        return wholeSecond.addingTimeInterval(-Double(utc.minute * 60 + utc.second))
     }
 
     static func components(for instant: Date, in timeZone: TimeZone) -> MetadataLocalDateTimeComponents? {
@@ -995,16 +1002,18 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
         return MetadataDateTimeCodec.subsecondInterval(from: fractionalSecondsDigits)
     }
 
-    var resolvedInstant: Date? {
+    private var resolvedWholeSecond: Date? {
         guard let resolution = localTimeResolution else { return nil }
-        let baseDate: Date?
         switch resolution {
         case .unique(let date):
-            baseDate = date
+            return date
         case .ambiguous, .nonexistent:
-            baseDate = selectedDSTOption?.date
+            return selectedDSTOption?.date
         }
-        return baseDate?.addingTimeInterval(subsecondInterval)
+    }
+
+    var resolvedInstant: Date? {
+        resolvedWholeSecond?.addingTimeInterval(subsecondInterval)
     }
 
     var formattedValue: String? {
@@ -1015,20 +1024,66 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
     }
 
     private func formattedValue(at precision: MetadataTimePrecision) -> String? {
+        if let selectedDSTOption {
+            return valueToStage(for: selectedDSTOption, at: precision)?.value
+        }
+        return format(localComponents, at: precision, instant: resolvedWholeSecond)
+    }
+
+    /// The local instant and tag value used by both the option label and Apply.
+    func valueToStage(for option: MetadataDSTResolutionOption) -> (instant: Date, value: String)? {
+        valueToStage(for: option, at: timePrecision)
+    }
+
+    private func valueToStage(
+        for option: MetadataDSTResolutionOption,
+        at precision: MetadataTimePrecision
+    ) -> (instant: Date, value: String)? {
+        let instant: Date
+        if precision == .hour && destinationFormat.requiresUTC {
+            guard let rounded = hourOnSameSideOfTransition(as: option) else { return nil }
+            if case .nonexistent(let options) = localTimeResolution {
+                // Prefer an exact choice, such as the start of the transition,
+                // over another choice that rounds to the same stored hour.
+                let equivalent = options.filter { hourOnSameSideOfTransition(as: $0) == rounded }
+                let representative = equivalent.first { $0.date == rounded } ?? equivalent.first
+                guard representative?.id == option.id else { return nil }
+            }
+            instant = rounded
+        } else {
+            instant = option.date
+        }
+        guard let value = format(option.localComponents, at: precision, instant: instant) else { return nil }
+        return (instant, value)
+    }
+
+    private func hourOnSameSideOfTransition(as option: MetadataDSTResolutionOption) -> Date? {
+        guard let rounded = MetadataDateTimeCodec.startOfUTCHour(containing: option.date),
+              MetadataDateTimeCodec.isSupportedUTCYear(for: rounded),
+              timeZone.secondsFromGMT(for: rounded) == option.secondsFromGMT,
+              timeZone.isDaylightSavingTime(for: rounded) == option.isDaylightSavingTime else { return nil }
+        return rounded
+    }
+
+    private func format(
+        _ components: MetadataLocalDateTimeComponents,
+        at precision: MetadataTimePrecision,
+        instant: Date?
+    ) -> String? {
         MetadataDateTimeCodec.format(
-            localComponents: localComponents,
+            localComponents: components,
             datePrecision: datePrecision,
             timePrecision: precision,
             timeZone: timeZone,
-            resolvedDate: resolvedInstant,
+            resolvedDate: instant,
             destinationFormat: destinationFormat,
             fractionalSecondsDigits: fractionalSecondsDigits
         )
     }
 
     var isUTCYearOutOfRange: Bool {
-        guard destinationFormat.requiresUTC, let resolvedInstant else { return false }
-        return !MetadataDateTimeCodec.isSupportedUTCYear(for: resolvedInstant)
+        guard destinationFormat.requiresUTC, let resolvedWholeSecond else { return false }
+        return !MetadataDateTimeCodec.isSupportedUTCYear(for: resolvedWholeSecond)
     }
 
     var finerTimePrecision: MetadataTimePrecision? {
@@ -1134,11 +1189,10 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
             return
         }
 
-        if precision == .hour, let instant = resolvedInstant,
-           let utc = MetadataDateTimeCodec.components(for: instant, in: .gmt) {
+        if precision == .hour, case .unique(let instant) = localTimeResolution,
+           let rounded = MetadataDateTimeCodec.startOfUTCHour(containing: instant) {
             // Precision applies to the tag's UTC value. In Kathmandu, for
             // example, a whole UTC hour still displays local minutes of 45.
-            let rounded = instant.addingTimeInterval(-(Double(utc.minute * 60 + utc.second) + subsecondInterval))
             fractionalSecondsDigits = nil
             if let local = MetadataDateTimeCodec.components(for: rounded, in: timeZone) {
                 localComponents = local
@@ -1178,21 +1232,20 @@ nonisolated struct MetadataDateTimePickerSession: Equatable, Sendable {
 
         if timePrecision.includesTime,
            preservesInstantOnTimeZoneChange,
-           let instant = resolvedInstant {
+           let instant = resolvedWholeSecond {
             guard let components = MetadataDateTimeCodec.components(for: instant, in: targetTimeZone) else {
                 return false
             }
             localComponents = components
             timeZoneIdentifier = identifier
 
-            let baseInstant = instant.addingTimeInterval(-subsecondInterval)
             if case .ambiguous(let earlier, let later) = MetadataDateTimeCodec.resolveLocalTime(
                 components,
                 in: targetTimeZone
             ) {
-                if abs(earlier.date.timeIntervalSince(baseInstant)) < 1 {
+                if abs(earlier.date.timeIntervalSince(instant)) < 1 {
                     selectedDSTOptionID = earlier.id
-                } else if abs(later.date.timeIntervalSince(baseInstant)) < 1 {
+                } else if abs(later.date.timeIntervalSince(instant)) < 1 {
                     selectedDSTOptionID = later.id
                 } else {
                     selectedDSTOptionID = nil
@@ -1272,8 +1325,15 @@ nonisolated enum MetadataWriteFailureFieldAnnotation {
     }
 
     private static func wordBoundedPattern(for label: String) -> String {
+        func isASCIIWordCharacter(_ character: Character?) -> Bool {
+            guard let character, character.isASCII else { return false }
+            return character.isLetter || character.isNumber || character == "_"
+        }
+
         let escaped = NSRegularExpression.escapedPattern(for: label)
-        return #"(?<![\p{L}\p{M}\p{N}_])\#(escaped)(?![\p{L}\p{M}\p{N}_])"#
+        let leading = isASCIIWordCharacter(label.first) ? "(?<![A-Za-z0-9_])" : ""
+        let trailing = isASCIIWordCharacter(label.last) ? "(?![A-Za-z0-9_])" : ""
+        return leading + escaped + trailing
     }
 }
 

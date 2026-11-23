@@ -1,11 +1,11 @@
 # ADR 0005: Adopt a versioned native metadata interoperability mapping contract
 
-- Status: Accepted (implemented by published TagLibAudioMetadata 0.8.1)
+- Status: Accepted (current published pin: TagLibAudioMetadata 0.8.2)
 - Date: 2026-11-09
 
 ## Context
 
-Current AudioMator sends Year to `.date` and Release Date to `.releaseDate`. Package 0.6.0 disallows typed MP4 `.date` and assigns `.releaseDate` to ©day. This differs from upstream TagLib's DATE mapping and the declared interoperable YEAR location. A year-only model also loses complete date precision when written as a replacement. Other registry entries disagree over work/grouping, encoder fields and native store identifiers. The package checkout inspected for this decision is exact 0.6.0, revision c135fe0a3c52ba76054731e2afe3e56b83f6d40e.
+At the 0.6.0 baseline (revision `c135fe0a3c52ba76054731e2afe3e56b83f6d40e`), AudioMator sent Year to `.date` and Release Date to `.releaseDate`. That package version disallowed typed MP4 `.date` and assigned `.releaseDate` to `©day`, differing from the intended interoperable YEAR location. Replacing a stored date with a year also lost its original precision. Other issues included work and grouping, encoder fields, and native store identifiers.
 
 ## Decision
 
@@ -29,4 +29,4 @@ The refactor must introduce precision-aware dates and edit intents, revise the p
 
 ## Verification
 
-The shared specification enumerates the 79 package enum cases present at the 0.6.0 baseline plus five field identities the contract introduced (84 target rows), across seven native family/version columns, and the application integration routes; the published 0.8.1 registration count is package-release evidence and is not restated here as a current enum inventory. Dedicated tables additionally cover all 26 MP4-exclusive entries and both MKV-exclusive entries (including overlap with the core matrix). ITUNESADVISORY is absent/unset, 0=not Explicit, 1=Explicit, 2=Clean; present zero must never collapse to absence. It defines conformance tests, migration cases and release gates. Published package 0.8.1 and the recorded application gate implement the contract; [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) states the remaining current capability restrictions.
+The shared specification defines preferred native targets, conformance tests, migrations and release gates. `ITUNESADVISORY` distinguishes absence from 0 (Not Explicit), 1 (Explicit), and 2 (Clean). The [metadata mapping table](../../Reference/METADATA_FIELD_MAPPING_TABLE.md) tracks the current registry inventory, and [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) describes the 0.8.2 pin and its verified restrictions.

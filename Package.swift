@@ -34,6 +34,8 @@ let package = Package(
                 "Domain/AudioFiles/AudioMetadataModelCore.swift",
                 "Domain/AudioFiles/AudioFileFingerprint.swift",
                 "Domain/FileSources/FileMutationDirectoryAccessPlan.swift",
+                "Domain/FileSources/FileSourceModels.swift",
+                "Domain/FileSources/WatchedFolderHierarchy.swift",
                 "Domain/MetadataEditing/MetadataConflictPolicy.swift",
                 "Domain/MetadataEditing/TextEditPipeline.swift",
                 "Domain/MetadataEditing/FileMutationCoordinator.swift",

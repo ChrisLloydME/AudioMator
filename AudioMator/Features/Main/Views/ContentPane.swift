@@ -384,7 +384,7 @@ struct ContentPane: View {
             return L10n.string("No Files in Session")
         case .watchedLibrary:
             return viewModel.watchedFolders.isEmpty ? "No Watched Folders" : String(localized: "No Audio Files to Show")
-        case .watchedFolder:
+        case .watchedFolder, .watchedSubfolder:
             return L10n.string("No Audio Files to Show")
         }
     }
@@ -397,7 +397,7 @@ struct ContentPane: View {
             return "folder.badge.plus"
         case .watchedLibrary:
             return "folder.badge.gearshape"
-        case .watchedFolder:
+        case .watchedFolder, .watchedSubfolder:
             return "folder"
         }
     }
@@ -414,6 +414,14 @@ struct ContentPane: View {
         case .watchedFolder(let folderID):
             if let folder = viewModel.watchedFolders.first(where: { $0.id == folderID }) {
                 return "\(folder.displayName) doesn't contain any supported audio files yet."
+            }
+            return "Select a watched folder from the sidebar or add a new one."
+        case .watchedSubfolder(let rootFolderID, let relativePathKey):
+            if let node = viewModel.watchedSubfolderNode(
+                rootFolderID: rootFolderID,
+                relativePathKey: relativePathKey
+            ) {
+                return String(localized: "\(node.displayName) doesn't contain any supported audio files yet.")
             }
             return "Select a watched folder from the sidebar or add a new one."
         }

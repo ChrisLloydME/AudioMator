@@ -10,6 +10,7 @@ struct ToolbarEditCommands: Commands {
                 NotificationCenter.default.post(name: .requestSelectAllTracks, object: nil)
             }
             .keyboardShortcut("a", modifiers: .command)
+            .disabled(viewModel.files.isEmpty)
 
             Divider()
 

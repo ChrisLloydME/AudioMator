@@ -63,6 +63,49 @@ struct MetadataFieldGuideView: View {
                     Text(entry.purpose).font(.body)
                 }
 
+                if let guidance = entry.valueGuidance {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Format and Examples").font(.headline).accessibilityAddTraits(.isHeader)
+                        GroupBox {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(Array(guidance.examples.enumerated()), id: \.element.id) { index, example in
+                                    if index > 0 {
+                                        Divider()
+                                    }
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(example.value)
+                                            .font(.system(.body, design: .monospaced))
+                                        Text(example.note)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                            }
+                            .padding(8)
+                        }
+                        Text(guidance.formatNote)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Editing in AudioMator").font(.headline).accessibilityAddTraits(.isHeader)
+                        Text(guidance.editingSummary)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(guidance.pickerAvailabilityNote)
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(guidance.sharedEditingNote)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
                 if entry.key != nil {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Where This Field Is Stored").font(.headline).accessibilityAddTraits(.isHeader)
@@ -105,11 +148,16 @@ struct MetadataFieldGuideView: View {
                     }
                 }
 
+                let resolvedSources = entry.resolvedSources
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Learn More").font(.headline)
-                    Text("The explanation draws on the official reference below. AudioMator’s storage and editing choices are described above.")
+                    Text("Learn More").font(.headline).accessibilityAddTraits(.isHeader)
+                    Text(
+                        resolvedSources.count > 1
+                            ? "The explanation and format guidance draw on the official references below. AudioMator’s storage and editing choices are described above."
+                            : "The explanation draws on the official reference below. AudioMator’s storage and editing choices are described above."
+                    )
                         .foregroundStyle(.secondary)
-                    if let source = MetadataFieldGuide.sources.first(where: { $0.id == entry.sourceID }) {
+                    ForEach(resolvedSources) { source in
                         Link(destination: source.url) {
                             Label(source.title, systemImage: "arrow.up.right.square")
                         }

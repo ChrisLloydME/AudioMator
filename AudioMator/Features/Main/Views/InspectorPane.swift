@@ -53,7 +53,9 @@ struct InspectorPane: View {
         var model = currentEdit(for: file) ?? SingleFileEditModel(from: file)
         mutate(&model)
         viewModel.edit = model
-        viewModel.editSourceFileID = file.id
+        if viewModel.editSourceFileID != file.id {
+            viewModel.editSourceFileID = file.id
+        }
     }
 
     private func binding(
@@ -65,6 +67,8 @@ struct InspectorPane: View {
                 currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
             },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?[keyPath: keyPath] ?? SingleFileEditModel(from: file)[keyPath: keyPath]
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0[keyPath: keyPath] = newValue }
             }
         )
@@ -102,6 +106,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.trackNumberFieldText ?? SingleFileEditModel(from: file).trackNumberFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setTrackNumberFieldText(newValue) }
             }
         )
@@ -111,6 +117,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.trackTotalFieldText ?? SingleFileEditModel(from: file).trackTotalFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setTrackTotalFieldText(newValue) }
             }
         )
@@ -120,6 +128,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.discNumberFieldText ?? SingleFileEditModel(from: file).discNumberFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setDiscNumberFieldText(newValue) }
             }
         )
@@ -129,6 +139,8 @@ struct InspectorPane: View {
         Binding(
             get: { currentEdit(for: file)?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText },
             set: { newValue in
+                let currentValue = currentEdit(for: file)?.discTotalFieldText ?? SingleFileEditModel(from: file).discTotalFieldText
+                guard newValue != currentValue else { return }
                 updateEdit(for: file) { $0.setDiscTotalFieldText(newValue) }
             }
         )
@@ -141,10 +153,20 @@ struct InspectorPane: View {
             },
             set: { newValue in
                 guard var current = viewModel.multiEdit else { return }
+                guard Self.shouldApplyMultiEditText(newValue, for: field, in: current) else { return }
                 current.setText(newValue, for: field)
                 viewModel.multiEdit = current
             }
         )
+    }
+
+    static func shouldApplyMultiEditText(
+        _ newValue: String,
+        for field: MultiFileEditableTextField,
+        in current: MultiFileEditModel
+    ) -> Bool {
+        let isUntouchedMixed = current.mixedTextFields.contains(field) && !current.modifiedTextFields.contains(field)
+        return isUntouchedMixed || newValue != current.text(for: field)
     }
 
     private var multiExplicitBinding: Binding<MultiFileExplicitEditState> {
@@ -1171,7 +1193,6 @@ struct InspectorPane: View {
 
 struct ScrollableInspectorValueText: NSViewRepresentable {
     let text: String
-    let width: CGFloat
 
     func makeNSView(context: Context) -> InspectorValueScrollView {
         let scrollView = InspectorValueScrollView()
@@ -1183,10 +1204,19 @@ struct ScrollableInspectorValueText: NSViewRepresentable {
         updateScrollView(nsView)
     }
 
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: InspectorValueScrollView, context: Context) -> CGSize? {
+        let width: CGFloat
+        if let proposedWidth = proposal.width, proposedWidth.isFinite {
+            width = max(proposedWidth, 1)
+        } else {
+            width = max(nsView.measuredTextWidth, 1)
+        }
+        return CGSize(width: width, height: inspectorRowContentHeight)
+    }
+
     private func updateScrollView(_ scrollView: InspectorValueScrollView) {
         scrollView.update(
             text: text,
-            width: width,
             font: NSFont.systemFont(ofSize: NSFont.systemFontSize),
             textColor: .secondaryLabelColor
         )
@@ -1197,13 +1227,13 @@ struct FlexibleScrollableInspectorValueText: View {
     let text: String
 
     var body: some View {
-        GeometryReader { proxy in
-            let availableWidth = max(proxy.size.width, 1)
-
-            ScrollableInspectorValueText(text: text, width: availableWidth)
-                .frame(width: availableWidth, height: inspectorRowContentHeight, alignment: .trailing)
-        }
-        .frame(height: inspectorRowContentHeight)
+        ScrollableInspectorValueText(text: text)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: inspectorRowContentHeight,
+                maxHeight: inspectorRowContentHeight,
+                alignment: .trailing
+            )
     }
 }
 
@@ -1216,38 +1246,67 @@ struct InspectorEditableValueField: View {
     @State private var isEditing = false
 
     var body: some View {
-        Group {
+        ZStack(alignment: .trailing) {
+            FlexibleScrollableInspectorValueText(text: displayText)
+                .opacity(isEditing ? 0 : 1)
+                .allowsHitTesting(!isEditing)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    isEditing = true
+                }
+                .simultaneousGesture(
+                    TapGesture(count: 2)
+                        .onEnded {
+                            finishEditing()
+                            onDoubleClick()
+                        }
+                )
+
             if isEditing {
-                TextField("", text: $text, prompt: placeholder.map(Text.init))
+                TextField("", text: inlineTextBinding, prompt: placeholder.map(Text.init))
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.trailing)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .frame(
+                        maxWidth: .infinity,
+                        minHeight: inspectorRowContentHeight,
+                        maxHeight: inspectorRowContentHeight,
+                        alignment: .trailing
+                    )
                     .focused($isFocused)
                     .onAppear {
                         isFocused = true
                     }
                     .onSubmit {
-                        isEditing = false
+                        finishEditing()
                     }
                     .onChange(of: isFocused) { _, focused in
                         if !focused {
                             isEditing = false
                         }
                     }
-            } else {
-                FlexibleScrollableInspectorValueText(text: displayText)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        isEditing = true
-                    }
-                    .simultaneousGesture(
-                        TapGesture(count: 2)
-                            .onEnded {
-                                onDoubleClick()
-                            }
-                    )
             }
         }
+        .frame(
+            maxWidth: .infinity,
+            minHeight: inspectorRowContentHeight,
+            maxHeight: inspectorRowContentHeight,
+            alignment: .trailing
+        )
+    }
+
+    private var inlineTextBinding: Binding<String> {
+        Binding(
+            get: { text },
+            set: { newValue in
+                guard newValue != text else { return }
+                text = newValue
+            }
+        )
+    }
+
+    private func finishEditing() {
+        isFocused = false
+        isEditing = false
     }
 
     private var displayText: String {
@@ -1263,10 +1322,180 @@ struct InspectorEditableValueField: View {
     }
 }
 
+struct InspectorValueScrollInput: Equatable {
+    let deltaX: CGFloat
+    let deltaY: CGFloat
+    let hasPreciseScrollingDeltas: Bool
+    let phase: NSEvent.Phase
+    let momentumPhase: NSEvent.Phase
+    let currentOffsetX: CGFloat
+    let maxOffsetX: CGFloat
+}
+
+enum InspectorValueScrollAction: Equatable {
+    case forwardToParent
+    case scrollHorizontal(to: CGFloat)
+    case consume
+}
+
+struct InspectorValueScrollRouter {
+    enum AxisLatch: Equatable {
+        case undecided
+        case horizontal
+        case vertical
+    }
+
+    private(set) var axisLatch: AxisLatch = .undecided
+    private(set) var didForwardPreciseBeginToParent = false
+
+    private static let deltaThreshold: CGFloat = 0.01
+    private static let nonPreciseScale: CGFloat = 12
+
+    mutating func handle(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
+        if !input.hasPreciseScrollingDeltas {
+            axisLatch = .undecided
+            didForwardPreciseBeginToParent = false
+            return handleDiscreteWheel(input)
+        }
+
+        return handlePreciseScroll(input)
+    }
+
+    private func handleDiscreteWheel(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
+        guard input.maxOffsetX > 0 else {
+            return .forwardToParent
+        }
+
+        let hasHorizontalDelta = abs(input.deltaX) > Self.deltaThreshold
+        let hasVerticalDelta = abs(input.deltaY) > Self.deltaThreshold
+
+        if hasHorizontalDelta {
+            let proposed = input.currentOffsetX - (input.deltaX * Self.nonPreciseScale)
+            let clamped = min(max(proposed, 0), input.maxOffsetX)
+            if clamped != input.currentOffsetX {
+                return .scrollHorizontal(to: clamped)
+            }
+            return hasVerticalDelta ? .forwardToParent : .consume
+        }
+
+        guard hasVerticalDelta else {
+            return .forwardToParent
+        }
+
+        // Preserve mouse-wheel horizontal navigation over overflowing values;
+        // once clamped at either edge, hand off directly to the outer vertical ScrollView.
+        let proposed = input.currentOffsetX - (input.deltaY * Self.nonPreciseScale)
+        let clamped = min(max(proposed, 0), input.maxOffsetX)
+        guard clamped != input.currentOffsetX else {
+            return .forwardToParent
+        }
+
+        return .scrollHorizontal(to: clamped)
+    }
+
+    private mutating func handlePreciseScroll(_ input: InspectorValueScrollInput) -> InspectorValueScrollAction {
+        if input.phase.isEmpty && input.momentumPhase.isEmpty {
+            axisLatch = .undecided
+            didForwardPreciseBeginToParent = false
+        }
+
+        let isNewGesture = input.phase.contains(.mayBegin) || input.phase.contains(.began)
+        if isNewGesture {
+            axisLatch = .undecided
+            didForwardPreciseBeginToParent = false
+        }
+
+        let isGestureCancelled = input.phase.contains(.cancelled)
+        let isMomentumEnding = input.momentumPhase.contains(.ended) || input.momentumPhase.contains(.cancelled)
+
+        guard input.maxOffsetX > 0 else {
+            if isGestureCancelled || isMomentumEnding {
+                axisLatch = .undecided
+                didForwardPreciseBeginToParent = false
+            }
+            return .forwardToParent
+        }
+
+        let absX = abs(input.deltaX)
+        let absY = abs(input.deltaY)
+        let hasDelta = absX > Self.deltaThreshold || absY > Self.deltaThreshold
+
+        if axisLatch == .undecided {
+            if hasDelta {
+                axisLatch = absX > absY ? .horizontal : .vertical
+            } else {
+                if isNewGesture {
+                    didForwardPreciseBeginToParent = true
+                } else if input.phase.contains(.ended) || isGestureCancelled || isMomentumEnding {
+                    didForwardPreciseBeginToParent = false
+                }
+                return .forwardToParent
+            }
+        }
+
+        switch axisLatch {
+        case .vertical:
+            if isGestureCancelled || isMomentumEnding {
+                axisLatch = .undecided
+                didForwardPreciseBeginToParent = false
+            }
+            return .forwardToParent
+
+        case .horizontal:
+            if isGestureCancelled {
+                let shouldCloseParentBegin = didForwardPreciseBeginToParent
+                axisLatch = .undecided
+                didForwardPreciseBeginToParent = false
+                return shouldCloseParentBegin ? .forwardToParent : .consume
+            }
+
+            if isMomentumEnding {
+                axisLatch = .undecided
+                didForwardPreciseBeginToParent = false
+                return .consume
+            }
+
+            if input.phase.contains(.ended) && input.momentumPhase.isEmpty {
+                // Balance an earlier zero-delta .began forwarded to the parent while
+                // keeping axisLatch == .horizontal for any following momentumPhase.
+                if didForwardPreciseBeginToParent {
+                    didForwardPreciseBeginToParent = false
+                    return .forwardToParent
+                }
+                return .consume
+            }
+
+            guard absX > Self.deltaThreshold else {
+                return .consume
+            }
+
+            let proposed = input.currentOffsetX - input.deltaX
+            let clamped = min(max(proposed, 0), input.maxOffsetX)
+            guard clamped != input.currentOffsetX else {
+                return .consume
+            }
+
+            return .scrollHorizontal(to: clamped)
+
+        case .undecided:
+            return .forwardToParent
+        }
+    }
+}
+
 final class InspectorValueScrollView: NSScrollView {
     private let containerView = WheelForwardingStackView()
     private let spacerView = NSView(frame: .zero)
     private let textField = WheelForwardingLabel(labelWithString: "")
+
+    private var lastText: String?
+    private var lastFont: NSFont?
+    private var lastTextColor: NSColor?
+    private(set) var measuredTextWidth: CGFloat = 0
+    private var lastLaidOutWidth: CGFloat = 0
+    private var pendingScrollToTrailingEdge = false
+    private var scrollRouter = InspectorValueScrollRouter()
+    private(set) var textMeasurementCount = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -1298,13 +1527,12 @@ final class InspectorValueScrollView: NSScrollView {
         drawsBackground = false
         borderType = .noBorder
         hasVerticalScroller = false
-        hasHorizontalScroller = true
+        hasHorizontalScroller = false
         autohidesScrollers = true
         scrollerStyle = .overlay
-        horizontalScrollElasticity = .automatic
+        horizontalScrollElasticity = .none
         verticalScrollElasticity = .none
         documentView = containerView
-        horizontalScroller?.alphaValue = 0.001
     }
 
     @available(*, unavailable)
@@ -1312,70 +1540,116 @@ final class InspectorValueScrollView: NSScrollView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func update(text: String, width: CGFloat, font: NSFont, textColor: NSColor) {
-        horizontalScroller?.alphaValue = 0.001
+    var maximumHorizontalOffset: CGFloat {
+        guard let documentView else { return 0 }
+        return max(documentView.frame.width - contentView.bounds.width, 0)
+    }
 
-        let textDidChange = textField.stringValue != text
+    var currentHorizontalOffset: CGFloat {
+        contentView.bounds.origin.x
+    }
 
-        if textField.stringValue != text {
-            textField.stringValue = text
+    func update(text: String, font: NSFont, textColor: NSColor) {
+        let textDidChange = lastText != text
+        let fontDidChange = lastFont != font
+        let colorDidChange = lastTextColor != textColor
+
+        guard textDidChange || fontDidChange || colorDidChange else {
+            return
         }
 
-        if textField.font != font {
+        lastText = text
+        lastFont = font
+        lastTextColor = textColor
+
+        if textDidChange {
+            textField.stringValue = text
+            pendingScrollToTrailingEdge = true
+        }
+
+        if fontDidChange {
             textField.font = font
         }
 
-        if textField.textColor != textColor {
+        if colorDidChange {
             textField.textColor = textColor
         }
 
-        textField.sizeToFit()
+        if textDidChange || fontDidChange {
+            textField.sizeToFit()
+            measuredTextWidth = ceil(textField.fittingSize.width)
+            textMeasurementCount += 1
+            applyContentLayout(forAvailableWidth: bounds.width, force: true)
+        }
+    }
 
-        let contentWidth = max(width, ceil(textField.fittingSize.width))
+    override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        applyContentLayout(forAvailableWidth: bounds.width, force: false)
+    }
+
+    override func layout() {
+        super.layout()
+        applyContentLayout(forAvailableWidth: bounds.width, force: false)
+    }
+
+    func scrollHorizontal(to targetOffsetX: CGFloat) {
+        let clamped = min(max(targetOffsetX, 0), maximumHorizontalOffset)
+        if abs(contentView.bounds.origin.x - clamped) > 0.01 || contentView.bounds.origin.y != 0 {
+            contentView.scroll(to: NSPoint(x: clamped, y: 0))
+            reflectScrolledClipView(contentView)
+        }
+    }
+
+    private func applyContentLayout(forAvailableWidth rawWidth: CGFloat, force: Bool) {
+        let availableWidth = max(rawWidth, 0)
+        guard availableWidth > 0 else { return }
+        guard force || abs(availableWidth - lastLaidOutWidth) > 0.01 || pendingScrollToTrailingEdge else {
+            return
+        }
+
+        lastLaidOutWidth = availableWidth
+        let contentWidth = max(availableWidth, measuredTextWidth)
         let contentHeight = inspectorRowContentHeight
+        let desiredFrame = NSRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
 
-        containerView.frame = NSRect(x: 0, y: 0, width: contentWidth, height: contentHeight)
-        frame.size = NSSize(width: width, height: contentHeight)
+        if containerView.frame != desiredFrame {
+            containerView.frame = desiredFrame
+        }
 
-        let maxOffsetX = max(contentWidth - width, 0)
-        let currentOffsetX = textDidChange ? maxOffsetX : min(contentView.bounds.origin.x, maxOffsetX)
-        contentView.scroll(to: NSPoint(x: currentOffsetX, y: 0))
-        reflectScrolledClipView(contentView)
+        let maxOffsetX = max(contentWidth - availableWidth, 0)
+        let targetOffsetX = pendingScrollToTrailingEdge
+            ? maxOffsetX
+            : min(max(contentView.bounds.origin.x, 0), maxOffsetX)
+        pendingScrollToTrailingEdge = false
+
+        if abs(contentView.bounds.origin.x - targetOffsetX) > 0.01 || contentView.bounds.origin.y != 0 {
+            contentView.scroll(to: NSPoint(x: targetOffsetX, y: 0))
+            reflectScrolledClipView(contentView)
+        }
     }
 
     override func scrollWheel(with event: NSEvent) {
-        guard let documentView else {
-            super.scrollWheel(with: event)
-            return
+        let action = scrollRouter.handle(
+            InspectorValueScrollInput(
+                deltaX: event.scrollingDeltaX,
+                deltaY: event.scrollingDeltaY,
+                hasPreciseScrollingDeltas: event.hasPreciseScrollingDeltas,
+                phase: event.phase,
+                momentumPhase: event.momentumPhase,
+                currentOffsetX: contentView.bounds.origin.x,
+                maxOffsetX: maximumHorizontalOffset
+            )
+        )
+
+        switch action {
+        case .forwardToParent:
+            nextResponder?.scrollWheel(with: event)
+        case .scrollHorizontal(let targetOffsetX):
+            scrollHorizontal(to: targetOffsetX)
+        case .consume:
+            break
         }
-
-        let maxOffsetX = max(documentView.frame.width - contentView.bounds.width, 0)
-        guard maxOffsetX > 0 else {
-            super.scrollWheel(with: event)
-            return
-        }
-
-        let preciseScale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
-        let deltaX = event.scrollingDeltaX
-        let deltaY = event.scrollingDeltaY
-        let horizontalDelta = abs(deltaX) > 0.01 ? deltaX : deltaY
-
-        guard abs(horizontalDelta) > 0.01 else {
-            super.scrollWheel(with: event)
-            return
-        }
-
-        let currentOffsetX = contentView.bounds.origin.x
-        let proposedOffsetX = currentOffsetX - (horizontalDelta * preciseScale)
-        let clampedOffsetX = min(max(proposedOffsetX, 0), maxOffsetX)
-
-        guard clampedOffsetX != currentOffsetX else {
-            super.scrollWheel(with: event)
-            return
-        }
-
-        contentView.scroll(to: NSPoint(x: clampedOffsetX, y: 0))
-        reflectScrolledClipView(contentView)
     }
 }
 

@@ -54,6 +54,8 @@ The right Inspector is a curated common-field editor. Settings → Interface →
 
 The Inspector edits the fields visible for the current selection. For a single file it is a direct draft of that file. For multiple files it shows shared values and marks mixed values; edited fields are applied to every selected file.
 
+Click any editable value to edit it inline, then press Return or click away to leave the field; returning from an unchanged value keeps its horizontal scroll position. Double-click a row to open the full-size **Edit Metadata Field** sheet, including to clear a mixed multi-selection field explicitly. Long unfocused values scroll horizontally with a horizontal trackpad swipe, Shift-scroll, or the mouse wheel over that row (handing off to the outer vertical pane at either edge for a mouse wheel, while vertical trackpad swipes continue scrolling the Inspector pane).
+
 A background refresh (watched-folder rescan or imported-file reload) does not recreate or replace a dirty Inspector draft, and a save keeps the original expected revision until it succeeds. After a successful save, fields you did not edit again follow the value read back from disk; edits made while the save was in flight stay pending. If some files in a batch fail, Save retries only those files or your newer changes.
 
 If a watched folder, Quick Import list or settings removal makes some of a dirty draft's files unavailable, AudioMator prunes the selection as usual but keeps your captured values in a review state. The Inspector explains which files are unavailable and shows the captured changes; **Save is suspended** until every captured file is available again and you choose **Resume Editing**, or you choose **Discard Edits**. Captured values are never applied to other files.
@@ -242,7 +244,7 @@ This replaces the existing Comment value on those files. IDs are deterministic f
 
 Settings contains six tabs:
 
-- **General** — welcome screen on launch, warn before discarding Inspector edits, MuseAmp compatibility.
+- **General** — welcome screen on launch, **Show Now** to reopen the welcome screen, warn before discarding Inspector edits, MuseAmp compatibility.
 - **Interface** — visible toolbar buttons, list columns, and Inspector metadata fields, each with a restore action.
 - **Folders** — file-access authorizations and watched folders.
 - **Conflicts** — Inspector/Metadata Editor conflict strategy.

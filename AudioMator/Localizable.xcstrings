@@ -11965,47 +11965,6 @@
     "Show Recovery Folder in Finder" : {
 
     },
-    "Show Welcome Screen" : {
-      "comment" : "User-facing UI text. Used around: AudioMator/App/AudioMatorApp.swift:65, AudioMator/Features/Settings/Views/SettingsView.swift:408.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Welcome Screen"
-          }
-        },
-        "en-GB" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show Welcome Screen"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示欢迎屏幕"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示歡迎畫面"
-          }
-        },
-        "zh-HK" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示歡迎畫面"
-          }
-        },
-        "zh-TW" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示歡迎畫面"
-          }
-        }
-      }
-    },
     "Show Welcome Screen on Launch" : {
 
     },

@@ -4,17 +4,17 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-Counts and paths below were re-verified by source inspection on 2026-11-23. The current source declares **1073 app-hosted tests across 117 `XCTestCase` classes**, **126 SwiftPM core tests across 8 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
+Counts and paths below were re-verified by source inspection on 2026-11-23. The current source declares **1081 app-hosted tests across 118 `XCTestCase` classes**, **126 SwiftPM core tests across 8 classes**, and **32 policy and crash-recovery tests** under `scripts/tests`. They drift; re-count before quoting them in a release. The dated 2026-11-18 cleanup acceptance (code-complete revision `28fe62a6`, tested source revision `19e1ac23`) ran with 629 app-hosted tests and remains historical evidence for that revision.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 126 | 8 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1073 | 117 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1081 | 118 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
-- There are 125 `XCTestCase` classes across both targets (117 app-hosted, 8 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
+- There are 126 `XCTestCase` classes across both targets (118 app-hosted, 8 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
 - The app-hosted test-support helpers are `AudioMatorTests/TestSupport/AudioFileTestFactory.swift` and `AudioViewModelTestFactory.swift`. The latter injects isolated defaults and a temporary save-issue log. The scheme also sets `AUDIOMATOR_TEST_HOST=1` for the Test action: Debug app startup uses an empty view, isolated stores, and no first-launch preference write. This prevents the host itself from restoring the developer's watched folders before tests start. Release builds ignore the flag. `SharedState` accepts injected defaults, including in presentation tests. Tests that construct watched-folder models directly also supply isolated grant stores, conflict preferences, and temporary issue logs. The test factory never falls back to standard defaults. The online-workbench performance fixture is a separate shared factory; other fakes are private to their files.
 - F4 directory-monitor coverage lives in `AudioMatorTests/Application/WatchedFolders/DirectoryMonitorIdentityTests.swift` (15 native tests over disposable real directories: descriptor device/inode/kind capture, same-key move-aside/recreate rebinding, removal/reappearance, cap/root priority, open-vs-identity failure split, terminal event and balanced close, in-place-write platform limit) and `WatchedFolderMonitoringWiringTests.swift` (11 ViewModel-driven tests: attach-before-scan with no redundant follow-up, exactly one follow-up scan for a newly attached nested directory, cap omission status, same-key root replacement rebinding, stale-callback suppression, removed-nested-directory terminal rescan, missing/permission-denied root degraded status and manual refresh recovery, removal/reappearance with a fresh controller, cancelled scan after folder removal, user-requested refresh of all watched folders).
 - F3 Inspector draft-session coverage lives in `AudioMatorTests/Application/MetadataEditing/InspectorDraftSessionTests.swift` (session identity/generations, dirty and original-revision retention across passive refresh, clean refresh, detached pending review and resume/discard, per-field save-delta completion including an intentional pre-save revert, partial-batch ledger, unverified readback, and independent artwork command generations), plus extended cases in `InspectorDirtyStateTests`, `InspectorAndMetadataEditorWorkflowTests`, `WatchedFolderRefreshOrderingTests` and `RenameRefreshSafetyTests`.
@@ -94,10 +94,10 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Integration/TagLib` | 14 | 134 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 15 | 83 | artwork preview cache, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
+| `Unit/Presentation` | 16 | 90 | artwork preview cache, inspector scroll routing/offset preservation/multi-edit binding guards, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **124** | **1074** | |
+| **Total** | **125** | **1081** | |
 
 Notable coverage:
 
@@ -121,7 +121,7 @@ Notable coverage:
 - Provider-activation routing tests use counting fake MusicBrainz/LRCLIB clients and the real stores, routing controller and consume-once session model: generic open and source-tile selection make zero provider calls, explicit Find in MusicBrainz submits the captured query exactly once in a new window and when retargeting an open window, a consumed intent cannot replay after window recreation, generic open returns to the picker without resending, empty selection is inert, a replacement Find cancels and supersedes the previous search, back-to-Sources cancels tracked work while retaining the seed, LRCLIB Previous/Next cancels the departing row without a search, synthetic-path/tagged LRCLIB query values are asserted, and the disclosure constants name the actual fields and folder-derived terms.
 - Network tests never open a socket: they use `URLProtocol` fakes or injected protocol clients.
 - `NetworkServiceDisclosureTests` checks registry completeness and compares disclosed request hosts and embedded provider page domain suffixes with an independent inventory. `MetadataFieldGuideTests` checks that the guide’s external browser links match the field guide disclosure entry.
-- Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget.
+- Presentation tests include `NSHostingView` traversal of online metadata pages with a 2-second layout budget, plus `InspectorInteractionTests` covering `InspectorValueScrollRouter` (trackpad axis-latching, edge/momentum handling, phaseless precise events, and mouse-wheel handoff), `InspectorValueScrollView` offset preservation and unchanged-update skipping, `NSHostingView` sizing of `FlexibleScrollableInspectorValueText`, and multi-selection untouched-mixed vs. no-op binding guards. Live macOS focus feel, gesture recognition, and trackpad/mouse-wheel scrolling remain manual UI acceptance checks.
 - `MetadataBoundaryMatrixTests` and `MetadataSaveJourneyTests` exercise sparse date-presence states, CSV/profile behavior, provider field selection, Inspector/Editor drafts, and real disk reloads.
 
 ## Fixtures

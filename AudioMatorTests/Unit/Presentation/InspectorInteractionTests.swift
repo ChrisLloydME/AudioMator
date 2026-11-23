@@ -555,6 +555,49 @@ nonisolated final class InspectorInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testFindAndReplacePreviewFitsFullWidthAndHeightInHostingView() async throws {
+        let layout = MetadataTextUtilityPreviewLayout.self
+        XCTAssertEqual(layout.availableContentWidth, 780)
+        XCTAssertEqual(layout.totalRowWidth, layout.availableContentWidth)
+
+        let url = try MetadataTestTokens.makeFixtureCopy()
+        defer { MetadataTestTokens.removeFixtureCopy(at: url) }
+        let pipeline = TagLibAudioMetadataPipeline()
+        let file = try await pipeline.loadAudioFile(at: url, id: UUID())
+        let store = MetadataEditorStore(metadataPipeline: pipeline)
+        store.present(targetFiles: [file])
+        let deadline = ContinuousClock.now + .seconds(5)
+        while store.isLoading, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertTrue(store.isEditable, store.loadErrorMessage ?? "Metadata Editor did not finish loading")
+        store.upsertField(key: "TITLE", values: [String(repeating: "Original value ", count: 64)])
+
+        let host = NSHostingView(rootView: MetadataTextUtilitiesSheet(
+            store: store,
+            fieldKeys: ["TITLE"],
+            initialOperation: .findAndReplace,
+            initialFindText: "Original",
+            initialReplacementText: "Replacement",
+            onClose: {}
+        ))
+        let frame = NSRect(x: 0, y: 0, width: 820, height: 540)
+        let window = NSWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: true)
+        window.contentView = host
+        defer { window.contentView = nil }
+        host.frame = frame
+        host.layoutSubtreeIfNeeded()
+
+        let scrollView = try XCTUnwrap(findSubview(ofType: NSScrollView.self, in: host))
+        let viewport = scrollView.contentView
+        XCTAssertGreaterThanOrEqual(viewport.bounds.height, 120)
+        XCTAssertEqual(viewport.bounds.width, layout.availableContentWidth, accuracy: 0.5)
+        XCTAssertFalse(scrollView.hasHorizontalScroller)
+        let visibleFrame = host.convert(viewport.bounds, from: viewport)
+        XCTAssertTrue(host.bounds.contains(visibleFrame))
+    }
+
+    @MainActor
     func testMultiEditBindingGuardPreservesUntouchedMixedClearWhileSkippingNoOpSharedWrites() {
         let mixedFiles = [
             AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/mixed-guard-a.m4a"), title: "Track A", album: "Shared Album"),

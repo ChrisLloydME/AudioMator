@@ -101,6 +101,27 @@ nonisolated final class MiddleListSelectionTests: XCTestCase {
     }
 
     @MainActor
+    func testCommandASelectAllInTrackListSelectsOnlyCurrentlyDisplayedFiles() throws {
+        let disc1Track1 = makeFile(title: "")
+        let disc1Track2 = makeFile(title: "")
+        let disc2Track1 = makeFile(title: "")
+        let outOfScopeTrack = makeFile(title: "")
+        let bindings = TableBindings()
+        let parent = makeTable(files: [disc1Track1, disc1Track2, disc2Track1], bindings: bindings)
+        let coordinator = parent.makeCoordinator()
+        let scrollView = coordinator.makeScrollView()
+        coordinator.update(parent: parent, scrollView: scrollView)
+        let table = try XCTUnwrap(scrollView.documentView as? NSTableView)
+
+        XCTAssertTrue(bindings.selection.isEmpty)
+        table.selectAll(nil)
+
+        XCTAssertEqual(bindings.selection, Set([disc1Track1.id, disc1Track2.id, disc2Track1.id]))
+        XCTAssertFalse(bindings.selection.contains(outOfScopeTrack.id))
+        XCTAssertEqual(table.selectedRowIndexes, IndexSet(integersIn: 0..<3))
+    }
+
+    @MainActor
     private func makeFile(title: String) -> AudioFile {
         AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/\(UUID()).mp3"), title: title)
     }

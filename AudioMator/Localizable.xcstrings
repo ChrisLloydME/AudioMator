@@ -139,6 +139,9 @@
     "%@ contains a hidden character that can’t be saved. Remove it before importing.\nDetails: null character (U+0000)." : {
 
     },
+    "%@ doesn't contain any supported audio files yet." : {
+
+    },
     "%@ took too long to complete." : {
 
     },
@@ -10994,6 +10997,9 @@
 
     },
     "Resume editing the captured files or discard the pending Inspector edits before saving." : {
+
+    },
+    "Reveal in Finder" : {
 
     },
     "Review & Apply Tags" : {

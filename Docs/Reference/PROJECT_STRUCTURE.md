@@ -118,7 +118,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1072 test functions and 117 `XCTestCase` classes across 117 test files plus 7 `TestSupport` files (124 Swift files total), alongside fixtures.
+App-hosted XCTest bundle organized by failure semantics. Current inventory: 1081 test functions and 118 `XCTestCase` classes across 118 test files plus 7 `TestSupport` files (125 Swift files total), alongside fixtures.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}

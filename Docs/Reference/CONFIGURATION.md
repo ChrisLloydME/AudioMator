@@ -16,8 +16,8 @@ Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system sy
 | Setting | Debug | Release |
 | --- | --- | --- |
 | `PRODUCT_BUNDLE_IDENTIFIER` | `com.TheLloydME.AudioMator.Beta` | `com.LloydME.AudioMator` |
-| `MARKETING_VERSION` | `2.7` | `2.7` |
-| `CURRENT_PROJECT_VERSION` | `26112` | `26112` |
+| `MARKETING_VERSION` | `3.0` | `3.0` |
+| `CURRENT_PROJECT_VERSION` | `3604` | `3604` |
 | `MACOSX_DEPLOYMENT_TARGET` | `15.0` | `15.0` |
 | `SDKROOT` / `SUPPORTED_PLATFORMS` | `macosx` | `macosx` |
 | `SWIFT_VERSION` | `5.0` | `5.0` |

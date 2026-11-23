@@ -9,7 +9,7 @@ This document describes how to build AudioMator from this repository and what th
 - Network access the first time the `TagLibAudioMetadata` package is resolved.
 - No sibling checkout of `TagLibAudioMetadata` is required.
 
-Environment and project values verified on 2026-11-20:
+Environment and project values verified on 2026-11-23:
 
 | Item | Value |
 | --- | --- |
@@ -17,7 +17,7 @@ Environment and project values verified on 2026-11-20:
 | App deployment target | macOS 15.0 |
 | Package pin | Exact published `0.8.2`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.2), revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868` |
 | Package resolution file | `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` |
-| Marketing version / build | `2.7` / `26112` in both app configurations |
+| Marketing version / build | `3.0` / `3604` in both app configurations |
 | Bundle identifiers | Debug `com.TheLloydME.AudioMator.Beta`; Release `com.LloydME.AudioMator` |
 | Earlier Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
 
@@ -45,7 +45,7 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the app
 
 Both configurations target macOS 15.0, use Swift 5 language mode with complete strict concurrency and MainActor default isolation, and enable App Sandbox and Hardened Runtime. Debug and Release use different bundle identifiers, so they have separate sandbox containers, bookmarks, and preferences.
 
-For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-20.
+For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-23.
 
 ## Swift Package (Core Logic Tests)
 

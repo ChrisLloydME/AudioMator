@@ -106,7 +106,7 @@ The mapping contract is `AM-TLAM-MAPPING-2.2`. The exact boundary and known depe
 
 ## Current Version and License
 
-The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `2.7`, build `26112`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
+The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `3.0`, build `3604`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
 
 The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE) and the [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the AGPL-3.0 text plus the TagLib LGPL-2.1/MPL-1.1, TagLibAudioMetadata MIT, and utf8-cpp Boost texts.
 

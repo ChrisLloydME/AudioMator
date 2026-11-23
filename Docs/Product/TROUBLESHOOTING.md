@@ -163,7 +163,7 @@ Lyrics application uses the shared save progress. If a previous save is still fi
 
 ### "Release version is not recognized"
 
-The update checker requires tags of the form `V<version>B<build>`, for example `V2.7B26112`. Both markers are uppercase; the version core must be dot-separated integers and the build must be numeric.
+The update checker requires tags of the form `V<version>B<build>`, for example `V3.0B3604`. Both markers are uppercase; the version core must be dot-separated integers and the build must be numeric.
 
 ### The update check says the app is ahead of the latest release
 

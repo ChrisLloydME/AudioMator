@@ -88,7 +88,7 @@ AudioMator's current artwork implementation is written in Swift in this reposito
 - Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
 - Role: published release metadata, release notes, and manual update checks.
 
-AudioMator expects release tags in the form `V<version>B<build>`, for example `V2.7B26112` for the current project values.
+AudioMator expects release tags in the form `V<version>B<build>`, for example `V3.0B3604` for the current project values.
 
 ## Local-First Behavior
 

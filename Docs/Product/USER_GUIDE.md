@@ -255,7 +255,7 @@ Settings contains six tabs:
 
 ## Checking for Updates
 
-**Check for Updates…** (App menu or Settings → About) asks the GitHub Releases API for the latest release. The release tag must look like `V2.7B26112`. AudioMator compares version segments and then the build number. It only reports whether a newer release exists and offers to open the GitHub Releases page; it does not download or install an update. Rate-limited or malformed responses are reported explicitly.
+**Check for Updates…** (App menu or Settings → About) asks the GitHub Releases API for the latest release. The release tag must use the form `V<version>B<build>`; for the current project values that is `V3.0B3604`. AudioMator compares version segments and then the build number. It only reports whether a newer release exists and offers to open the GitHub Releases page; it does not download or install an update. Rate-limited or malformed responses are reported explicitly.
 
 ## Where AudioMator Stores Data
 

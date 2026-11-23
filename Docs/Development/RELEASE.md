@@ -14,6 +14,7 @@ This document describes the repository's release gate and the maintainer steps f
 | Signed/notarized archive creation | **Not implemented** |
 | DMG/PKG/installer packaging | **Not implemented** |
 | GitHub Release creation or asset upload | **Not implemented** |
+| Git tag creation or push | **Not implemented** |
 | Automatic update download/install | **Not implemented** |
 | Changelog generation | **Not implemented** |
 | Version bump automation | **Not implemented** |
@@ -24,11 +25,13 @@ There is one CI workflow, `Validation`. It uploads test logs and `.xcresult` evi
 
 | Value | Location | Current value |
 | --- | --- | --- |
-| Marketing version | `MARKETING_VERSION` in `project.pbxproj` | `2.7` in both app configurations |
-| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `26112` in both app configurations |
-| Release tag | GitHub Releases, in the form `V<version>B<build>` | Local tag `V2.7B26112` exists at `9599e016` (2026-11-12) |
+| Marketing version | `MARKETING_VERSION` in `project.pbxproj` | `3.0` in both app configurations |
+| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `3604` in both app configurations |
+| Release tag | GitHub Releases, in the form `V<version>B<build>` | `V3.0B3604` for the current values; created manually on the release commit |
 
-Verify the project values and the tag before a release. The current values match the existing local tag `V2.7B26112`. Choose new release version/build values and an unused tag before publishing. See [Configuration](../Reference/CONFIGURATION.md).
+Verify the project values before tagging. The current values identify the release tag `V3.0B3604`; the previous local tag `V2.7B26112` points at `9599e016` (2026-11-12). Choose new release version/build values and an unused tag before publishing, and do not reuse an existing published tag. See [Configuration](../Reference/CONFIGURATION.md).
+
+Tag creation is manual. No repository script or CI job creates or pushes release tags.
 
 The in-app update checker:
 
@@ -37,7 +40,7 @@ The in-app update checker:
 - parses the build as an integer,
 - compares marketing segments first, padding missing segments with zero, then the build.
 
-`V2.10B100` is newer than `V2.9B999`; `V2.7B26112` equals `V2.7.0B26112`. The update check asks `api.github.com` for `/releases/latest`, which excludes drafts and prereleases.
+`V2.10B100` is newer than `V2.9B999`; `V3.0B3604` equals `V3.0.0B3604`. The update check asks `api.github.com` for `/releases/latest`, which excludes drafts and prereleases.
 
 Both Debug and Release currently share the same marketing/build values but use different bundle identifiers. A release build must use the Release bundle ID (`com.LloydME.AudioMator`); Debug is `com.TheLloydME.AudioMator.Beta`.
 
@@ -51,7 +54,7 @@ The following steps are the minimum supported procedure. The repository implemen
 4. **Sign.** Sign the app and embedded frameworks with a Developer ID identity, preserving hardened runtime and entitlements. Not automated and not configured in the repository.
 5. **Notarize and staple.** Submit to Apple's notary service and staple the ticket. Not automated and not verified in this repository.
 6. **Package.** Create the distribution format (DMG, PKG, or ZIP). No packaging script exists.
-7. **Publish.** Create a GitHub Release with tag `V<version>B<build>`, upload the artifact, and write release notes. Manual; no automation.
+7. **Tag and publish.** Create and push tag `V<version>B<build>` on the release commit (`V3.0B3604` for the current values), create a GitHub Release with that tag, upload the artifact, and write release notes. Manual; no automation.
 8. **Verify the update path.** Open the published release and confirm the tag parses and the app's **Check for Updates…** reports it correctly.
 9. **Announce** through the project's channels.
 

@@ -130,7 +130,7 @@ No MuseAmp source code is copied into AudioMator. The acknowledgement and licens
 
 ### Service Notice
 
-GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V2.7B26112` for the current project values.
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V3.0B3604` for the current project values.
 
 ## Bundled License Resources
 

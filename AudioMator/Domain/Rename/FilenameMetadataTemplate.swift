@@ -97,6 +97,7 @@ nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
     case ready
     case unchanged
     case noMatch
+    case ambiguousMatch
     case sourceUnavailable
     case noWritableFields
     /// The extracted values are valid, but the destination format cannot save one
@@ -111,6 +112,8 @@ nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
             return L10n.string("Unchanged")
         case .noMatch:
             return L10n.string("No Match Found")
+        case .ambiguousMatch:
+            return String(localized: "Ambiguous Match")
         case .sourceUnavailable:
             return L10n.string("Couldn't Check File")
         case .noWritableFields:
@@ -128,6 +131,8 @@ nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
             return L10n.string("The extracted metadata already matches the file's current tags.")
         case .noMatch:
             return L10n.string("The filename doesn't fully match the template. Check the field order and fixed text, leaving out the file extension.")
+        case .ambiguousMatch:
+            return String(localized: "The filename can be split in more than one way. Adjust the template to make the field boundaries clear.")
         case .sourceUnavailable:
             return L10n.string("The file couldn’t be checked for changes. Choose Reload from Disk from its context menu before continuing.")
         case .noWritableFields:
@@ -139,7 +144,7 @@ nonisolated enum FilenameMetadataPreviewStatus: Equatable, Sendable {
 
     var isError: Bool {
         switch self {
-        case .noMatch, .sourceUnavailable, .unsupported:
+        case .noMatch, .ambiguousMatch, .sourceUnavailable, .unsupported:
             return true
         case .ready, .unchanged, .noWritableFields:
             return false
@@ -325,14 +330,16 @@ nonisolated private struct FilenameMetadataPlanBuilder: Sendable {
     ) -> FilenameMetadataPreviewRow {
         let sourceBaseName = file.url.deletingPathExtension().lastPathComponent
 
-        guard let extractedValues = matcher.match(sourceBaseName) else {
+        let match = matcher.matchResult(sourceBaseName)
+        guard case .unique(let extractedValues) = match else {
+            let status: FilenameMetadataPreviewStatus = match == .ambiguous ? .ambiguousMatch : .noMatch
             return FilenameMetadataPreviewRow(
                 id: file.id,
                 currentName: file.url.lastPathComponent,
                 sourceBaseName: sourceBaseName,
-                status: .noMatch,
+                status: status,
                 changes: [],
-                issueMessage: FilenameMetadataPreviewStatus.noMatch.message,
+                issueMessage: status.message,
                 writeEntry: nil
             )
         }

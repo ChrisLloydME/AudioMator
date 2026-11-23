@@ -123,18 +123,44 @@ nonisolated final class FilenameMetadataTemplateTests: XCTestCase {
     }
 
     @MainActor
-    func testFilenameMetadataPlanRejectsAmbiguousFieldSplits() {
+    func testFilenameMetadataPlanFlagsAmbiguousFreeformDateSplitWithoutWriting() throws {
         let file = AudioFileTestFactory.make(
-            url: URL(fileURLWithPath: "/tmp/Boards - Aquarius - Version.mp3")
+            url: URL(fileURLWithPath: "/tmp/Spring 2024 - Artist - Song.flac")
         )
 
         let plan = makeFilenameMetadataPlan(
-            template: "{{artist}} - {{title}}",
+            template: "{{date}} - {{title}}",
             targetFiles: [file],
             replaceUnderscoresWithSpaces: false
         )
 
+        let row = try XCTUnwrap(plan.rows.first)
         XCTAssertEqual(plan.readyCount, 0)
+        XCTAssertEqual(plan.noMatchCount, 0)
+        XCTAssertEqual(plan.issueCount, 1)
+        XCTAssertEqual(row.status, .ambiguousMatch)
+        XCTAssertTrue(row.status.isError)
+        XCTAssertEqual(row.issueMessage, FilenameMetadataPreviewStatus.ambiguousMatch.message)
+        XCTAssertNil(row.writeEntry)
+        XCTAssertFalse(plan.canApply)
+
+        let revised = makeFilenameMetadataPlan(
+            template: "{{date}} - Artist - {{title}}",
+            targetFiles: [file],
+            replaceUnderscoresWithSpaces: false
+        )
+        XCTAssertTrue(revised.canApply)
+        XCTAssertEqual(revised.writeEntries.first?.previewValues[.date], "Spring 2024")
+    }
+
+    @MainActor
+    func testFilenameMetadataPlanDistinguishesPlainNonMatchFromAmbiguity() {
+        let file = AudioFileTestFactory.make(url: URL(fileURLWithPath: "/tmp/Spring 2024.flac"))
+        let plan = makeFilenameMetadataPlan(
+            template: "{{date}} - {{title}}",
+            targetFiles: [file],
+            replaceUnderscoresWithSpaces: false
+        )
         XCTAssertEqual(plan.noMatchCount, 1)
         XCTAssertEqual(plan.rows.first?.status, .noMatch)
         XCTAssertNil(plan.rows.first?.writeEntry)

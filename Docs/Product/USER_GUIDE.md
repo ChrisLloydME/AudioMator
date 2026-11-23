@@ -184,6 +184,8 @@ Templates use `{{field}}` placeholders. Filename and text templates support `{{t
 
 Every mode builds a preview plan before applying changes. The preview identifies unmatched, ambiguous, invalid, unchanged, and writable rows. Files changed since the preview are rejected inside the file mutation reservation. There is no Refresh Preview button.
 
+In **Filename to Metadata**, date fields accept freeform text such as `Spring 2024`. If the filename can be split in more than one valid way, its preview shows **Ambiguous Match** and skips that file. Adjust the template with more specific fixed text between fields, then review the new preview before applying.
+
 ### Text and CSV rules
 
 - Text and CSV exports start with `# AudioMator-Metadata-Profile: 2`, which marks the exchange profile and lets reimports preserve independent Year, Date, Release Date and Original Release Date values. Files without the marker are read with the legacy v1 meanings; unknown newer profile versions are rejected.

@@ -121,8 +121,10 @@ Tag Inspector is read-only. It opens as a Metadata Details sheet and shows:
 
 - a TagLib properties section,
 - ID3v2 frames when available,
-- preserved bridge sections such as legacy ID3v1 data,
+- preserved bridge sections such as legacy ID3v1 data and the MP4 ItemMap,
 - AudioMator compatibility notes when legacy and canonical values differ.
+
+For M4A and other MP4 files, the ItemMap lists the number of embedded covers and each image's size in bytes when a `covr` item is present. A single cover with a 17041015-byte payload appears as `covr = <CoverArt: 1 image, 17041015 bytes>`.
 
 Use it when a value read back after saving differs from what you entered, or when you need to confirm what the dependency actually parses.
 

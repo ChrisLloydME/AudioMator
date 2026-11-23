@@ -9,7 +9,7 @@ Use the documentation set under `Docs/` as the detailed reference:
 - [Documentation index](Docs/README.md) — start here.
 - [Product overview](Docs/Product/OVERVIEW.md) and [User guide](Docs/Product/USER_GUIDE.md) — scope and current workflows.
 - [Architecture](Docs/Architecture/OVERVIEW.md), [Metadata pipeline](Docs/Architecture/METADATA_PIPELINE.md), [State and mutation model](Docs/Architecture/STATE_AND_MUTATION_MODEL.md).
-- [Metadata mapping specification](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.1.
+- [Metadata mapping specification](Docs/Architecture/METADATA_MAPPING_SPEC.md) — shared contract `AM-TLAM-MAPPING-2.2`, implemented by published package 0.8.2.
 - [Build](Docs/Development/BUILD.md), [Testing](Docs/Development/TESTING.md), [Commit messages](Docs/Development/COMMIT_MESSAGES.md), [Documentation maintenance](Docs/Development/DOCUMENTATION.md).
 - [Security and data integrity](Docs/Security/SECURITY_AND_DATA_INTEGRITY.md).
 
@@ -114,7 +114,7 @@ xcodebuild \
 
 ## Dependency Notes
 
-- `TagLibAudioMetadata` is pinned to published exact version `0.8.1`, revision `b8ed5475761cb50bacdd7dcd4f6e2f61142303d0`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.1) is resolved through the normal Xcode project and committed `Package.resolved`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
+- `TagLibAudioMetadata` is pinned to published exact version `0.8.2`, revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.2) is resolved through the normal Xcode project and committed `Package.resolved`. The TagLib binary remains the checksum-pinned 2.3.1 revision 2 asset.
 - The ignored `.tmp/MappingIntegration.xcworkspace` is generated only for an explicitly requested local candidate via `scripts/validate-release.sh --local-package`; it is not part of normal resolution.
 - App deployment target: macOS 15.0.
 - Do not vendor package or TagLib source.

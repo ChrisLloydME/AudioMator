@@ -649,7 +649,7 @@ nonisolated final class LRCLIBLyricsTests: XCTestCase {
             XCTAssertEqual(afterMap["CUSTOM-KEEP"], ["untouched"], fileExtension)
             if fileExtension == "flac" {
                 // The package exposes an audio-content identity for FLAC; M4A does
-                // not in this pinned 0.8.1 surface, so that check is flac-only and
+                // not through the pinned package, so that check is flac-only and
                 // the tag-map readback above remains the independent disk evidence.
                 let snapshot = try TagLibMetadataManager.readSnapshot(from: fixtureURL, includingAudioContent: true)
                 XCTAssertNotNil(snapshot.audioContentIdentity, fileExtension)

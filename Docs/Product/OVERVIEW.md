@@ -82,7 +82,7 @@ Two paths are represented in the repository:
 
 | Dependency | Responsibility | AudioMator's side |
 | --- | --- | --- |
-| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.8.1 (exact pin, revision `b8ed5475`) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
+| [`TagLibAudioMetadata`](https://github.com/ChrisLloydME/TagLibAudioMetadata) 0.8.2 (exact pin, revision `6b03cb97`) | TagLib-backed snapshot loading, container tag read/write, format capability discovery, raw PropertyMap projection, artwork writes, verification, atomic commit, opaque file versioning. | Supplies semantic edit intent, raw deltas, expected versions, and consumes structured results. |
 | TagLib 2.3.1 (through the package) | Low-level audio metadata parsing and writing. | Bundled as a dynamic framework; not called directly by app code. |
 | utf8-cpp (utfcpp) | UTF-8 conversion inside TagLib. | Bundled with the TagLib framework; not called directly. |
 | Apple frameworks (SwiftUI, AppKit, AVFoundation, CoreMedia, PhotosUI, UniformTypeIdentifiers, Foundation) | UI, file panels, technical fallback metadata, thumbnails, photo import, content types. | Uses them directly in the appropriate layers. |

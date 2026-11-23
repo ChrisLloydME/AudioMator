@@ -91,13 +91,13 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Application/WatchedFolders` | 7 | 59 | hierarchical subfolder browsing, scoping, untagged FLAC batch-edit isolation and fallback when a subfolder disappears during browsing or a pending Inspector discard confirmation; identity-aware descriptor reconciliation (same-key rebinding, terminal events, stale-callback suppression), cap omission, permission loss, cancelled scan, removal/reappearance, ViewModel follow-up-scan single-fire, monitor plan/cap, bookmark persistence/corruption, security-scope balancing |
 | `Concurrency` | 4 | 52 | reservation ordering/cancellation/starvation, quick-import cancellation and progressive index/lease budgets, 200-track presentation stress |
 | `Integration/Network` | 8 | 115 | mocked HTTP faults, MusicBrainz response-shape validation/cache admission/numeric decoding, iTunes storefront-scoped publication/detail cache, LRCLIB reviewed binding/session cancellation, artwork search/download fault separation, retry/cancel and attempt identity, page traversal, search restart |
-| `Integration/TagLib` | 14 | 133 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback |
+| `Integration/TagLib` | 14 | 134 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
 | `Unit/Presentation` | 15 | 83 | artwork preview cache, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **124** | **1073** | |
+| **Total** | **124** | **1074** | |
 
 Notable coverage:
 
@@ -105,6 +105,7 @@ Notable coverage:
 - Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.
+- `TagLibReadWriteIntegrationTests.testMP4RawMetadataDumpReportsEmbeddedCoverSize` writes a cover to an M4A fixture copy and checks the exact count and payload size in the app adapter's MP4 ItemMap text.
 - Real TagLib writes use temporary copies of the six committed audio fixtures. Rename tests verify that a replacement changed in place and a superseded confirmation both keep the file protected. Reviewed-write tests also invalidate a later target during the first folder request and verify that no request is made for the blocked target’s folder.
 - Metadata Editor raw value arrays (`MetadataEditorRawValueArrayTests`, `MetadataFieldValueDraftTests`, `MetadataRawValuePresentationTests`, `MetadataEditorRawValueArrayPersistenceTests`) use the real store with an array-backed pipeline fake for per-element utility preview/apply (whole-value, prefix/suffix, case/trim, empty/duplicate/multiline elements, missing keys, reordering), stale-preview rejection, ordered field-entry add/remove/duplicate identity, no-op confirmations with zero writes, and captured Done before/after arrays. The persistence lane seeds temporary FLAC copies and asserts exact multiline/duplicate array readback with unrelated keys preserved, or an atomic failure with unchanged bytes.
 

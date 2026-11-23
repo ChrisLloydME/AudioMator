@@ -1,6 +1,6 @@
 # Architecture Overview
 
-AudioMator is a single macOS application target assembled from layered source folders under `AudioMator/`. The application is deliberately small at the center: a SwiftUI app shell owns lifecycle, a main-actor view model owns file state and selection, and all container-specific metadata I/O is delegated to the external `TagLibAudioMetadata` package (pinned 0.8.1, mapping contract `AM-TLAM-MAPPING-2.2`) through an adapter protocol.
+AudioMator is a single macOS application target assembled from layered source folders under `AudioMator/`. The application is deliberately small at the center: a SwiftUI app shell owns lifecycle, a main-actor view model owns file state and selection, and all container-specific metadata I/O is delegated to the external `TagLibAudioMetadata` package (pinned 0.8.2, mapping contract `AM-TLAM-MAPPING-2.2`) through an adapter protocol.
 
 This document describes the current structure. Detailed behavior lives in the linked architecture documents.
 

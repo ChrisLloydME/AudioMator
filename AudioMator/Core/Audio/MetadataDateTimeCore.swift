@@ -1325,8 +1325,15 @@ nonisolated enum MetadataWriteFailureFieldAnnotation {
     }
 
     private static func wordBoundedPattern(for label: String) -> String {
+        func isASCIIWordCharacter(_ character: Character?) -> Bool {
+            guard let character, character.isASCII else { return false }
+            return character.isLetter || character.isNumber || character == "_"
+        }
+
         let escaped = NSRegularExpression.escapedPattern(for: label)
-        return #"(?<![\p{L}\p{M}\p{N}_])\#(escaped)(?![\p{L}\p{M}\p{N}_])"#
+        let leading = isASCIIWordCharacter(label.first) ? "(?<![A-Za-z0-9_])" : ""
+        let trailing = isASCIIWordCharacter(label.last) ? "(?![A-Za-z0-9_])" : ""
+        return leading + escaped + trailing
     }
 }
 

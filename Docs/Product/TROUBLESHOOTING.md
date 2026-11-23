@@ -65,6 +65,10 @@ The file is missing, unreadable, replaced, or on a volume that cannot provide th
 
 The format's TagLib capability does not include one or more requested fields. Remove or deselect unsupported fields, or use a different container. AudioMator does not write a partial payload when a requested field is unsupported.
 
+### Save reports a filesystem error or a writer rejection
+
+The save details identify the affected file for filesystem problems such as running out of space. When the writer rejects a single-field edit, the details can add the field name. For a multi-field edit, use the writer's original message to see whether it identified a specific field.
+
 ### The save succeeded but the inspector did not refresh
 
 This is reported as a warning, not a failure. The bytes were committed; the app could not reload the snapshot before its deadline. Use **Reload from Disk** rather than retrying the save.

@@ -279,10 +279,8 @@ extension AudioViewModel {
     }
 }
 
-/// Annotates a writer rejection with the affected field display name(s) when
-/// the underlying writer error does not already name them. File-level failures
-/// (revision, recovery, membership, conflict, and access errors) keep their
-/// file-level explanation without field annotations.
+/// Adds context for a single-field writer rejection when the reason omits the
+/// field name. Multi-field requests and file-level errors use the original reason.
 nonisolated func annotatingWriteFailureWithFields(
     _ reason: String,
     fieldLabels: [String],
@@ -290,7 +288,7 @@ nonisolated func annotatingWriteFailureWithFields(
 ) -> String {
     guard category == .writeRejection else { return reason }
     let uniqueLabels = MetadataWriteFailureFieldAnnotation.normalizedUniqueLabels(fieldLabels)
-    guard !uniqueLabels.isEmpty else { return reason }
+    guard uniqueLabels.count == 1, fieldLabels.count == 1, let label = uniqueLabels.first else { return reason }
     let compoundDateLabels = [
         MetadataFieldGuide.displayName(for: .releaseDate),
         MetadataFieldGuide.displayName(for: .originalReleaseDate),
@@ -308,9 +306,5 @@ nonisolated func annotatingWriteFailureWithFields(
         return reason
     }
 
-    let joined = ListFormatter.localizedString(byJoining: uniqueLabels)
-    if uniqueLabels.count == 1 {
-        return "\(reason)\n\(String(localized: "Affected field: \(joined)"))"
-    }
-    return "\(reason)\n\(String(localized: "Affected fields: \(joined)"))"
+    return "\(reason)\n\(String(localized: "Affected field: \(label)"))"
 }

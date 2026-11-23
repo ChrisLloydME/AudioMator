@@ -18,17 +18,19 @@ nonisolated final class NetworkServiceDisclosureTests: XCTestCase {
     }
 
     @MainActor
-    func testRegistryCoversEveryHostUsedByNetworkClients() {
-        let disclosedHosts = Set(NetworkServiceDisclosure.allDisclosures.flatMap(\.domains))
-        // Independent inventory, reviewed against request builders and page policy.
-        let productionHosts: Set<String> = [
+    func testRegistryMatchesExpectedClientAndProviderPageDomains() {
+        let disclosures = NetworkServiceDisclosure.allDisclosures
+        // MetadataFieldGuideTests verifies the reference entry against the guide's URLs.
+        let disclosedHosts = Set(disclosures.filter { $0.id != .metadataHelpReferences }.flatMap(\.domains))
+        // Independent inventory from request builders and provider page navigation policy.
+        let expectedHosts: Set<String> = [
             "itunes.apple.com", "is5-ssl.mzstatic.com", "a5.mzstatic.com",
             "musicbrainz.org", "lrclib.net", "api.github.com", "apple.com",
-            "id3.org", "www.xiph.org", "picard-docs.musicbrainz.org",
-            "developer.apple.com", "acoustid.org", "taglib.org"
         ]
-
-        XCTAssertEqual(disclosedHosts, productionHosts)
-        XCTAssertTrue(NetworkServiceDisclosure.allDisclosures.contains { $0.id == .lrclib })
+        let differences = [
+            "Missing hosts: \(expectedHosts.subtracting(disclosedHosts).sorted())",
+            "Unexpected hosts: \(disclosedHosts.subtracting(expectedHosts).sorted())",
+        ]
+        XCTAssertEqual(disclosedHosts, expectedHosts, differences.joined(separator: "\n"))
     }
 }

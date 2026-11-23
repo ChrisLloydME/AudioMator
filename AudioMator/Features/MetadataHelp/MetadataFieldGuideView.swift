@@ -211,8 +211,11 @@ struct MetadataFieldGuideCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .help) {
-            Button("Metadata Field Guide") {
+            Button {
                 openWindow(id: MetadataFieldGuideView.windowID)
+            } label: {
+                Label("Metadata Field Guide", systemImage: "text.book.closed")
+                    .labelStyle(.titleAndIcon)
             }
         }
     }

@@ -15,7 +15,7 @@ Environment and project values verified on 2026-11-23:
 | --- | --- |
 | Toolchain | Xcode 27.2 (27B52), Apple Swift 6.4.2 |
 | App deployment target | macOS 15.0 |
-| Package pin | Exact published `0.8.2`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.2), revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868` |
+| Package pin | Exact published `0.8.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.3), revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f` |
 | Package resolution file | `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` |
 | Marketing version / build | `3.0` / `3604` in both app configurations |
 | Bundle identifiers | Debug `com.TheLloydME.AudioMator.Beta`; Release `com.LloydME.AudioMator` |
@@ -37,7 +37,7 @@ Select the `AudioMator` scheme and a macOS destination. Xcode resolves the remot
 xcodebuild -resolvePackageDependencies -project AudioMator.xcodeproj
 ```
 
-The committed package requirement is **exact version `0.8.2`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
+The committed package requirement is **exact version `0.8.3`**. Resolve and validate using `AudioMator.xcodeproj`; no sibling checkout or local override is required. Keep the generated `Package.resolved` version and revision aligned with the published tag.
 
 ## Scheme and Configurations
 

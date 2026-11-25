@@ -58,7 +58,7 @@ The following steps are the minimum supported procedure. The repository implemen
 8. **Verify the update path.** Open the published release and confirm the tag parses and the app's **Check for Updates…** reports it correctly.
 9. **Announce** through the project's channels.
 
-For an unsigned archive validation separate from the gate, use the settings in [the 0.8.0 evidence](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`. That record predates the current 0.8.2 pin; re-run the archive if it matters for the release.
+For an unsigned archive validation separate from the gate, use the settings in [the 0.8.0 evidence](../Engineering/HISTORY/TAGLIB_080_RELEASE_READINESS_2026-11-16.md#unsigned-archive) with the normal project and `-disableAutomaticPackageResolution -onlyUsePackageVersionsFromResolvedFile`. That record predates the current 0.8.3 pin; re-run the archive if it matters for the release.
 
 Do not describe the app as signed, notarized, or installer-packaged unless the corresponding step was actually performed and verified.
 
@@ -90,7 +90,7 @@ It has read-only repository permissions, no release secrets and no release job. 
 
 - Deployment target: macOS 15.0. The validation script enforces that the bundle's `LSMinimumSystemVersion` equals 15.0 and that no Mach-O in the bundle declares a higher minimum.
 - Architecture: the validator requires `arm64` and `x86_64` in both the main executable and `TagLibAudioMetadataTagLib` framework binary. Every embedded Mach-O must target macOS.
-- Package: exact `TagLibAudioMetadata` 0.8.2 pin (revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`). A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
+- Package: exact `TagLibAudioMetadata` 0.8.3 pin (revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f`). A dependency update requires a full test pass, format smoke tests, and privacy/notice review.
 - Swift: Xcode 27.2 stable toolchain; Swift 5 language mode with complete strict concurrency.
 
 There is no automated compatibility matrix for older macOS versions or prerelease toolchains.

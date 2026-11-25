@@ -26,12 +26,12 @@ nonisolated final class StoreIdentifierWriteTests: XCTestCase {
     func testDedicatedIDsUseRegistryIntegerShapeAndPreserveUntouchedTextIdentifiers() throws {
         let original = AudioFileTestFactory.make()
         var edit = SingleFileEditModel(from: original)
-        edit.itunesAlbumID = "1234567890"
+        edit.itunesAlbumID = "6829122413"
         edit.itunesArtistID = "123456"
         edit.itunesCatalogID = "987654"
         edit.musicBrainzAlbumID = "00000000-0000-0000-0000-000000000001"
         let patch = try TagLibAudioMetadataPipeline.metadataPatchForWrite(from: MetadataEditPayload(edit, comparedTo: original))
-        XCTAssertEqual(patch.fields[.itunesAlbumID], .integer(1234567890))
+        XCTAssertEqual(patch.fields[.itunesAlbumID], .integer(6_829_122_413))
         XCTAssertEqual(patch.fields[.itunesArtistID], .integer(123456))
         XCTAssertEqual(patch.fields[.itunesCatalogID], .integer(987654))
         XCTAssertEqual(patch.fields[.musicBrainzAlbumID], .text(edit.musicBrainzAlbumID))
@@ -42,7 +42,7 @@ nonisolated final class StoreIdentifierWriteTests: XCTestCase {
         let url = try aiff()
         let pipeline = TagLibAudioMetadataPipeline()
         var file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        for values in [["1234567890", "123456", "987654"], ["42", "43", "44"], ["", "", ""]] {
+        for values in [["6829122413", "6829122414", "6829122415"], ["42", "43", "44"], ["", "", ""]] {
             var edit = SingleFileEditModel(from: file)
             edit.itunesAlbumID = values[0]
             edit.itunesArtistID = values[1]
@@ -58,9 +58,25 @@ nonisolated final class StoreIdentifierWriteTests: XCTestCase {
 
     @MainActor
     func testInvalidAndOutOfRangeIDsRejectWithoutPartialTitleSave() async throws {
-        let url = try aiff()
+        let aiffURL = try aiff()
+        let bundle = Bundle(for: Self.self)
+        let m4aSource = try XCTUnwrap(
+            bundle.url(forResource: "testAudioFile", withExtension: "m4a", subdirectory: "Fixtures/Audio")
+                ?? bundle.url(forResource: "testAudioFile", withExtension: "m4a")
+        )
+        let m4aURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString).appendingPathExtension("m4a")
+        addTeardownBlock { try? FileManager.default.removeItem(at: m4aURL) }
+        try FileManager.default.copyItem(at: m4aSource, to: m4aURL)
+
         let pipeline = TagLibAudioMetadataPipeline()
-        for invalid in ["not-a-number", "-1", "4294967296", "99999999999999999999999999"] {
+        let cases = [
+            (aiffURL, "not-a-number"),
+            (aiffURL, "-1"),
+            (aiffURL, "99999999999999999999999999"),
+            (m4aURL, "4294967296"),
+        ]
+        for (url, invalid) in cases {
             let file = try await pipeline.loadAudioFile(at: url, id: UUID())
             let before = try Data(contentsOf: url)
             var edit = SingleFileEditModel(from: file)

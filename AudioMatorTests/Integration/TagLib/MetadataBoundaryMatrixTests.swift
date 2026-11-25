@@ -258,15 +258,16 @@ nonisolated final class MetadataBoundaryMatrixTests: XCTestCase {
         viewModel.setSelectedAudioIDs(Set(files.map(\.id)))
         await viewModel.applyiTunesTaggingPlan(files.map {
             iTunesTaggingWriteEntry(file: $0,
-                values: [.title: "Provider title", .itunesAlbumID: "12345", .itunesArtistID: "67890",
-                         .itunesCatalogID: "54321", .releaseDate: "2017-06-09"])
+                values: [.title: "Provider title", .itunesAlbumID: "6829122413", .itunesArtistID: "67890",
+                         .itunesCatalogID: "6829122414", .releaseDate: "2017-06-09"])
         })
         for original in files {
             let reloaded = try await pipeline.loadAudioFile(at: original.url, id: original.id)
             XCTAssertEqual(reloaded.title, "Provider title")
-            XCTAssertEqual(reloaded.itunesAlbumID, "12345")
+            XCTAssertEqual(reloaded.itunesAlbumID, "6829122413")
             XCTAssertEqual(reloaded.itunesArtistID, "67890")
-            XCTAssertEqual(reloaded.itunesCatalogID, "54321")
+            XCTAssertEqual(reloaded.itunesCatalogID, "6829122414")
+            XCTAssertEqual(viewModel.files.first { $0.id == original.id }?.itunesAlbumID, "6829122413")
             XCTAssertEqual(viewModel.files.first { $0.id == original.id }?.itunesArtistID, "67890")
         }
         // The strict route freezes the reviewed observation per entry. The iTunes

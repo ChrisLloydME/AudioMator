@@ -75,6 +75,7 @@ This directory is the authoritative documentation set for AudioMator. It is writ
 ### Engineering Evidence
 
 - [Engineering Notes](Engineering/README.md) — dated measurements, package adoption records, cleanup evidence, and release evidence. These are evidence, not current contracts.
+- [Published TagLibAudioMetadata 0.8.3 adoption](Engineering/TAGLIB_083_ADOPTION_2026-11-25.md) — Store ID regression and automated release-gate evidence.
 - [Published TagLibAudioMetadata 0.8.1 Debug adoption](Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) — exact published-package Debug adoption evidence.
 - [Accumulated-code cleanup acceptance](Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) and [cleanup ledger](Engineering/AUDIOMATOR_LEGACY_CLEANUP_LEDGER_2026-11-18.md) — automated gate evidence and whole-application cleanup audit.
 - [Independent engineering audit](Engineering/AUDIOMATOR_INDEPENDENT_AUDIT_2026-11-18.md) and [supporting evidence](Engineering/AUDIOMATOR_INDEPENDENT_AUDIT_EVIDENCE_2026-11-18.md) — findings and controlled reproductions for the recorded 2026-11-18 baseline.

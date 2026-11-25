@@ -1,6 +1,6 @@
 # ADR 0005: Adopt a versioned native metadata interoperability mapping contract
 
-- Status: Accepted (current published pin: TagLibAudioMetadata 0.8.2)
+- Status: Accepted (current published pin: TagLibAudioMetadata 0.8.3)
 - Date: 2026-11-09
 
 ## Context
@@ -29,4 +29,4 @@ The refactor must introduce precision-aware dates and edit intents, revise the p
 
 ## Verification
 
-The shared specification defines preferred native targets, conformance tests, migrations and release gates. `ITUNESADVISORY` distinguishes absence from 0 (Not Explicit), 1 (Explicit), and 2 (Clean). The [metadata mapping table](../../Reference/METADATA_FIELD_MAPPING_TABLE.md) tracks the current registry inventory, and [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) describes the 0.8.2 pin and its verified restrictions.
+The shared specification defines preferred native targets, conformance tests, migrations and release gates. `ITUNESADVISORY` distinguishes absence from 0 (Not Explicit), 1 (Explicit), and 2 (Clean). The [metadata mapping table](../../Reference/METADATA_FIELD_MAPPING_TABLE.md) tracks the current registry inventory, and [Dependency Limitations](../../Reference/DEPENDENCY_LIMITATIONS.md) describes the 0.8.3 pin and its verified restrictions.

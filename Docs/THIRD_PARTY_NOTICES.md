@@ -65,7 +65,7 @@ The Boost license permits distribution in machine-executable object form without
 
 - **Project**: TagLibAudioMetadata
 - **Source**: https://github.com/ChrisLloydME/TagLibAudioMetadata.git
-- **Pinned version**: exact published `0.8.2`, revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.2).
+- **Pinned version**: exact published `0.8.3`, revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.3).
 - **Copyright**: Copyright (c) 2026 Christopher Lloyd.
 - **License**: MIT License.
 - **Usage in this repository**: Swift Package Manager dependency that exposes the TagLib-backed APIs consumed by AudioMator's metadata pipeline.
@@ -143,7 +143,7 @@ GitHub Releases is a web service, not third-party source code bundled into Audio
 
 The release artifact gate checks that all five files are present and non-empty in `Contents/Resources`. The in-app Acknowledgements sheet loads the texts by resource name and shows a fallback when a text is missing. Verify that the shipped app opens each license during manual acceptance.
 
-The published 0.8.2 package manifest retains the checksum-pinned TagLib 2.3.1 revision 2 asset. The bundled license texts are not byte-compared by any automated check; compare them with the published package when the dependency changes. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only by the explicit local-candidate gate, not for current validation.
+The published 0.8.3 package manifest retains the checksum-pinned TagLib 2.3.1 revision 2 asset. The bundled license terms match the published package. AudioMator retains the utfcpp attribution and trims a trailing blank line from the MPL copy. Normal-project dependency resolution uses the committed `Package.resolved`; the ignored `.tmp/MappingIntegration.xcworkspace` is used only by the explicit local-candidate gate, not for current validation.
 
 ## Metadata help references
 

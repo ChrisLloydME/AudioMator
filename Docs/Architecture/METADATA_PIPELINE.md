@@ -2,7 +2,7 @@
 
 This document describes how AudioMator reads metadata into application state, turns edits into writes, and interprets the result. It is the reference for changes to `Domain/MetadataEditing`, `Infrastructure/TagLib`, and the write extensions under `Features/Main/ViewModels`.
 
-AudioMator pins published `TagLibAudioMetadata` **0.8.2** (revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`) through the normal Xcode project and committed `Package.resolved`; there is no local override in normal builds. The shared contract is **`AM-TLAM-MAPPING-2.2`** (see [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)); current restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+AudioMator pins published `TagLibAudioMetadata` **0.8.3** (revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f`) through the normal Xcode project and committed `Package.resolved`; there is no local override in normal builds. The shared contract is **`AM-TLAM-MAPPING-2.2`** (see [Metadata Mapping Specification](METADATA_MAPPING_SPEC.md)); current restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 ## Boundary Summary
 
@@ -194,7 +194,7 @@ An unchanged revision with an empty patch performs no write but rechecks the fil
 
 ### Store identifier encoding
 
-The dedicated Inspector/provider/exchange models retain Album, Artist and Catalog Store IDs as display strings. At the shared semantic patch boundary, requested non-empty fields whose registry accepts only integers are encoded as `.integer`; an empty edit remains `.remove`. Text identifiers such as MusicBrainz IDs, barcode and catalog number are not converted. Invalid or overflowing numeric IDs remain validation failures: no clamping, truncation, field dropping or partial per-file save is allowed. Untouched fields are filtered before conversion.
+The dedicated Inspector/provider/exchange models retain Album, Artist and Catalog Store IDs as display strings. At the shared semantic patch boundary, requested non-empty fields whose registry accepts only integers are encoded as `.integer`; an empty edit remains `.remove`. Text identifiers such as MusicBrainz IDs, barcode and catalog number are not converted. Invalid or overflowing numeric IDs remain validation failures: no clamping, truncation, field dropping or partial per-file save is allowed. Untouched fields are filtered before conversion. The package applies the [destination-specific Store ID ranges](../Reference/DEPENDENCY_LIMITATIONS.md#store-id-ranges).
 
 ## Conflict Resolution
 

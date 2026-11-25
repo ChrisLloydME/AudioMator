@@ -1,10 +1,10 @@
 # Dependency Limitations
 
-AudioMator pins published **TagLibAudioMetadata 0.8.2**, revision `6b03cb97d96f2f7c25080b7145e4bf3340a9f868`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. The ignored local workspace is used only for explicit candidate validation. Historical records under [Docs/Engineering/HISTORY](../Engineering/HISTORY/README.md) describe superseded versions and are not current capability claims.
+AudioMator pins published **TagLibAudioMetadata 0.8.3**, revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f`, through the normal Xcode project and committed remote lock. The mapping contract is `AM-TLAM-MAPPING-2.2`. The ignored local workspace is used only for explicit candidate validation. Historical records under [Docs/Engineering/HISTORY](../Engineering/HISTORY/README.md) describe superseded versions and are not current capability claims.
 
 ## Current Published Boundary
 
-The current 0.8.2 pin supplies automatic edited-group numbering recovery and retirement. `MappingPackageConformanceTests` exercises the MP4 absent-Year/present-Date regression for Comment and Lyrics through the public package boundary and the app adapter. AudioMator owns field-selection intent, Inspector and Editor state, and expected-version safety. The package owns native codec behavior.
+The current 0.8.3 pin supplies automatic edited-group numbering recovery and retirement. `MappingPackageConformanceTests` exercises the MP4 absent-Year/present-Date regression for Comment and Lyrics through the public package boundary and the app adapter. AudioMator owns field-selection intent, Inspector and Editor state, and expected-version safety. The package owns native codec behavior.
 
 ## Explicit Capability Restrictions
 
@@ -17,7 +17,7 @@ The current 0.8.2 pin supplies automatic edited-group numbering recovery and ret
 
 ## Store ID Ranges
 
-The published 0.8.2 pin applies a 32-bit unsigned range to the typed Album, Artist and Catalog Store IDs across formats, including text-backed FLAC and AIFF tags. A decimal ID such as `6829122413` reaches the package as an exact integer and is rejected by that pin. The app defers destination validation to the package, as described in the [metadata pipeline](../Architecture/METADATA_PIPELINE.md#store-identifier-encoding).
+Typed Album, Artist, Catalog and Genre Store IDs accept nonnegative Swift `Int` values. The package writes their decimal representation in text-backed tags such as FLAC and AIFF. MP4 uses 64-bit integers for Album (`plID`) and Catalog (`cnID`) IDs and unsigned 32-bit integers for Artist (`atID`) and Genre (`geID`) IDs. AudioMator defers destination validation to the package. See the [metadata pipeline](../Architecture/METADATA_PIPELINE.md#store-identifier-encoding).
 
 ## Audio Continuity
 

@@ -42,7 +42,7 @@ nonisolated final class StoreIdentifierWriteTests: XCTestCase {
         let url = try aiff()
         let pipeline = TagLibAudioMetadataPipeline()
         var file = try await pipeline.loadAudioFile(at: url, id: UUID())
-        for values in [["1234567890", "123456", "987654"], ["42", "43", "44"], ["", "", ""]] {
+        for values in [["6829122413", "6829122414", "6829122415"], ["42", "43", "44"], ["", "", ""]] {
             var edit = SingleFileEditModel(from: file)
             edit.itunesAlbumID = values[0]
             edit.itunesArtistID = values[1]

@@ -1155,9 +1155,6 @@
     "Affected field: %@" : {
 
     },
-    "Affected fields: %@" : {
-
-    },
     "Africa" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1274,6 +1271,9 @@
     "All files moved, but completion wasn't recorded" : {
 
     },
+    "All Watched Files" : {
+
+    },
     "Allow" : {
 
     },
@@ -1284,6 +1284,9 @@
 
     },
     "Allow Folder Access" : {
+
+    },
+    "Ambiguous Match" : {
 
     },
     "Americas" : {
@@ -3184,6 +3187,9 @@
     "Clear blank imported values" : {
 
     },
+    "Clear for Selected Files" : {
+
+    },
     "Clear List" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Domain/UIState/ToolbarButtonOption.swift:31, AudioMator/Features/Main/Views/ContentPane.swift:92, AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:78.",
       "localizations" : {
@@ -3993,6 +3999,9 @@
           }
         }
       }
+    },
+    "Current values" : {
+
     },
     "Current values differ" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:517, AudioMator/Features/iPad/Views/IPadInspectorView.swift:216.",
@@ -5849,6 +5858,9 @@
           }
         }
       }
+    },
+    "Hour precision can’t preserve the selected daylight saving time choice." : {
+
     },
     "How long the audio plays. Changing a tag does not change its length." : {
 
@@ -9199,6 +9211,9 @@
     "Preview Unavailable" : {
 
     },
+    "Preview values" : {
+
+    },
     "Previous" : {
 
     },
@@ -11908,6 +11923,9 @@
         }
       }
     },
+    "Session Files" : {
+
+    },
     "Setup" : {
 
     },
@@ -12712,6 +12730,9 @@
     "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
 
     },
+    "The filename can be split in more than one way. Adjust the template to make the field boundaries clear." : {
+
+    },
     "The filename matched and extracted metadata can be written." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:196.",
       "extractionState" : "stale",
@@ -12862,10 +12883,10 @@
     "The import records can’t be matched to the selected files." : {
 
     },
-    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF; raw YEAR on ID3v2.4 and mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF. ID3v2.4 raw DATE is displayed as Year and stays text-only, as does ID3v2.4 raw YEAR. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE also stay text-only." : {
 
     },
-    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack; choosing the named Date suggestion when adding a field uses raw DATE on those files and STANDALONEDATE (text-only) elsewhere. Mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack. The named Date suggestion uses raw DATE on those verified routes. Elsewhere it uses STANDALONEDATE, a text-only raw key separate from the Inspector’s standalone Date slot. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE stay text-only." : {
 
     },
     "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw ORIGINALDATE except on ASF/WMA; ASF/WMA raw keys and ORIGINAL YEAR stay text-only." : {

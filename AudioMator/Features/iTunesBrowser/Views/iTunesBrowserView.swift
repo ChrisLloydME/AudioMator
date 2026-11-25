@@ -104,9 +104,7 @@ struct iTunesBrowserView: View {
 
             searchFields
 
-            if store.mode != .link {
-                storefrontBar
-            }
+            storefrontBar
 
             HStack(spacing: 8) {
                 Spacer()
@@ -139,7 +137,8 @@ struct iTunesBrowserView: View {
     }
 
     private var storefrontBar: some View {
-        HStack(spacing: 10) {
+        let languages = store.storefront.catalogLanguages
+        return HStack(spacing: 10) {
             Menu {
                 ForEach(iTunesStorefront.allCases) { storefront in
                     Button {
@@ -157,6 +156,22 @@ struct iTunesBrowserView: View {
             }
 
             iTunesStorefrontChip(title: "\(store.storefront.emoji) \(store.storefront.displayName)")
+
+            Picker(
+                String(localized: "Storefront Language"),
+                selection: Binding(
+                    get: { store.storefrontLanguage },
+                    set: { store.selectStorefrontLanguage($0) }
+                )
+            ) {
+                ForEach([languages.defaultLanguage] + languages.alternatives, id: \.self) { language in
+                    Text(language.displayName).tag(language)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .disabled(languages.alternatives.isEmpty)
 
             Spacer(minLength: 0)
         }

@@ -80,7 +80,7 @@ All app requests are HTTP GETs. There is no upload path, multipart body, or requ
 | Service | Hosts contacted by the app | Data sent |
 | --- | --- | --- |
 | MusicBrainz | `musicbrainz.org` | Lucene query terms and identifiers derived from tags, file names, or parent/grandparent folder names (title, artist, album, album artist, track number/total, duration, release date/year, country, status, format, release/recording MBIDs, ISRC, barcode, filters), or a lookup MBID with fixed options |
-| iTunes | `itunes.apple.com` | search term (tags/file/folder-derived or typed), storefront country, media/entity/limit, album/track ID, UPC, or Apple Music/iTunes link |
+| iTunes | `itunes.apple.com` | search term (tags/file/folder-derived or typed), storefront country and optional language, media/entity/limit, album/track ID (including from a pasted link), or UPC |
 | Apple artwork | Apple-returned `artworkUrl100` host, `is5-ssl.mzstatic.com`, `a5.mzstatic.com` | image GET only |
 | LRCLIB | `lrclib.net` | `track_name`, `artist_name`, `album_name`, `duration`; artist/album may be derived from parent/grandparent folder names |
 | GitHub | `api.github.com` | repository release request; no auth token |

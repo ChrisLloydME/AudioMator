@@ -228,11 +228,50 @@ nonisolated final class ProviderNetworkFaultTests: XCTestCase {
     }
 
     @MainActor
+    func testITunesSearchAndLookupEncodeTheCatalogLanguage() async throws {
+        ProviderFaultURLProtocol.requestHandler = { request in
+            let url = try XCTUnwrap(request.url)
+            let items = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+            let locale = items.filter { $0.name == "lang" || $0.name == "l" }
+            let country = items.first { $0.name == "country" }?.value
+            if country == "us" {
+                XCTAssertEqual(url.path, "/search")
+                let entity = items.first { $0.name == "entity" }?.value
+                XCTAssertEqual(locale, entity == "album" ? [URLQueryItem(name: "l", value: "es-MX")] : [])
+            } else {
+                XCTAssertEqual(country, "hk")
+                XCTAssertEqual(url.path, "/lookup")
+                XCTAssertEqual(locale, [URLQueryItem(name: "lang", value: "zh_tw")])
+            }
+            let response = try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            let data = Data(#"{"results":[{"wrapperType":"collection","collectionId":456,"collectionName":"Album"}]}"#.utf8)
+            return (response, data)
+        }
+        let client = iTunesClient(session: makeSession())
+        let queries: [iTunesSearchQuery] = [
+            .init(mode: .track, title: "Track"),
+            .init(mode: .album, album: "Album", language: .spanishMexico),
+            .init(mode: .link, link: "https://music.apple.com/us/album/album/456?i=123",
+                  country: "hk", language: .traditionalChineseTaiwan),
+            .init(mode: .link, link: "https://music.apple.com/us/album/album/456",
+                  country: "hk", language: .traditionalChineseTaiwan),
+            .init(mode: .upc, upc: "043396499461", country: "hk", language: .traditionalChineseTaiwan)
+        ]
+        for query in queries {
+            _ = try await client.search(matching: query, limit: 5)
+        }
+        _ = try await client.albumDetail(collectionID: 456, country: "hk", language: .traditionalChineseTaiwan)
+    }
+
+    @MainActor
     func testITunesStaleStoredAlbumFallsBackToTextSearch() async throws {
         let requests = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
             requests.record(request)
             let url = try XCTUnwrap(request.url)
+            let items = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+            XCTAssertTrue(items.contains(URLQueryItem(name: "country", value: "hk")))
+            XCTAssertTrue(items.contains(URLQueryItem(name: "lang", value: "zh_tw")))
             let payload: [String: Any] = url.path == "/lookup"
                 ? ["resultCount": 0, "results": []]
                 : ["resultCount": 1, "results": [["wrapperType": "track", "kind": "song", "trackId": 123,
@@ -245,7 +284,9 @@ nonisolated final class ProviderNetworkFaultTests: XCTestCase {
             durationMilliseconds: nil, releaseDate: "", barcode: "", itunesAlbumID: "999",
             itunesArtistID: "", itunesCatalogID: "")
         let results = try await iTunesClient(session: makeSession()).search(
-            matching: iTunesSearchQuery(mode: .file, fileInputs: [file]), limit: 5)
+            matching: iTunesSearchQuery(mode: .file, country: "hk", language: .traditionalChineseTaiwan, fileInputs: [file]),
+            limit: 5
+        )
         guard case .tracks(let tracks) = results else { return XCTFail("Expected text-search track results") }
         XCTAssertEqual(tracks.map(\.trackID), [123])
         XCTAssertEqual(requests.requestCount, 2)

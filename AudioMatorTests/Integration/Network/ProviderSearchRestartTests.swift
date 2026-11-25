@@ -425,7 +425,7 @@ private struct ImmediateiTunesDetailClient: iTunesBrowserClient {
         .tracks([])
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
         detail
     }
 }
@@ -438,7 +438,7 @@ private struct NonCooperativeiTunesBrowserClient: iTunesBrowserClient {
         return .tracks([])
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
         throw ProviderSearchTestError.unexpectedDetailRequest
     }
 }
@@ -544,7 +544,7 @@ private final class RestartableiTunesBrowserClient: iTunesBrowserClient, @unchec
         return .tracks([])
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
         throw ProviderSearchTestError.unexpectedDetailRequest
     }
 }

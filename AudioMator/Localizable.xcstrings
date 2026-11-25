@@ -1155,9 +1155,6 @@
     "Affected field: %@" : {
 
     },
-    "Affected fields: %@" : {
-
-    },
     "Africa" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1274,6 +1271,9 @@
     "All files moved, but completion wasn't recorded" : {
 
     },
+    "All Watched Files" : {
+
+    },
     "Allow" : {
 
     },
@@ -1284,6 +1284,9 @@
 
     },
     "Allow Folder Access" : {
+
+    },
+    "Ambiguous Match" : {
 
     },
     "Americas" : {
@@ -1480,6 +1483,22 @@
     },
     "Applying lyrics to the matched files..." : {
 
+    },
+    "Arabic" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阿拉伯语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "阿拉伯文"
+          }
+        }
+      }
     },
     "Arctic" : {
       "extractionState" : "stale",
@@ -3184,6 +3203,9 @@
     "Clear blank imported values" : {
 
     },
+    "Clear for Selected Files" : {
+
+    },
     "Clear List" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Domain/UIState/ToolbarButtonOption.swift:31, AudioMator/Features/Main/Views/ContentPane.swift:92, AudioMator/Features/iPad/Views/IPadWorkspaceView.swift:78.",
       "localizations" : {
@@ -3993,6 +4015,9 @@
           }
         }
       }
+    },
+    "Current values" : {
+
     },
     "Current values differ" : {
       "comment" : "Status, validation, or empty-state message shown in the app UI. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:517, AudioMator/Features/iPad/Views/IPadInspectorView.swift:216.",
@@ -4846,6 +4871,70 @@
         }
       }
     },
+    "English" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英文"
+          }
+        }
+      }
+    },
+    "English (Australia)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英语（澳大利亚）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英文（澳洲）"
+          }
+        }
+      }
+    },
+    "English (Canada)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英语（加拿大）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英文（加拿大）"
+          }
+        }
+      }
+    },
+    "English (UK)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英语（英国）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英文（英國）"
+          }
+        }
+      }
+    },
     "Enter a matching template or drag metadata chips into the field." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: audio metadata/tag editing workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:320.",
       "extractionState" : "stale",
@@ -5641,6 +5730,38 @@
     "Four-digit year. Standard for ID3v2.3 and Windows Media; widely accepted across formats." : {
 
     },
+    "French" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法文"
+          }
+        }
+      }
+    },
+    "French (Canada)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法语（加拿大）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "法文（加拿大）"
+          }
+        }
+      }
+    },
     "Full credit for the original application, architecture, and core design belongs to the upstream project and its original contributors." : {
       "comment" : "Credits MuseAmp's upstream project and original contributors.",
       "localizations" : {
@@ -5775,6 +5896,22 @@
         }
       }
     },
+    "German" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "德语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "德文"
+          }
+        }
+      }
+    },
     "Get Started" : {
 
     },
@@ -5849,6 +5986,9 @@
           }
         }
       }
+    },
+    "Hour precision can’t preserve the selected daylight saving time choice." : {
+
     },
     "How long the audio plays. Changing a tag does not change its length." : {
 
@@ -6280,12 +6420,44 @@
         }
       }
     },
+    "iTunes search requests send a search term, the selected storefront country, and the media, entity, and limit parameters, or a lookup by Apple album/track ID or UPC. Apple Music and iTunes links supply an ID for lookup. iTunes metadata requests include a language code when you choose a language other than the storefront default. The search term can be derived from tags, file names, and parent or grandparent folder names (title, artist, album, album artist) or typed manually. Track number, disc number, duration, iTunes artist ID, and catalog ID are not URL parameters; they are used locally for matching. No full file path, file contents, or audio bytes are sent. Artwork downloads request an Apple-returned artwork URL, so Apple may direct the app to an Apple artwork host beyond the hosts listed here." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 搜索请求会发送搜索词、所选商店地区以及 media、entity 和 limit 参数。查询会发送 Apple 专辑或曲目 ID，或者 UPC。Apple Music 和 iTunes 链接用于提取查询所需的 ID。选择非商店默认语言时，iTunes 元数据请求还会发送语言代码。搜索词可以手动输入，也可以从标签、文件名、上一级或上两级文件夹名中获取（标题、艺人、专辑或专辑艺人）。曲目编号、碟片编号、时长、iTunes 艺人 ID 和目录 ID 仅在本地用于匹配，不会作为 URL 参数发送。不会发送完整文件路径、文件内容或音频数据。下载封面时会请求 Apple 返回的封面 URL，因此 Apple 可能会将请求转至此处列出的主机之外的 Apple 封面主机。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 搜尋要求會傳送搜尋字詞、所選商店地區以及 media、entity 和 limit 參數。查詢會傳送 Apple 專輯或曲目 ID，或 UPC。Apple Music 和 iTunes 連結用來擷取查詢所需的 ID。選擇商店預設語言以外的語言時，iTunes 中繼資料要求也會傳送語言代碼。搜尋字詞可以手動輸入，也可以從標籤、檔案名稱、上一層或上兩層資料夾名稱取得（標題、演出者、專輯或專輯演出者）。曲目編號、光碟編號、長度、iTunes 演出者 ID 和目錄 ID 只在本機用於配對，並不會做為 URL 參數傳送。完整檔案路徑、檔案內容或音訊資料均不會傳送。下載封面時會要求 Apple 傳回的封面 URL，因此 Apple 可能會將要求轉送至此處所列主機以外的 Apple 封面主機。"
+          }
+        }
+      }
+    },
     "iTunes: %@%@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "new",
             "value" : "iTunes: %1$@%2$@"
+          }
+        }
+      }
+    },
+    "Japanese" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日文"
           }
         }
       }
@@ -6372,6 +6544,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "數字增大時保持相同宽度。"
+          }
+        }
+      }
+    },
+    "Korean" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "韩语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "韓文"
           }
         }
       }
@@ -9078,6 +9266,22 @@
     "Planned mapping; editing is not available." : {
 
     },
+    "Portuguese (Brazil)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "葡萄牙语（巴西）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "葡萄牙文（巴西）"
+          }
+        }
+      }
+    },
     "Practical calendar-date recommendation for text tags when only the date is known." : {
 
     },
@@ -9197,6 +9401,9 @@
       }
     },
     "Preview Unavailable" : {
+
+    },
+    "Preview values" : {
 
     },
     "Previous" : {
@@ -11087,6 +11294,22 @@
     "Review recent save warnings and failures shown by the save status HUD." : {
 
     },
+    "Russian" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "俄语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "俄文"
+          }
+        }
+      }
+    },
     "Safety and Reload" : {
 
     },
@@ -11908,6 +12131,9 @@
         }
       }
     },
+    "Session Files" : {
+
+    },
     "Setup" : {
 
     },
@@ -11967,6 +12193,22 @@
     },
     "Show Welcome Screen on Launch" : {
 
+    },
+    "Simplified Chinese" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "简体中文"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "簡體中文"
+          }
+        }
+      }
     },
     "Some Files Couldn’t Be Imported" : {
 
@@ -12131,6 +12373,22 @@
     "Sources" : {
 
     },
+    "Spanish (Mexico)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "西班牙语（墨西哥）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "西班牙文（墨西哥）"
+          }
+        }
+      }
+    },
     "Start a new search when you are ready." : {
 
     },
@@ -12190,6 +12448,22 @@
     },
     "Storefront" : {
 
+    },
+    "Storefront Language" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "商店语言"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "商店語言"
+          }
+        }
+      }
     },
     "Suffix" : {
 
@@ -12712,6 +12986,9 @@
     "The file’s Year value. AudioMator keeps it separate from all date fields; changing it does not change Release Date." : {
 
     },
+    "The filename can be split in more than one way. Adjust the template to make the field boundaries clear." : {
+
+    },
     "The filename matched and extracted metadata can be written." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:196.",
       "extractionState" : "stale",
@@ -12862,10 +13139,10 @@
     "The import records can’t be matched to the selected files." : {
 
     },
-    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF; raw YEAR on ID3v2.4 and mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file, and WAV files need a known ID3v2.4 tag. In Metadata Editor, Choose Date… appears for raw YEAR on Vorbis/APEv2 and raw DATE on MP4/ASF. ID3v2.4 raw DATE is displayed as Year and stays text-only, as does ID3v2.4 raw YEAR. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE also stay text-only." : {
 
     },
-    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack; choosing the named Date suggestion when adding a field uses raw DATE on those files and STANDALONEDATE (text-only) elsewhere. Mixed MP4/ASF + Vorbis/WavPack raw DATE selections stay text-only." : {
+    "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw DATE on Vorbis comments and WavPack. The named Date suggestion uses raw DATE on those verified routes. Elsewhere it uses STANDALONEDATE, a text-only raw key separate from the Inspector’s standalone Date slot. Mixed MP4/ASF and Vorbis/WavPack selections for raw DATE stay text-only." : {
 
     },
     "The Inspector calendar button requires a writable non-ID3v2.3 route on every selected file. In Metadata Editor, Choose Date… appears for raw ORIGINALDATE except on ASF/WMA; ASF/WMA raw keys and ORIGINAL YEAR stay text-only." : {
@@ -13990,6 +14267,38 @@
         }
       }
     },
+    "Traditional Chinese (Hong Kong)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繁体中文（香港）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繁體中文（香港）"
+          }
+        }
+      }
+    },
+    "Traditional Chinese (Taiwan)" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繁体中文（台湾）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繁體中文（台灣）"
+          }
+        }
+      }
+    },
     "Try Again" : {
 
     },
@@ -14453,6 +14762,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "版本 %@"
+          }
+        }
+      }
+    },
+    "Vietnamese" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "越南语"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "越南文"
           }
         }
       }

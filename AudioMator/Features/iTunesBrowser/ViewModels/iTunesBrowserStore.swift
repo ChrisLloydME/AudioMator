@@ -1,16 +1,27 @@
 import Foundation
 import Combine
 
-/// Submitted catalog context for a result or detail request. `storefront` is the region
-/// that was submitted with the search, never the display-only `country` returned by iTunes.
+/// Region and language submitted with the search. The provider's raw `country` is display data.
 nonisolated struct iTunesSearchContext: Hashable, Sendable {
     let storefront: iTunesStorefront
+    let language: iTunesCatalogLanguage?
     let generation: UUID
     let submittedSelection: iTunesFileSelectionSummary?
+
+    init(
+        storefront: iTunesStorefront,
+        language: iTunesCatalogLanguage? = nil,
+        generation: UUID,
+        submittedSelection: iTunesFileSelectionSummary?
+    ) {
+        self.storefront = storefront
+        self.language = language
+        self.generation = generation
+        self.submittedSelection = submittedSelection
+    }
 }
 
-/// Results, the storefront that produced them, the submitted selection and the request
-/// generation are published as one value so a result cannot be shown under another region.
+/// Results and their submitted catalog query share one publication and generation.
 nonisolated struct iTunesSearchPublication: Equatable, Sendable {
     let generation: UUID
     let storefront: iTunesStorefront
@@ -20,7 +31,8 @@ nonisolated struct iTunesSearchPublication: Equatable, Sendable {
 }
 
 private nonisolated struct iTunesDetailCacheKey: Hashable, Sendable {
-    let storefront: String
+    let storefront: iTunesStorefront
+    let language: iTunesCatalogLanguage?
     let collectionID: Int
 }
 
@@ -53,6 +65,7 @@ final class iTunesBrowserStore: ObservableObject {
     @Published var upcQuery: String = ""
     @Published var linkQuery: String = ""
     @Published private(set) var storefront: iTunesStorefront = .us
+    @Published private var languageOverride: iTunesCatalogLanguage?
     @Published private(set) var isSearching: Bool = false
     @Published private(set) var errorMessage: String?
     @Published private(set) var publication: iTunesSearchPublication?
@@ -91,6 +104,7 @@ final class iTunesBrowserStore: ObservableObject {
         publication.map {
             iTunesSearchContext(
                 storefront: $0.storefront,
+                language: $0.query.language,
                 generation: $0.generation,
                 submittedSelection: $0.submittedSelection
             )
@@ -103,6 +117,7 @@ final class iTunesBrowserStore: ObservableObject {
         submittedContext
             ?? iTunesSearchContext(
                 storefront: storefront,
+                language: languageOverride,
                 generation: UUID(),
                 submittedSelection: fileSelectionSummary
             )
@@ -117,6 +132,7 @@ final class iTunesBrowserStore: ObservableObject {
             upc: upcQuery,
             link: linkQuery,
             country: storefront.countryCode,
+            language: languageOverride,
             fileInputs: fileInputs
         )
     }
@@ -125,14 +141,30 @@ final class iTunesBrowserStore: ObservableObject {
     var fileSelectionSummary: iTunesFileSelectionSummary? { currentQuery.fileSelectionSummary }
     var seededFileInputs: [iTunesFileSearchInput] { fileInputs }
 
+    var storefrontLanguage: iTunesCatalogLanguage {
+        languageOverride ?? storefront.catalogLanguages.defaultLanguage
+    }
+
     func selectStorefront(_ newStorefront: iTunesStorefront) {
         guard newStorefront != storefront else { return }
-        cancelSearch()
         storefront = newStorefront
+        languageOverride = nil
+        invalidateCatalogResults()
+    }
+
+    func selectStorefrontLanguage(_ language: iTunesCatalogLanguage) {
+        guard language != storefrontLanguage else { return }
+        let languages = storefront.catalogLanguages
+        guard language == languages.defaultLanguage || languages.alternatives.contains(language) else { return }
+        languageOverride = language == languages.defaultLanguage ? nil : language
+        invalidateCatalogResults()
+    }
+
+    private func invalidateCatalogResults() {
+        cancelSearch()
         publication = nil
         lastSubmittedQuery = nil
         errorMessage = nil
-        isSearching = false
         resetNavigation()
     }
 
@@ -180,7 +212,7 @@ final class iTunesBrowserStore: ObservableObject {
     }
 
     /// Ends the current session: outstanding work and the remote-detail cache lose authority.
-    /// The visible storefront preference is retained.
+    /// The visible storefront and language are retained.
     func beginReplacementSession() {
         sessionGeneration = UUID()
         cancelSearch()
@@ -248,8 +280,7 @@ final class iTunesBrowserStore: ObservableObject {
         errorMessage = nil
         isSearching = true
         lastSubmittedQuery = query
-        // Clear the previous publication before submit, then publish results + storefront +
-        // submitted selection + generation together on completion.
+        // Publish the completed results together with the submitted query and generation.
         publication = nil
         cancelSearch(resetLoadingState: false)
 
@@ -273,7 +304,8 @@ final class iTunesBrowserStore: ObservableObject {
                     let self,
                     self.searchOperationID == operationID,
                     self.sessionGeneration == submittedSessionGeneration,
-                    self.storefront == submittedStorefront
+                    self.storefront == submittedStorefront,
+                    self.languageOverride == query.language
                 else { return }
                 self.searchTask = nil
                 self.publication = iTunesSearchPublication(
@@ -291,7 +323,8 @@ final class iTunesBrowserStore: ObservableObject {
                     let self,
                     self.searchOperationID == operationID,
                     self.sessionGeneration == submittedSessionGeneration,
-                    self.storefront == submittedStorefront
+                    self.storefront == submittedStorefront,
+                    self.languageOverride == query.language
                 else { return }
                 self.searchTask = nil
                 self.isSearching = false
@@ -301,7 +334,8 @@ final class iTunesBrowserStore: ObservableObject {
                     let self,
                     self.searchOperationID == operationID,
                     self.sessionGeneration == submittedSessionGeneration,
-                    self.storefront == submittedStorefront
+                    self.storefront == submittedStorefront,
+                    self.languageOverride == query.language
                 else { return }
                 self.searchTask = nil
                 self.publication = nil
@@ -328,14 +362,14 @@ final class iTunesBrowserStore: ObservableObject {
         .album(album, resultContext)
     }
 
-    /// Album-result entry path. The context decides the catalog region; raw provider `country`
-    /// values stay display-only.
+    /// Album-result entry path. The submitted context supplies the region and language.
     func albumDetail(
         for album: iTunesAlbumResult,
         context: iTunesSearchContext
     ) async throws -> iTunesAlbumDetail {
         let key = iTunesDetailCacheKey(
-            storefront: context.storefront.countryCode,
+            storefront: context.storefront,
+            language: context.language,
             collectionID: album.collectionID
         )
         let submittedSessionGeneration = sessionGeneration
@@ -346,12 +380,13 @@ final class iTunesBrowserStore: ObservableObject {
 
         let detailClient = client
         let collectionID = album.collectionID
-        let country = key.storefront
+        let country = key.storefront.countryCode
+        let language = key.language
         let detail = try await withAsyncTimeout(
             operationTimeout,
             operationName: String(localized: "Loading album details from iTunes")
         ) {
-            try await detailClient.albumDetail(collectionID: collectionID, country: country)
+            try await detailClient.albumDetail(collectionID: collectionID, country: country, language: language)
         }
         try Task.checkCancellation()
         guard submittedSessionGeneration == sessionGeneration else {
@@ -364,7 +399,7 @@ final class iTunesBrowserStore: ObservableObject {
     }
 
     /// Track-result entry path. The synthesized album exists only to share the album-detail
-    /// cache key and matcher; the submitted context supplies the request region.
+    /// cache key and matcher.
     func albumDetail(
         for track: iTunesTrackResult,
         context: iTunesSearchContext
@@ -398,6 +433,7 @@ final class iTunesBrowserStore: ObservableObject {
         guard let publication, album.selectionMatchPreview != nil else { return false }
         return publication.generation == context.generation
             && publication.storefront == context.storefront
+            && publication.query.language == context.language
             && publication.submittedSelection == context.submittedSelection
     }
 

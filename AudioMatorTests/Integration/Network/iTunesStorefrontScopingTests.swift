@@ -41,6 +41,63 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
     }
 
     @MainActor
+    func testLanguageChangeCancelsSearchAndScopesDetailsWithinOneStorefront() async throws {
+        let catalog = RegionaliTunesCatalog()
+        let album = StorefrontFixture.album(country: "hk")
+        let track = StorefrontFixture.track(country: "hk", index: 1)
+        catalog.upsert(album: album, tracks: [track])
+        catalog.setSearchResults(.albums([album]), for: "hk")
+        let store = makeStore(catalog: catalog)
+        store.selectStorefront(.hk)
+        store.mode = .album
+        store.albumQuery = "Album"
+        let gate = catalog.gateNextSearch(country: "hk")
+        store.search()
+        await gate.waitUntilStarted()
+
+        let priorNavigation = store.navigationResetToken
+        store.selectStorefrontLanguage(.traditionalChineseTaiwan)
+        XCTAssertFalse(store.isSearching)
+        XCTAssertNil(store.lastSubmittedQuery)
+        XCTAssertNotEqual(store.navigationResetToken, priorNavigation)
+        XCTAssertEqual(store.albumQuery, "Album")
+        await gate.release()
+        try await waitUntil { catalog.completedSearchCount == 1 }
+        for _ in 0..<40 {
+            await Task.yield()
+        }
+        XCTAssertNil(store.publication, "A delayed response must not publish under a new storefront language")
+        XCTAssertTrue(store.results.isEmpty)
+        XCTAssertFalse(store.isSearching)
+
+        store.search()
+        try await waitUntil { store.publication != nil }
+        let taiwanContext = try XCTUnwrap(store.submittedContext)
+        XCTAssertEqual(taiwanContext.language, .traditionalChineseTaiwan)
+
+        store.selectStorefrontLanguage(.traditionalChineseHongKong)
+        XCTAssertNil(store.publication)
+        store.search()
+        try await waitUntil { store.publication != nil }
+        let defaultContext = try XCTUnwrap(store.submittedContext)
+        XCTAssertNil(defaultContext.language)
+        XCTAssertEqual(catalog.searchRequests.map(\.language), [nil, .traditionalChineseTaiwan, nil])
+
+        let taiwanDetail = try await store.albumDetail(for: track, context: taiwanContext)
+        let hongKongDetail = try await store.albumDetail(for: album, context: defaultContext)
+        let cachedDetail = try await store.albumDetail(for: album, context: taiwanContext)
+        XCTAssertEqual(taiwanDetail.album.primaryGenreName, "華語流行樂")
+        XCTAssertEqual(hongKongDetail.album.primaryGenreName, album.primaryGenreName)
+        XCTAssertEqual(cachedDetail.album, taiwanDetail.album)
+        XCTAssertEqual(catalog.detailRequests.map(\.language), [.traditionalChineseTaiwan, nil])
+
+        store.selectStorefrontLanguage(.english)
+        store.selectStorefront(.jp)
+        XCTAssertEqual(store.storefrontLanguage, .japanese)
+        XCTAssertNil(store.currentQuery.language)
+    }
+
+    @MainActor
     func testSuccessfulSearchPublishesResultsStorefrontSelectionAndGenerationTogether() async throws {
         let catalog = RegionaliTunesCatalog()
         catalog.setSearchResults(.albums([StorefrontFixture.album(country: "us")]), for: "us")
@@ -352,11 +409,13 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
     struct DetailRequest: Equatable, Sendable {
         let collectionID: Int
         let country: String
+        var language: iTunesCatalogLanguage? = nil
     }
 
     struct SearchRequest: Equatable, Sendable {
         let term: String
         let country: String
+        let language: iTunesCatalogLanguage?
     }
 
     private struct AlbumFixture: Sendable {
@@ -373,6 +432,7 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
     private var failingDetailCountries: Set<String> = []
     private(set) var detailRequests: [DetailRequest] = []
     private(set) var searchRequests: [SearchRequest] = []
+    private(set) var completedSearchCount = 0
 
     func setSearchResults(_ results: iTunesSearchResults, for country: String) {
         searchResultsByCountry[country] = results
@@ -405,7 +465,8 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
     }
 
     func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults {
-        searchRequests.append(SearchRequest(term: query.searchTerm, country: query.country))
+        defer { completedSearchCount += 1 }
+        searchRequests.append(SearchRequest(term: query.searchTerm, country: query.country, language: query.language))
         if query.country == searchGateCountry, let gate = searchGate {
             searchGateCountry = nil
             searchGate = nil
@@ -414,8 +475,8 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
         return searchResultsByCountry[query.country] ?? .tracks([])
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
-        detailRequests.append(DetailRequest(collectionID: collectionID, country: country))
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
+        detailRequests.append(DetailRequest(collectionID: collectionID, country: country, language: language))
         if "\(country):\(collectionID)" == detailGateKey, let gate = detailGate {
             detailGateKey = nil
             detailGate = nil
@@ -428,7 +489,9 @@ nonisolated final class iTunesStorefrontScopingTests: XCTestCase {
             throw iTunesClientError.invalidResponseBody
         }
         return iTunesAlbumDetail(
-            album: fixture.album,
+            album: language == .traditionalChineseTaiwan
+                ? StorefrontFixture.album(country: country, genre: "華語流行樂")
+                : fixture.album,
             tracks: fixture.tracks,
             selectionMatchPreview: nil
         )
@@ -472,7 +535,7 @@ private nonisolated final class MatcherCallCounter: @unchecked Sendable {
 }
 
 private enum StorefrontFixture {
-    static func album(country: String, preview: iTunesAlbumMatchPreview? = nil) -> iTunesAlbumResult {
+    static func album(country: String, preview: iTunesAlbumMatchPreview? = nil, genre: String = "Pop") -> iTunesAlbumResult {
         iTunesAlbumResult(
             collectionID: 77,
             artistID: 1,
@@ -482,7 +545,7 @@ private enum StorefrontFixture {
             collectionArtistName: "Artist",
             trackCount: 2,
             releaseDate: "2020-01-01T08:00:00Z",
-            primaryGenreName: "Pop",
+            primaryGenreName: genre,
             country: country,
             copyright: "© Fixture",
             contentAdvisoryRating: "",

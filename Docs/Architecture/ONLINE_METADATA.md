@@ -102,9 +102,9 @@ The client limits release-detail fan-out to the first three candidates and bound
 - `https://itunes.apple.com/search`
 - `https://itunes.apple.com/lookup`
 
-Search parameters: `term`, `country`, `media=music`, `entity`, `limit` (clamped 1…200). Lookup parameters: `id` (album or track) or `upc`, `country`, optional `entity=song`, `limit=200`.
+Search parameters: `term`, `country`, `media=music`, `entity`, `limit` (clamped 1…200). Lookup parameters: `id` (album or track) or `upc`, `country`, optional `entity=song`, `limit=200`. The metadata browser adds one language query item (`lang` or `l`, depending on the selected language) to searches and lookups when a user chooses a storefront alternative. It omits the item for the storefront default.
 
-No custom `User-Agent` is set. Request timeout: 15 seconds. There is no retry, rate limiter, or HTTP response cache; the browser store keeps an in-memory remote-detail cache keyed by storefront and collection ID.
+No custom `User-Agent` is set. Request timeout: 15 seconds. There is no retry, rate limiter, or HTTP response cache; the browser store keeps an in-memory remote-detail cache keyed by storefront, language and collection ID.
 
 A multi-file album search can make up to roughly 18 sequential album-detail requests plus representative track searches. Cancellation is checked between requests.
 
@@ -116,9 +116,9 @@ Queries can be derived from tags **or from filename/parent-directory fallback** 
 
 ### Storefront-scoped results and details
 
-A completed search publishes one snapshot: results, the submitted storefront country, the submitted selection input, and a request generation. A previous publication is cleared before submit, and the completion is discarded unless it still belongs to the current storefront, search operation and session. Changing the selected storefront cancels the pending search, invalidates the publication generation, clears results and the submitted query, and resets result navigation; a delayed old response cannot appear under the new storefront. Each result destination carries the submitted context, so both album-result and track-result entries request the intended catalog region. The raw iTunes `country` field on an album/track is display data, not the request region.
+A completed search publishes the results, submitted query, storefront, local selection, and request generation together. Changing the storefront or language cancels pending search work, clears the publication and submitted query, and resets result navigation. Completions must match the current storefront, language, search operation and session. Album and track result destinations carry the submitted region and language into detail lookups, including lookups opened from other details. The raw iTunes `country` field on an album or track is display data.
 
-Remote album detail is cached by `(storefront, collectionID)` and stores only the raw album/tracks. Selection-match previews are resolved per read from the captured submitted selection (or a result fallback preview only when its storefront, album and local selection lineage match the current publication); two local selections can therefore share one cached remote detail without inheriting the first selection's assignments. A session generation prevents a detail completing after close/reopen from repopulating the closed session's cache.
+Remote album detail is cached by `(storefront, language, collectionID)` and stores only the raw album and tracks. Selection-match previews are resolved per read from the captured submitted selection. Result fallback previews also require a match on storefront, language, album and local selection lineage. A session generation prevents a detail completing after close/reopen from repopulating the closed session's cache.
 
 ### Provider tag application
 
@@ -248,7 +248,7 @@ App-hosted tests use injected clients and `URLProtocol` fakes. They assert:
 - rate-limit spacing with a deterministic clock,
 - cache coalescing and eviction,
 - MusicBrainz invalid-200-then-valid recovery for every request shape (invalid JSON and wrong-schema valid JSON), no cached entry on HTTP failure/timeout/transport cancellation, one shared fetch for coalesced waiters including one cancelled, and field-level alternate integer/numeric-string/default and finite-Double cases,
-- iTunes storefront-scoped publication and a `(storefront, collectionID)` remote-detail cache, with both album and track entry paths using the submitted region, delayed search/detail completions suppressed, and per-selection previews resolved from the captured selection,
+- iTunes publication and remote-detail caching scoped by storefront and language, with album and track entry paths using the submitted catalog settings, stale completions suppressed, and per-selection previews resolved from the captured selection,
 - consume-once provider activation with fake clients: generic entry, tile selection, back/reappearance, empty selection and LRCLIB Previous/Next make zero provider calls; explicit Find in MusicBrainz submits exactly once in a new and a reused window; iTunes/LRCLIB actions never contact MusicBrainz; LRCLIB request query values are derived from synthetic paths and tagged input; disclosure strings are asserted independently,
 - cancellation/restart races,
 - bounded fan-out and off-main presentation,

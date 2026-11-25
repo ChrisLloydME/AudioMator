@@ -71,6 +71,77 @@ nonisolated enum iTunesStorefront: String, CaseIterable, Identifiable, Hashable,
     var menuTitle: String {
         "\(emoji) \(displayName)"
     }
+
+    var catalogLanguages: (defaultLanguage: iTunesCatalogLanguage, alternatives: [iTunesCatalogLanguage]) {
+        switch self {
+        case .us:
+            return (.english, [
+                .spanishMexico, .arabic, .russian, .simplifiedChinese, .traditionalChineseTaiwan,
+                .french, .korean, .portugueseBrazil, .vietnamese
+            ])
+        case .cn: return (.simplifiedChinese, [.english])
+        case .hk: return (.traditionalChineseHongKong, [.english, .traditionalChineseTaiwan])
+        case .tw: return (.traditionalChineseTaiwan, [.english])
+        case .jp: return (.japanese, [.english])
+        case .kr: return (.korean, [.english])
+        case .gb: return (.englishUK, [])
+        case .de: return (.german, [.english])
+        case .fr: return (.french, [.english])
+        case .ca: return (.englishCanada, [.frenchCanada])
+        case .au: return (.englishAustralia, [.englishUK])
+        }
+    }
+}
+
+nonisolated enum iTunesCatalogLanguage: String, Sendable {
+    case english = "en_us"
+    case englishUK = "en-GB"
+    case englishCanada = "en_ca"
+    case englishAustralia = "en_au"
+    case simplifiedChinese = "zh_cn"
+    case traditionalChineseHongKong = "zh_hk"
+    case traditionalChineseTaiwan = "zh_tw"
+    case japanese = "ja_jp"
+    case korean = "ko_kr"
+    case german = "de_de"
+    case french = "fr_fr"
+    case frenchCanada = "fr_ca"
+    case spanishMexico = "es-MX"
+    case arabic = "ar"
+    case russian = "ru"
+    case portugueseBrazil = "pt_br"
+    case vietnamese = "vi_vn"
+
+    var displayName: String {
+        switch self {
+        case .english: return String(localized: "English")
+        case .englishUK: return String(localized: "English (UK)")
+        case .englishCanada: return String(localized: "English (Canada)")
+        case .englishAustralia: return String(localized: "English (Australia)")
+        case .simplifiedChinese: return String(localized: "Simplified Chinese")
+        case .traditionalChineseHongKong: return String(localized: "Traditional Chinese (Hong Kong)")
+        case .traditionalChineseTaiwan: return String(localized: "Traditional Chinese (Taiwan)")
+        case .japanese: return String(localized: "Japanese")
+        case .korean: return String(localized: "Korean")
+        case .german: return String(localized: "German")
+        case .french: return String(localized: "French")
+        case .frenchCanada: return String(localized: "French (Canada)")
+        case .spanishMexico: return String(localized: "Spanish (Mexico)")
+        case .arabic: return String(localized: "Arabic")
+        case .russian: return String(localized: "Russian")
+        case .portugueseBrazil: return String(localized: "Portuguese (Brazil)")
+        case .vietnamese: return String(localized: "Vietnamese")
+        }
+    }
+
+    var queryItem: URLQueryItem {
+        switch self {
+        case .englishUK, .spanishMexico, .arabic, .russian:
+            return URLQueryItem(name: "l", value: rawValue)
+        default:
+            return URLQueryItem(name: "lang", value: rawValue)
+        }
+    }
 }
 
 nonisolated struct iTunesFileSearchInput: Identifiable, Equatable, Hashable, Sendable {
@@ -166,6 +237,7 @@ nonisolated struct iTunesSearchQuery: Equatable, Sendable {
     var upc: String = ""
     var link: String = ""
     var country: String = "us"
+    var language: iTunesCatalogLanguage?
     var fileInputs: [iTunesFileSearchInput] = []
 
     var isEmpty: Bool {
@@ -625,7 +697,7 @@ enum iTunesClientError: LocalizedError {
 
 protocol iTunesBrowserClient: Sendable {
     func search(matching query: iTunesSearchQuery, limit: Int) async throws -> iTunesSearchResults
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail
 }
 
 struct iTunesClient: iTunesBrowserClient, Sendable {
@@ -642,20 +714,20 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
 
         switch query.mode {
         case .track:
-            return .tracks(try await searchTracks(term: query.searchTerm, country: query.country, limit: limit))
+            return .tracks(try await searchTracks(term: query.searchTerm, query: query, limit: limit))
         case .album:
-            return .albums(try await searchAlbums(term: query.searchTerm, country: query.country, limit: limit))
+            return .albums(try await searchAlbums(term: query.searchTerm, query: query, limit: limit))
         case .file:
             return try await searchFiles(matching: query, limit: limit)
         case .link:
-            return try await searchByLink(query.link, country: query.country)
+            return try await searchByLink(query)
         case .upc:
-            let detail = try await lookupUPC(query.upc, country: query.country)
+            let detail = try await lookupUPC(query.upc, query: query)
             return .albums(detail.map { [$0.album] } ?? [])
         }
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
         let results = try await request(
             path: "/lookup",
             queryItems: [
@@ -663,7 +735,8 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
                 URLQueryItem(name: "country", value: normalizedCountry(country)),
                 URLQueryItem(name: "entity", value: "song"),
                 URLQueryItem(name: "limit", value: "200")
-            ]
+            ],
+            language: language
         )
 
         let album = results.compactMap(Self.albumResult(from:)).first
@@ -678,7 +751,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
 
         if let collectionID = Int(summary.itunesAlbumIDCandidate) {
             do {
-                var detail = try await albumDetail(collectionID: collectionID, country: query.country)
+                var detail = try await albumDetail(collectionID: collectionID, country: query.country, language: query.language)
                 detail.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: detail)
                 return .albums([detail.album.withPreview(detail.selectionMatchPreview)])
             } catch is CancellationError {
@@ -691,7 +764,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
 
         if !summary.barcodeCandidate.isEmpty {
             do {
-                if let detail = try await lookupUPC(summary.barcodeCandidate, country: query.country) {
+                if let detail = try await lookupUPC(summary.barcodeCandidate, query: query) {
                     var resolved = detail
                     resolved.selectionMatchPreview = iTunesAlbumMatcher.match(selection: summary, detail: resolved)
                     return .albums([resolved.album.withPreview(resolved.selectionMatchPreview)])
@@ -710,7 +783,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             for album in albums.prefix(18) {
                 try Task.checkCancellation()
                 do {
-                    var detail = try await albumDetail(collectionID: album.collectionID, country: query.country)
+                    var detail = try await albumDetail(collectionID: album.collectionID, country: query.country, language: query.language)
                     let preview = iTunesAlbumMatcher.match(selection: summary, detail: detail)
                     detail.selectionMatchPreview = preview
                     matchedAlbumsByID[album.collectionID] = detail.album.withPreview(preview)
@@ -729,7 +802,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             )
         }
 
-        let tracks = try await searchTracks(term: query.searchTerm, country: query.country, limit: max(limit, 50))
+        let tracks = try await searchTracks(term: query.searchTerm, query: query, limit: max(limit, 50))
         guard let file = summary.files.first else { return .tracks(tracks) }
         return .tracks(iTunesAlbumMatcher.rerankTracks(tracks, file: file))
     }
@@ -747,14 +820,14 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
             }
         }
 
-        append(try await searchAlbums(term: query.searchTerm, country: query.country, limit: limit))
+        append(try await searchAlbums(term: query.searchTerm, query: query, limit: limit))
 
         let albumArtistTerm = [summary.albumCandidate, summary.albumArtistCandidate]
             .filter { !$0.isEmpty }
             .joined(separator: " ")
         if !albumArtistTerm.isEmpty, albumArtistTerm != query.searchTerm {
             do {
-                append(try await searchAlbums(term: albumArtistTerm, country: query.country, limit: min(limit, 25)))
+                append(try await searchAlbums(term: albumArtistTerm, query: query, limit: min(limit, 25)))
             } catch {
                 try Task.checkCancellation()
                 // Keep the primary album search usable if a secondary recall query fails.
@@ -771,7 +844,7 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
 
             let tracks: [iTunesTrackResult]
             do {
-                tracks = try await searchTracks(term: term, country: query.country, limit: 12)
+                tracks = try await searchTracks(term: term, query: query, limit: 12)
             } catch {
                 try Task.checkCancellation()
                 continue
@@ -825,51 +898,55 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
         return result
     }
 
-    private func searchByLink(_ link: String, country: String) async throws -> iTunesSearchResults {
-        let parsed = try iTunesLinkParser.parse(link)
+    private func searchByLink(_ query: iTunesSearchQuery) async throws -> iTunesSearchResults {
+        let parsed = try iTunesLinkParser.parse(query.link)
 
         switch parsed {
         case .album(let id):
-            return .albums([try await albumDetail(collectionID: id, country: country).album])
+            return .albums([try await albumDetail(collectionID: id, country: query.country, language: query.language).album])
         case .track(let id):
             let results = try await request(
                 path: "/lookup",
                 queryItems: [
                     URLQueryItem(name: "id", value: String(id)),
-                    URLQueryItem(name: "country", value: normalizedCountry(country))
-                ]
+                    URLQueryItem(name: "country", value: normalizedCountry(query.country))
+                ],
+                language: query.language
             )
             return .tracks(results.compactMap(Self.trackResult(from:)))
         }
     }
 
-    private func lookupUPC(_ upc: String, country: String) async throws -> iTunesAlbumDetail? {
+    private func lookupUPC(_ upc: String, query: iTunesSearchQuery) async throws -> iTunesAlbumDetail? {
         let results = try await request(
             path: "/lookup",
             queryItems: [
                 URLQueryItem(name: "upc", value: upc.trimmedForiTunes),
-                URLQueryItem(name: "country", value: normalizedCountry(country)),
+                URLQueryItem(name: "country", value: normalizedCountry(query.country)),
                 URLQueryItem(name: "entity", value: "song"),
                 URLQueryItem(name: "limit", value: "200")
-            ]
+            ],
+            language: query.language
         )
         let album = results.compactMap(Self.albumResult(from:)).first
         let tracks = results.compactMap(Self.trackResult(from:)).sorted(by: Self.trackSort)
         return album.map { iTunesAlbumDetail(album: $0, tracks: tracks, selectionMatchPreview: nil) }
     }
 
-    private func searchTracks(term: String, country: String, limit: Int) async throws -> [iTunesTrackResult] {
+    private func searchTracks(term: String, query: iTunesSearchQuery, limit: Int) async throws -> [iTunesTrackResult] {
         let results = try await request(
             path: "/search",
-            queryItems: searchItems(term: term, country: country, entity: "song", limit: limit)
+            queryItems: searchItems(term: term, country: query.country, entity: "song", limit: limit),
+            language: query.language
         )
         return results.compactMap(Self.trackResult(from:))
     }
 
-    private func searchAlbums(term: String, country: String, limit: Int) async throws -> [iTunesAlbumResult] {
+    private func searchAlbums(term: String, query: iTunesSearchQuery, limit: Int) async throws -> [iTunesAlbumResult] {
         let results = try await request(
             path: "/search",
-            queryItems: searchItems(term: term, country: country, entity: "album", limit: limit)
+            queryItems: searchItems(term: term, country: query.country, entity: "album", limit: limit),
+            language: query.language
         )
         return results.compactMap(Self.albumResult(from:))
     }
@@ -890,12 +967,15 @@ struct iTunesClient: iTunesBrowserClient, Sendable {
         return normalized
     }
 
-    private func request(path: String, queryItems: [URLQueryItem]) async throws -> [[String: Any]] {
+    private func request(path: String, queryItems: [URLQueryItem], language: iTunesCatalogLanguage?) async throws -> [[String: Any]] {
         var components = URLComponents()
         components.scheme = "https"
         components.host = "itunes.apple.com"
         components.path = path
         components.queryItems = queryItems
+        if let language {
+            components.queryItems?.append(language.queryItem)
+        }
 
         guard let url = components.url else { throw iTunesClientError.failedToBuildURL }
         let request = URLRequest(url: url, timeoutInterval: Self.requestTimeout)

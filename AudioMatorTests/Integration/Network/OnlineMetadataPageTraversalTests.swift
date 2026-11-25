@@ -674,7 +674,7 @@ private nonisolated struct TraversaliTunesClient: iTunesBrowserClient, Sendable 
         return .tracks([fixture.track])
     }
 
-    func albumDetail(collectionID: Int, country: String) async throws -> iTunesAlbumDetail {
+    func albumDetail(collectionID: Int, country: String, language: iTunesCatalogLanguage?) async throws -> iTunesAlbumDetail {
         try await behavior.waitIfNeeded()
         if behavior == .failure { throw URLError(.cannotParseResponse) }
         return fixture.detail

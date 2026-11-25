@@ -33,7 +33,7 @@ enum NetworkServiceDisclosure {
             uncompressedArtworkHost
         ]
 
-        static let sentDataSummary = "iTunes search requests send a search term, the selected storefront country, and the media, entity, and limit parameters, or a lookup by Apple album/track ID, UPC, or a pasted Apple Music or iTunes link. The search term can be derived from tags, file names, and parent or grandparent folder names (title, artist, album, album artist) or typed manually. Track number, disc number, duration, iTunes artist ID, and catalog ID are not URL parameters; they are used locally for matching. No full file path, file contents, or audio bytes are sent. Artwork downloads request an Apple-returned artwork URL, so Apple may direct the app to an Apple artwork host beyond the hosts listed here."
+        static let sentDataSummary = String(localized: "iTunes search requests send a search term, the selected storefront country, and the media, entity, and limit parameters, or a lookup by Apple album/track ID or UPC. Apple Music and iTunes links supply an ID for lookup. iTunes metadata requests include a language code when you choose a language other than the storefront default. The search term can be derived from tags, file names, and parent or grandparent folder names (title, artist, album, album artist) or typed manually. Track number, disc number, duration, iTunes artist ID, and catalog ID are not URL parameters; they are used locally for matching. No full file path, file contents, or audio bytes are sent. Artwork downloads request an Apple-returned artwork URL, so Apple may direct the app to an Apple artwork host beyond the hosts listed here.")
     }
 
     enum MusicBrainz {

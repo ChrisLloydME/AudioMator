@@ -90,7 +90,7 @@ No source code from this project is copied into AudioMator. The acknowledgement 
 
 ### Service Notice
 
-The iTunes Search API is an Apple web service, not third-party source code bundled into AudioMator. Keep privacy disclosures current when changing the iTunes lookup flow, because queries may include metadata-derived search terms, storefront country, UPC/barcode values, Apple Music or iTunes links, and Apple/iTunes catalog IDs.
+The iTunes Search API is an Apple web service. See [Acknowledgements and Privacy](ACKNOWLEDGEMENTS_AND_PRIVACY.md#itunes-search-api-and-artwork-lookup) for the data sent by metadata and artwork requests.
 
 ## MusicBrainz
 

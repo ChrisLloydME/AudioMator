@@ -262,7 +262,7 @@ per-category counts.
 
 ## Known Coverage Gaps
 
-1. **No committed AIFF/Opus fixtures.** `StoreIdentifierWriteTests` generates a temporary AIFF to cover store-ID set/replace/clear, reload and invalid-input atomicity. Other AIFF metadata surfaces and Opus remain outside this fixture coverage.
+1. **No committed AIFF/Opus fixtures.** `StoreIdentifierWriteTests` covers the adapter’s lossless conversion of a large Store ID, set/replace/clear and invalid-input atomicity on a generated AIFF, and rejection without mutation of an out-of-range M4A Artist ID. Other AIFF metadata surfaces and Opus remain outside this fixture coverage.
 2. **Artwork writes only for MP3/M4A/FLAC.** Other artwork-capable formats are untested.
 3. **No live-network coverage.** Provider integration is mocked.
 4. **No UI automation.** Full SwiftUI/AppKit interaction, file panels, drag-and-drop, accessibility, and visual behavior are manual.

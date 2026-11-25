@@ -15,6 +15,10 @@ The current 0.8.2 pin supplies automatic edited-group numbering recovery and ret
 - Number formatting can normalize in containers such as MP4. Numeric pair values are authoritative, and AudioMator does not manufacture private text atoms.
 - Fixture coverage is finite. Passing MP3/MP4/FLAC/AAC/Vorbis/WAV integration and generated AIFF Store ID/provider cases does not certify every codec, tag version or native structure. See [Testing](../Development/TESTING.md#known-coverage-gaps).
 
+## Store ID Ranges
+
+The published 0.8.2 pin applies a 32-bit unsigned range to the typed Album, Artist and Catalog Store IDs across formats, including text-backed FLAC and AIFF tags. A decimal ID such as `6829122413` reaches the package as an exact integer and is rejected by that pin. The app defers destination validation to the package, as described in the [metadata pipeline](../Architecture/METADATA_PIPELINE.md#store-identifier-encoding).
+
 ## Audio Continuity
 
 Loading opts into the package's optional `audioContentIdentity`. Automatic conflict rebases require equal, non-nil baseline and current tokens and commit with both the baseline token and exact current version. An unchanged exact version may still save normally; two absent tokens never establish continuity. The token is package-owned and opaque to the app; its derivation, cost and layout coverage are package responsibilities.

@@ -9,7 +9,7 @@ This document describes how to build AudioMator from this repository and what th
 - Network access the first time the `TagLibAudioMetadata` package is resolved.
 - No sibling checkout of `TagLibAudioMetadata` is required.
 
-Environment and project values verified on 2026-11-23:
+Environment and project values verified on 2026-11-26:
 
 | Item | Value |
 | --- | --- |
@@ -17,7 +17,7 @@ Environment and project values verified on 2026-11-23:
 | App deployment target | macOS 15.0 |
 | Package pin | Exact published `0.8.3`; [release source](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.3), revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f` |
 | Package resolution file | `AudioMator.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` |
-| Marketing version / build | `3.0` / `3604` in both app configurations |
+| Marketing version / build | `3.0.1` / `3605` in both app configurations |
 | Bundle identifiers | Debug `com.TheLloydME.AudioMator.Beta`; Release `com.LloydME.AudioMator` |
 | Earlier Debug adoption | [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) |
 
@@ -45,11 +45,11 @@ There is one shared scheme, `AudioMator`. It builds the app and includes the app
 
 Both configurations target macOS 15.0, use Swift 5 language mode with complete strict concurrency and MainActor default isolation, and enable App Sandbox and Hardened Runtime. Debug and Release use different bundle identifiers, so they have separate sandbox containers, bookmarks, and preferences.
 
-For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-23.
+For the authoritative current version, build number, bundle identifiers, entitlements, preference keys, and CI settings, see [Configuration](../Reference/CONFIGURATION.md). Verify the values in `AudioMator.xcodeproj/project.pbxproj` before a release; the values in this document were checked there on 2026-11-26.
 
 ## Swift Package (Core Logic Tests)
 
-`Package.swift` is a separate SwiftPM manifest used only to compile a selected set of 33 Foundation-only production files for fast tests.
+`Package.swift` is a separate SwiftPM manifest used only to compile the selected Foundation-only production files for fast tests. The current source list and selection rules live in [Testing](TESTING.md#swiftpm-fast-target).
 
 ```bash
 swift test
@@ -227,7 +227,7 @@ Run dependency resolution first and verify `Package.resolved`. App-hosted tests 
 
 ## Recorded Verification
 
-On 2026-11-23, `bash scripts/validate-release.sh` passed with the published 0.8.2 lock. It ran 32 policy and crash-recovery tests, 126 core tests, and 1,074 serial app-hosted tests, including the M4A cover diagnostic regression, then passed the unsigned Release build and artifact validation. Local evidence is under `.deriveddata-codex/Validation/20261123-122932-47720/`. Interactive UI acceptance remains manual.
+The most recent recorded full gate is the 2026-11-25 published-0.8.3 adoption: `bash scripts/validate-release.sh` passed with 33 policy and crash-recovery tests, 130 SwiftPM core tests, and 1,096 serial app-hosted tests (zero failures, skips, or expected failures), then passed the unsigned Release build and artifact validation. The earlier 2026-11-23 run used the superseded 0.8.2 lock. See the [0.8.3 adoption record](../Engineering/TAGLIB_083_ADOPTION_2026-11-25.md) for evidence paths; interactive UI acceptance remains manual.
 
 The [0.8.1 Debug adoption record](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) documents an earlier pin. Full repository gates with the published 0.8.1 pin are recorded in the [audit remediation acceptance record](../Engineering/AUDIOMATOR_REMEDIATION_ACCEPTANCE_2026-11-19.md) (including its 2026-11-20 follow-up addendum) and the 2026-11-18 cleanup acceptance; see [Testing](TESTING.md#release-gate-evidence) for the enforced phases and evidence location.
 

@@ -33,7 +33,7 @@ AudioMator/
 Application entry, lifecycle, commands, and notifications.
 
 - `AudioMatorApp.swift` — `@main`, composition root, scenes (`WindowGroup`, Settings, Metadata Field Guide, Online Metadata, Filename & Metadata, Metadata Editor), commands.
-- `AppDelegate.swift` — first-launch 900×600 window sizing and terminate-on-last-window.
+- `AppDelegate.swift` — first-launch window centering and terminate-on-last-window.
 - `AudioMatorTestHost.swift` — isolated preferences and startup behavior when running as the test host.
 - `AppNotifications.swift` — cross-window notification names.
 - `Commands/` — app info, edit/toolbar commands, view layout commands.
@@ -118,7 +118,7 @@ Target configuration inputs that must stay outside the synchronized source root:
 
 ## `AudioMatorTests`
 
-App-hosted XCTest bundle organized by failure semantics. Current inventory: 1081 test functions and 118 `XCTestCase` classes across 118 test files plus 7 `TestSupport` files (125 Swift files total), alongside fixtures.
+App-hosted XCTest bundle organized by failure semantics. The current file, class, and test-function inventory is maintained in [Testing](../Development/TESTING.md#app-hosted-suite-map); this page does not duplicate the counts.
 
 ```text
 Application/{MetadataEditing,MetadataExchange,Rename,WatchedFolders}
@@ -136,7 +136,7 @@ SensitiveLoggingPolicyTests.swift
 
 ## `Tests`
 
-`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite. `Package.swift` compiles a selected 35-file Foundation-only subset of `AudioMator/` for this target. See [Testing](../Development/TESTING.md#test-targets) for the current inventory.
+`Tests/AudioMatorCoreLogicTests` is the SwiftPM fast suite. `Package.swift` compiles a selected Foundation-only subset of `AudioMator/` for this target. See [Testing](../Development/TESTING.md#swiftpm-fast-target) for the current source list and inventory.
 
 ## `scripts`
 

@@ -16,8 +16,8 @@ Both source roots (`AudioMator/`, `AudioMatorTests/`) use Xcode's file-system sy
 | Setting | Debug | Release |
 | --- | --- | --- |
 | `PRODUCT_BUNDLE_IDENTIFIER` | `com.TheLloydME.AudioMator.Beta` | `com.LloydME.AudioMator` |
-| `MARKETING_VERSION` | `3.0` | `3.0` |
-| `CURRENT_PROJECT_VERSION` | `3604` | `3604` |
+| `MARKETING_VERSION` | `3.0.1` | `3.0.1` |
+| `CURRENT_PROJECT_VERSION` | `3605` | `3605` |
 | `MACOSX_DEPLOYMENT_TARGET` | `15.0` | `15.0` |
 | `SDKROOT` / `SUPPORTED_PLATFORMS` | `macosx` | `macosx` |
 | `SWIFT_VERSION` | `5.0` | `5.0` |
@@ -99,7 +99,7 @@ The missing `bookmarks.app-scope` entitlement is a documented risk for cross-lau
 - Package name: `AudioMatorCoreLogic`
 - Tools version: 6.0
 - Platform: macOS 15
-- Library target: `AudioMatorCoreLogic`, compiling a selected 30-file Foundation-only subset of `AudioMator/`
+- Library target: `AudioMatorCoreLogic`, compiling a selected Foundation-only subset of `AudioMator/`; the exact source list is maintained in [Testing](../Development/TESTING.md#swiftpm-fast-target)
 - Test target: `AudioMatorCoreLogicTests` at `Tests/AudioMatorCoreLogicTests`
 - No external package dependencies
 
@@ -188,6 +188,7 @@ All app preferences use `UserDefaults.standard` except when running as the test 
 | Path | Content | Limit |
 | --- | --- | --- |
 | `Application Support/AudioMator/SaveIssueLog.json` | Save issue entries (file names + messages, ISO-8601 dates) | 200 entries |
+| `Application Support/AudioMator/RenameJournal/` | Versioned rename-recovery manifests (`prepared`/`committed`) and the stable `rename-journal.lock`; recorded paths and file-entry identity evidence only, no metadata or drafts | Removed after verified restore, acknowledgement, or verified completion |
 
 Audio files themselves are not copied into app storage.
 

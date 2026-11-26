@@ -76,7 +76,7 @@ The concrete adapter and all loading/commit code stay in `Infrastructure/TagLib`
 
 `Package.swift` defines `AudioMatorCoreLogic` as a **selected-source test harness**, not a production module consumed by the app.
 
-- It compiles the explicit 35-file Foundation-only source list in `Package.swift`.
+- It compiles the explicit Foundation-only source list in `Package.swift` (the current inventory is in [Testing](../Development/TESTING.md#swiftpm-fast-target)).
 - It includes pure path, fingerprint, scope-lease and date-picker helpers. UI, TagLib adapters, concrete file mutations, provider HTTP clients and update clients are app-target code.
 - The app target remains authoritative.
 

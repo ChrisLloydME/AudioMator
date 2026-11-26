@@ -109,13 +109,16 @@ struct MetadataFieldGuideView: View {
                 if entry.key != nil {
                     VStack(alignment: .leading, spacing: 16) {
                         Text("Where This Field Is Stored").font(.headline).accessibilityAddTraits(.isHeader)
-                        Text("The names below are the storage locations used by AudioMator. They can differ from the names shown by other editors. Availability also depends on the tag version and the individual file.")
+                        Text("Find your tag format to see what you can save. To clear a text field in the Inspector, leave it empty. In Metadata Editor, choose Delete Field.")
                             .foregroundStyle(.secondary)
+                        if let note = entry.numberingSavingNote {
+                            Text(note).fixedSize(horizontal: false, vertical: true)
+                        }
                         GroupBox {
                             Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 12) {
                                 GridRow {
                                     Text("Tag Format").font(.headline)
-                                    Text("Stored Field and Availability").font(.headline)
+                                    Text("Stored Field and How to Edit").font(.headline)
                                 }
                                 Divider().gridCellColumns(2)
                                 ForEach(MetadataNativeFamily.allCases, id: \.self) { family in
@@ -123,21 +126,29 @@ struct MetadataFieldGuideView: View {
                                         Text(familyTitle(family)).fontWeight(.medium)
                                         VStack(alignment: .leading, spacing: 4) {
                                             let targets = entry.schema?.targets(for: family) ?? []
-                                            if targets.isEmpty {
-                                                Text(entry.key == .trackerName ? "No portable tag; tracker modules use their own headers." : "No mapping in AudioMator")
-                                                    .foregroundStyle(.secondary)
-                                            } else {
-                                                ForEach(Array(targets.enumerated()), id: \.offset) { _, target in
-                                                    Text(nativeName(target)).font(.system(.body, design: .monospaced))
-                                                }
-                                                Text(availability(entry, family: family)).font(.callout).foregroundStyle(.secondary)
+                                            ForEach(Array(targets.enumerated()), id: \.offset) { _, target in
+                                                Text(nativeName(target)).font(.system(.body, design: .monospaced))
                                             }
+                                            Text(entry.savingNote(for: family) ?? availability(entry, family: family))
+                                                .font(.callout)
+                                                .foregroundStyle(.secondary)
                                         }
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                         .fixedSize(horizontal: false, vertical: true)
                                     }
                                     if family != MetadataNativeFamily.allCases.last {
                                         Divider().gridCellColumns(2)
+                                    }
+                                }
+                                if let note = entry.trackerSavingNote {
+                                    Divider().gridCellColumns(2)
+                                    GridRow(alignment: .top) {
+                                        Text("Tracker Modules").fontWeight(.medium)
+                                        Text(note)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                             }
@@ -183,13 +194,10 @@ struct MetadataFieldGuideView: View {
     }
 
     private func availability(_ entry: MetadataFieldGuide.Entry, family: MetadataNativeFamily) -> String {
-        if family == .matroska { return String(localized: "Planned mapping; editing is not available.") }
-        if entry.schema?.isRoleQualified == true { return String(localized: "These credits cannot be edited as a simple text field.") }
-        switch entry.schema?.capability(for: family) {
-        case .readOnly: return String(localized: "Read-only in AudioMator.")
-        case .conventionalExtension: return String(localized: "Stored as an additional text field; other players may ignore it.")
-        default: return String(localized: "Registered storage location; the file must support the requested edit.")
+        guard entry.schema?.targets(for: family).isEmpty == false else {
+            return String(localized: "AudioMator has no standard way to save this field in this tag format.")
         }
+        return String(localized: "Editing depends on the tag in the file.")
     }
 
     private func familyTitle(_ family: MetadataNativeFamily) -> String {

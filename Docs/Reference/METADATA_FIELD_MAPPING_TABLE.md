@@ -1,5 +1,7 @@
 # UI, application, package and native metadata mapping
 
+For user-facing input requirements by tag format, see the [Metadata Field Guide](../Product/METADATA_FIELD_GUIDE.md#what-you-can-save).
+
 This is the single end-to-end lookup table for AudioMator's current metadata identities. Baseline: published [TagLibAudioMetadata 0.8.3](https://github.com/ChrisLloydME/TagLibAudioMetadata/tree/0.8.3), revision `ebd21c7b1aa9be607133fc4a9de02d2c7890f42f`; contract `AM-TLAM-MAPPING-2.2`. This is a documentation view of the existing implementation, not a new mapping policy or an expansion of Inspector fields. Field meanings as shown in the app are described in the [Metadata Field Guide](../Product/METADATA_FIELD_GUIDE.md).
 
 ## How to read the table

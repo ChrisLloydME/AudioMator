@@ -78,6 +78,38 @@ nonisolated final class MetadataFieldGuideTests: XCTestCase {
         XCTAssertTrue(trackID.purpose.contains("recording"))
     }
 
+    func testSavingNotesReflectFormatSpecificLimitsAndReadOnlyFields() throws {
+        func entry(_ key: MetadataFieldKey) throws -> MetadataFieldGuide.Entry {
+            try XCTUnwrap(MetadataFieldGuide.entries.first { $0.key == key })
+        }
+
+        for guideEntry in MetadataFieldGuide.entries {
+            guard let schema = guideEntry.schema else { continue }
+            for family in MetadataNativeFamily.allCases where !schema.targets(for: family).isEmpty {
+                XCTAssertNotNil(guideEntry.savingNote(for: family), "\(guideEntry.id) in \(family)")
+            }
+        }
+
+        let artistID = try entry(.itunesArtistID)
+        let albumID = try entry(.itunesAlbumID)
+        XCTAssertTrue(try XCTUnwrap(artistID.savingNote(for: .mp4)).contains(UInt32.max.formatted()))
+        XCTAssertTrue(try XCTUnwrap(artistID.savingNote(for: .vorbisComment)).contains(Int.max.formatted()))
+        XCTAssertEqual(albumID.savingNote(for: .mp4), albumID.savingNote(for: .vorbisComment))
+
+        let track = try entry(.track)
+        XCTAssertTrue(try XCTUnwrap(track.savingNote(for: .mp4)).contains(65_535.formatted()))
+        XCTAssertTrue(try XCTUnwrap(track.savingNote(for: .asf)).contains("need a number"))
+        XCTAssertTrue(track.matches("A1 Metadata Editor"))
+        XCTAssertTrue(try XCTUnwrap(try entry(.year).savingNote(for: .id3v23)).contains("read-only"))
+        XCTAssertTrue(try XCTUnwrap(try entry(.title).savingNote(for: .riffInfo)).contains("RIFF INFO"))
+        XCTAssertTrue(try XCTUnwrap(try entry(.rate).savingNote(for: .mp4)).contains("read-only"))
+        XCTAssertNil(albumID.savingNote(for: .asf))
+
+        let tracker = try entry(.trackerName)
+        XCTAssertTrue(try XCTUnwrap(tracker.trackerSavingNote).contains("XM"))
+        XCTAssertTrue(tracker.matches("S3M read-only"))
+    }
+
     @MainActor
     func testDateTimeEntriesProvideDetailedGuidanceWhileKeepingAddFieldPurposesConcise() throws {
         let dateKeys: Set<MetadataFieldKey> = [

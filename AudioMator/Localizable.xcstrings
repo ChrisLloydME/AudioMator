@@ -1883,6 +1883,9 @@
     "AudioMator couldn't load this photo. Choose another photo or import an image file." : {
 
     },
+    "AudioMator displays this value as read-only." : {
+
+    },
     "AudioMator doesn't support clearing metadata in this file format." : {
 
     },
@@ -1896,6 +1899,9 @@
 
     },
     "AudioMator found saved rename recovery records. Reviewing them is read-only; no files are moved until you explicitly restore or acknowledge an operation." : {
+
+    },
+    "AudioMator has no standard way to save this field in this tag format." : {
 
     },
     "AudioMator is an independent project and is not affiliated with, endorsed by, sponsored by, or otherwise associated with MuseAmp or its developers." : {
@@ -2023,6 +2029,9 @@
         }
       }
     },
+    "AudioMator keeps existing date values in this older ID3 tag read-only." : {
+
+    },
     "AudioMator matches the current filename without its extension. The template must match the whole filename, and only extracted metadata fields will be written." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: filename and metadata conversion workflow. Used around: AudioMator/Features/MetadataFilenameTool/Views/MetadataFilenameRenameSheet.swift:548.",
       "extractionState" : "stale",
@@ -2064,6 +2073,9 @@
           }
         }
       }
+    },
+    "AudioMator reads this RIFF INFO field. To edit the same information in a WAV file, use its ID3 tag where supported." : {
+
     },
     "AudioMator runs in the macOS App Sandbox. It can read and edit files only in folders you choose." : {
 
@@ -2906,6 +2918,9 @@
         }
       }
     },
+    "Choose Not Explicit, Clean, or Explicit. Choose Unset to remove the setting." : {
+
+    },
     "Choose one artwork result." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: album artwork editing or lookup workflow. Used around: AudioMator/Features/Main/Views/AlbumArtworkLookupSheet.swift:142.",
       "localizations" : {
@@ -3072,6 +3087,9 @@
           }
         }
       }
+    },
+    "Choose Yes or No. In Metadata Editor, use the stored value for this format." : {
+
     },
     "Clean" : {
       "comment" : "Short UI label. Used around: AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:441, AudioMator/Features/Main/Views/InspectorPane.swift:922, AudioMator/Features/iPad/Views/IPadInspectorView.swift:212.",
@@ -4737,7 +4755,13 @@
         }
       }
     },
+    "Editing depends on the tag in the file." : {
+
+    },
     "Editing in AudioMator" : {
+
+    },
+    "Editing this field in Matroska is unavailable." : {
 
     },
     "Edits apply to all selected files. Fields you leave untouched stay as they are." : {
@@ -5028,6 +5052,19 @@
     "Enter a valid start number before applying changes." : {
 
     },
+    "Enter a whole number from %@ to %@." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Enter a whole number from %1$@ to %2$@."
+          }
+        }
+      }
+    },
+    "Enter a whole number from 1 to %@. Clear the field to remove its value." : {
+
+    },
     "Enter a year from 1 to 9999." : {
       "localizations" : {
         "zh-Hans" : {
@@ -5056,10 +5093,19 @@
         }
       }
     },
+    "Enter date text. See the examples above for this tag format." : {
+
+    },
+    "Enter one text value. The Inspector removes spaces and line breaks at the beginning and end." : {
+
+    },
     "Enter something to search for." : {
 
     },
     "Enter text above to preview changes." : {
+
+    },
+    "Enter text. When the tag supports separate values, you can edit them individually in Metadata Editor." : {
 
     },
     "Enter the start number using digits 0–9 only. Signs, fractions and other digit characters aren’t supported." : {
@@ -5590,6 +5636,9 @@
         }
       }
     },
+    "Find your tag format to see what you can save. To clear a text field in the Inspector, leave it empty. In Metadata Editor, choose Delete Field." : {
+
+    },
     "Finder" : {
 
     },
@@ -6071,6 +6120,12 @@
     "If a folder is moved or renamed, macOS may require you to authorize it again." : {
 
     },
+    "If artwork editing is available for your file, add an image in the Inspector or choose Clear Artwork to remove it. Replacing artwork saves one cover per file." : {
+
+    },
+    "If the number contains letters, such as A1, the Inspector can’t save changes to the number or total. Enter a whole number, or use Metadata Editor to work with the stored tag." : {
+
+    },
     "If you authorize a folder now, AudioMator remembers that permission for later saves inside it. Authorizing does not save or change any file." : {
 
     },
@@ -6158,6 +6213,9 @@
       }
     },
     "Importing Metadata" : {
+
+    },
+    "In Metadata Editor, choose Add Field and enter a name. Use an existing field when it already describes your value." : {
 
     },
     "Include header row" : {
@@ -6504,6 +6562,9 @@
       }
     },
     "Keep Editing Paused" : {
+
+    },
+    "Keep the value supplied by the app that created the file. A guessed value can change playback." : {
 
     },
     "Keeps the same width as numbers grow." : {
@@ -8447,9 +8508,6 @@
     "No inspectable field changes." : {
 
     },
-    "No mapping in AudioMator" : {
-
-    },
     "No Matching Artwork" : {
 
     },
@@ -8457,9 +8515,6 @@
 
     },
     "No metadata values are available for the selected fields." : {
-
-    },
-    "No portable tag; tracker modules use their own headers." : {
 
     },
     "No public releases are available yet." : {
@@ -9263,9 +9318,6 @@
     "Photo Library" : {
 
     },
-    "Planned mapping; editing is not available." : {
-
-    },
     "Portuguese (Brazil)" : {
       "localizations" : {
         "zh-Hans" : {
@@ -9722,9 +9774,6 @@
     "Read-only credits supplied by the file’s system metadata. Edit the specific Composer or Lyricist field when that is what you mean." : {
 
     },
-    "Read-only in AudioMator." : {
-
-    },
     "Reading from disk…" : {
 
     },
@@ -9833,9 +9882,6 @@
 
     },
     "Refresh Watched Folders" : {
-
-    },
-    "Registered storage location; the file must support the requested edit." : {
 
     },
     "Release" : {
@@ -11481,6 +11527,9 @@
     "Save Logs" : {
 
     },
+    "Save one text value at a time. A list of values can fail to save in WMA." : {
+
+    },
     "Save or discard the pending inspector edits before accepting a replacement file." : {
 
     },
@@ -12440,10 +12489,7 @@
     "Stops saving whenever the file revision changes. Your draft is kept. Use Reload from Disk in the file menu before editing again, then reopen Metadata Editor if it is open." : {
 
     },
-    "Stored as an additional text field; other players may ignore it." : {
-
-    },
-    "Stored Field and Availability" : {
+    "Stored Field and How to Edit" : {
 
     },
     "Storefront" : {
@@ -13217,9 +13263,6 @@
     "The name of a section within a larger work." : {
 
     },
-    "The names below are the storage locations used by AudioMator. They can differ from the names shown by other editors. Availability also depends on the tag version and the individual file." : {
-
-    },
     "The number of audio channels, such as two for stereo. This is read-only here." : {
 
     },
@@ -13362,9 +13405,6 @@
 
     },
     "The version information from GitHub couldn’t be read. Check GitHub Releases manually." : {
-
-    },
-    "These credits cannot be edited as a simple text field." : {
 
     },
     "These date fields can't be edited separately in ID3v2.3 tags." : {
@@ -13512,6 +13552,9 @@
 
     },
     "This draft captured files that are no longer available. The captured values are kept; Save is suspended until every file is available again and you resume editing, or you discard the edits." : {
+
+    },
+    "This field includes a role or instrument. In Metadata Editor, look for the name that includes the role." : {
 
     },
     "This file" : {
@@ -14267,6 +14310,9 @@
         }
       }
     },
+    "Tracker Modules" : {
+
+    },
     "Traditional Chinese (Hong Kong)" : {
       "localizations" : {
         "zh-Hans" : {
@@ -14657,6 +14703,9 @@
     "US, JP, GB" : {
 
     },
+    "Use Metadata Editor to add a named field to the ID3 tag in a WAV file. RIFF INFO fields are read-only here." : {
+
+    },
     "Use Minute Precision" : {
 
     },
@@ -15019,6 +15068,9 @@
     "Windows Media defines a text string traditionally holding a four-digit year; MP4, Vorbis, and APEv2 text tags leave syntax unspecified." : {
 
     },
+    "WMA files need a number whenever a total is set. Keep the number or clear both values." : {
+
+    },
     "Write" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/Domain/MetadataExchange/MetadataExchange.swift:69, AudioMator/Domain/MetadataEditing/AudioMetadataPipeline.swift:49, AudioMator/Domain/Rename/FilenameMetadataTemplate.swift:169, AudioMator/Features/Main/ViewModels/AudioViewModel+Import.swift:32.",
       "localizations" : {
@@ -15103,6 +15155,12 @@
       }
     },
     "Writing Filename Metadata" : {
+
+    },
+    "XM files can save a tracker name. AudioMator displays the name from S3M and IT files as read-only." : {
+
+    },
+    "XM, S3M, and IT files can save this field as text. The file’s own layout can limit how much text it keeps." : {
 
     },
     "Year" : {

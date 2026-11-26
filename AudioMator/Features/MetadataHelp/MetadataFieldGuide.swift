@@ -96,10 +96,15 @@ nonisolated enum MetadataFieldGuide {
         }
         func matches(_ query: String) -> Bool {
             let terms = query.split(whereSeparator: \.isWhitespace).map(String.init)
-            let text = ([title, purpose, id, schema?.semanticKey ?? ""]
-                + (valueGuidance?.searchableText ?? [])
-                + (schema?.propertyMapKeys ?? [])
-                + (schema?.nativeTargets.map(\.nativeIdentity) ?? [])).joined(separator: " ")
+            guard !terms.isEmpty else { return true }
+            var details = [title, purpose, id, schema?.semanticKey ?? ""]
+            details += valueGuidance?.searchableText ?? []
+            details += MetadataNativeFamily.allCases.compactMap { savingNote(for: $0) }
+            if let numberingSavingNote { details.append(numberingSavingNote) }
+            if let trackerSavingNote { details.append(trackerSavingNote) }
+            details += schema?.propertyMapKeys ?? []
+            details += schema?.nativeTargets.map(\.nativeIdentity) ?? []
+            let text = details.joined(separator: " ")
             return terms.allSatisfy { text.localizedStandardContains($0) }
         }
     }

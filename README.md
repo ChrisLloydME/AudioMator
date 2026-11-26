@@ -22,7 +22,7 @@ AudioMator is a local-first audio metadata editor for macOS. It inspects, edits,
 - **Metadata Editor** for the raw TagLib PropertyMap projection, preserving ordered value lists, duplicates, whitespace, and literal semicolons.
 - **Tag Inspector** for the read-only raw tag/property dump, including compatibility notes.
 - **Filename & Metadata** conversion across seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut.
-- **Track renumbering** by list or selection order, with direction, start number, and zero-padding.
+- **Track renumbering** by list or selection order, with direction and a start number. Renumbering submits numeric values and has no zero-padding option.
 - **Artwork replacement** from a local image, the photo library, or clipboard data, plus optional iTunes artwork lookup.
 - **Metadata Field Guide** — an offline in-app help window explaining each editable field, with optional links to official references.
 - **Online metadata** from MusicBrainz, the Apple iTunes Search API, and LRCLIB synced lyrics, always user initiated.
@@ -108,7 +108,7 @@ Track and disc data is stored as structured fields:
 
 AudioMator submits numeric values and user-facing text intent separately. Containers may normalize combined text such as `02/09` while preserving the numbers; write verification distinguishes normalization from a real mismatch.
 
-Year and Release Date are separate edit intents. MP4 has one standard date slot, so an independent Year edit can be rejected instead of overwriting Release Date.
+Year and Release Date are separate edit intents. MP4 stores Year in `©day` and keeps Date, Release Date, and Original Release Date in distinct registered freeform locations, so a Year edit does not overwrite Release Date.
 
 ## Privacy and Network Use
 

@@ -46,7 +46,7 @@ The Metadata Editor exposes TagLib's PropertyMap projection. Container-native st
 
 ### Why are Year and Release Date separate?
 
-They are separate edit intents. Some formats can store both independently; MP4 has one standard date slot, so an independent Year edit is rejected rather than silently overwriting Release Date.
+They are separate edit intents. MP4 stores Year in `©day` and keeps Date, Release Date and Original Release Date in distinct registered freeform locations, so editing Year does not overwrite Release Date. See [Date and time editing](USER_GUIDE.md#date-and-time-editing) and the [mapping table](../Reference/METADATA_FIELD_MAPPING_TABLE.md).
 
 ### Why does an exported CSV or text file start with an AudioMator comment?
 

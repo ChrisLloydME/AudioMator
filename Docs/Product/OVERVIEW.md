@@ -33,7 +33,7 @@ The following features are implemented in the repository. Format-specific capabi
 | Metadata Editor | Edits the TagLib PropertyMap projection as ordered value lists. | `Features/MetadataEditor` |
 | Tag Inspector | Read-only raw tag/property dump, including compatibility notes. | `MetadataDumpSheet`, `rawMetadataDumpText` |
 | Filename & Metadata tool | Seven modes: metadata→filename, filename→metadata, metadata→text, text→metadata, metadata→CSV, CSV→metadata, and field copy/cut. | `Features/MetadataFilenameTool`, `Domain/Rename`, `Domain/MetadataExchange` |
-| Track renumbering | Rewrites track numbers by list or selection order, with direction, start number and zero-padding. | `Domain/TrackRenumber`, `AudioViewModel+TrackRenumbering.swift` |
+| Track renumbering | Rewrites track numbers by list or selection order, with direction and a start number. Renumbering submits numeric values; there is no zero-padding option. | `Domain/TrackRenumber`, `AudioViewModel+TrackRenumbering.swift` |
 | Conflict policies | Chooses how dirty Inspector/Metadata Editor drafts interact with on-disk changes. | `MetadataConflictPolicy`, `MetadataConflictResolver` |
 | Save issue log | Persists non-success batch save summaries locally. | `SaveIssueLogStore` |
 | Online metadata | MusicBrainz, iTunes Search API, and LRCLIB lookup and write-back. | `Features/*Browser`, `Infrastructure/*` |
@@ -49,7 +49,7 @@ AudioMator treats track and disc numbering as structured values rather than a si
 
 Number and total are submitted to the metadata pipeline separately, together with optional user-facing number text (for example `02/09`). Containers may normalize the text representation while preserving the numeric values; the write verification path distinguishes that normalization from a real mismatch. Loading never rewrites a file.
 
-Year, Date, Release Date and Original Release Date are separate edit intents. The app submits them as separate patch fields and leaves container-level storage decisions to `TagLibAudioMetadata`. MP4 has a single standard date slot, so an independent Year edit can be rejected rather than silently overwriting Release Date. There is no automatic date completion, synchronization or copying.
+Year, Date, Release Date and Original Release Date are separate edit intents. The app submits them as separate patch fields and leaves container-level storage decisions to `TagLibAudioMetadata`. MP4 stores Year in `©day` and keeps Date, Release Date, and Original Release Date in distinct registered freeform locations, so a Year edit does not overwrite Release Date. There is no automatic date completion, synchronization or copying.
 
 Artwork is handled as an explicit three-state change: unchanged, replaced with bytes plus MIME type, or removed.
 
@@ -106,7 +106,7 @@ The mapping contract is `AM-TLAM-MAPPING-2.2`. The exact boundary and known depe
 
 ## Current Version and License
 
-The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `3.0`, build `3604`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
+The authoritative version, build number, bundle identifiers, and build settings are recorded in [Configuration](../Reference/CONFIGURATION.md). Current values are marketing version `3.0.1`, build `3605`, Debug bundle ID `com.TheLloydME.AudioMator.Beta`, and Release bundle ID `com.LloydME.AudioMator`.
 
 The project is licensed under the GNU Affero General Public License v3.0; see [`LICENSE`](../../LICENSE) and the [Third-Party Notices](../THIRD_PARTY_NOTICES.md). The app bundle includes the AGPL-3.0 text plus the TagLib LGPL-2.1/MPL-1.1, TagLibAudioMetadata MIT, and utf8-cpp Boost texts.
 

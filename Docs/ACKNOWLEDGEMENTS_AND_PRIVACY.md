@@ -6,7 +6,7 @@ This disclosure describes the current implementation, verified by source inspect
 
 ## Third-Party Foundations
 
-The in-app Acknowledgements sheet (Settings → About → Acknowledgements…) lists the same components and opens the full license texts. The current build product also contains the five license files at the top level of `AudioMator.app/Contents/Resources`. The About panel identifies TagLib and displays its upstream copyright.
+The in-app Acknowledgements sheet (Settings → About → Acknowledgements…) lists the four bundled software entries — AudioMator, TagLib, TagLibAudioMetadata, and utf8-cpp (utfcpp) — and opens their full license texts. The service, interoperability, and inspiration acknowledgements below are documented here; they are not bundled license entries in that sheet. The current build product also contains the five license files at the top level of `AudioMator.app/Contents/Resources`. The About panel identifies TagLib and displays its upstream copyright.
 
 ### AudioMator
 
@@ -88,7 +88,7 @@ AudioMator's current artwork implementation is written in Swift in this reposito
 - Releases: <https://github.com/ChrisLloydME/AudioMator/releases>
 - Role: published release metadata, release notes, and manual update checks.
 
-AudioMator expects release tags in the form `V<version>B<build>`, for example `V3.0B3604` for the current project values.
+AudioMator expects release tags in the form `V<version>B<build>`, for example `V3.0.1B3605` for the current project values.
 
 ## Local-First Behavior
 

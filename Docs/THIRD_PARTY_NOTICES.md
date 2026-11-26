@@ -2,7 +2,7 @@
 
 This file summarizes third-party software, services, and project influences used by AudioMator. It is not a substitute for the upstream license texts.
 
-The app bundle includes the full license texts listed below at the top level of `AudioMator.app/Contents/Resources`; this was verified in the current Debug build product on 2026-11-18. The in-app **Acknowledgements** sheet (Settings → About → Acknowledgements…) lists the same components and opens the bundled texts. The About panel also identifies TagLib and displays its upstream copyright.
+The app bundle includes the full license texts listed below at the top level of `AudioMator.app/Contents/Resources`; this was verified in the current Debug build product on 2026-11-18. The in-app **Acknowledgements** sheet (Settings → About → Acknowledgements…) lists the four bundled software entries — AudioMator, TagLib, TagLibAudioMetadata, and utf8-cpp (utfcpp) — and opens the bundled texts. The About panel also identifies TagLib and displays its upstream copyright. Service, interoperability, and inspiration acknowledgements in this file are not bundled license entries.
 
 ## AudioMator
 
@@ -130,7 +130,7 @@ No MuseAmp source code is copied into AudioMator. The acknowledgement and licens
 
 ### Service Notice
 
-GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V3.0B3604` for the current project values.
+GitHub Releases is a web service, not third-party source code bundled into AudioMator. The macOS update check reads release metadata from GitHub, compares the release tag's version and build with the local app version and build, and opens the GitHub Releases page when the user chooses to download an update manually. AudioMator release tags must use the form `V<version>B<build>`, for example `V3.0.1B3605` for the current project values.
 
 ## Bundled License Resources
 

@@ -26,6 +26,7 @@ Terms used throughout the AudioMator documentation and source.
 | **Number pair** | Track/disc number and total maintained as separate components plus optional text intent (`trackNumberText`, `discNumberText`); a component can be empty while its total remains. |
 | **Edited-group recovery** | Internal package/app handling that preserves or retires historical numbering data during an edited-pair write. It is automatic and atomic; loading never rewrites a file, and there is no user-facing Restore/Cleanup operation. |
 | **Provider** | An online metadata source: MusicBrainz, iTunes, or LRCLIB. |
+| **iTunes Genre ID** | The iTunes Store’s numeric genre identifier, stored in its own field alongside the text **Genre** field. [Field guidance](../Product/METADATA_FIELD_GUIDE.md#itunes-genre-id-lookup) |
 | **Batch partial success** | Per-file commits where some targets succeed and others fail; there is no group rollback. |
 | **Durability uncertain** | The package observed a commit but could not confirm directory durability. Treated as committed with a warning. |
 | **Recovery item** | A rename failure record with original, intended, and observed file locations plus rollback errors. |

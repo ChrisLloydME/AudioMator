@@ -88,7 +88,7 @@ Feature-owned views, view models, and presentation models.
 | `MusicBrainzBrowser/` | MusicBrainz search/detail/tagging views and stores |
 | `iTunesBrowser/` | iTunes search/detail/tagging views and stores |
 | `LRCLIBLyricsBrowser/` | LRCLIB lyrics views and store |
-| `MetadataHelp/` | Offline Metadata Field Guide window, Help command and field explanations |
+| `MetadataHelp/` | Offline Metadata Field Guide window, field explanations, `iTunesStoreGenreCatalog.swift` for the optional resource loader and matching, and `iTunesStoreGenreLookup.swift` for the genre section and media detail |
 | `Settings/` | Settings tabs and shared grouped-row styling, privacy/acknowledgements/license sheets, release-notes rendering |
 | `Welcome/` | Welcome splash and progress |
 

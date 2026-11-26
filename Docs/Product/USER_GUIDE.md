@@ -117,6 +117,10 @@ Container-native structures that TagLib does not project into PropertyMap do not
 
 The editor's draft is independent of the Inspector draft.
 
+### Looking up field guidance
+
+Choose **Help → Metadata Field Guide**. Search the sidebar by field name or a storage key, then select the field to see its purpose and format-specific editing guidance. For a known Store genre number, select **iTunes Genre ID** and check **Where This Field Is Stored** before entering it in Metadata Editor. [Field Guide](METADATA_FIELD_GUIDE.md) · [Genre catalog availability](METADATA_FIELD_GUIDE.md#itunes-genre-id-lookup)
+
 ## Inspecting Raw Tags (Tag Inspector)
 
 Tag Inspector is read-only. It opens as a Metadata Details sheet and shows:

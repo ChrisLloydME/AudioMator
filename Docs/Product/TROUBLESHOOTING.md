@@ -169,6 +169,10 @@ The update checker requires tags of the form `V<version>B<build>`, for example `
 
 The local marketing version/build is newer than the latest GitHub release tag. This can happen with development builds or unpublished releases. It is not an error.
 
+## “Genre Catalog Unavailable” in the Metadata Field Guide
+
+Standard builds display this message in the **iTunes Genre ID** entry because the catalog resource is absent. Use the field explanation and **Where This Field Is Stored** table to check a genre ID you already have. [iTunes Genre ID lookup](METADATA_FIELD_GUIDE.md#itunes-genre-id-lookup)
+
 ## Getting More Information
 
 - Save issues: Settings → Logs.

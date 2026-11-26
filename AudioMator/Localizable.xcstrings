@@ -236,6 +236,34 @@
     "%lld folders now refer to different directories" : {
 
     },
+    "%lld Genres" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个流派"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個流派"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個類型"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個類型"
+          }
+        }
+      }
+    },
     "%lld more rows won’t be written." : {
 
     },
@@ -396,6 +424,34 @@
     },
     "1 folder scan couldn’t be completed" : {
 
+    },
+    "1 Genre" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 个流派"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 個流派"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 個類型"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 個類型"
+          }
+        }
+      }
     },
     "A content advisory: Not Explicit (0), Explicit (1), Clean (2), or Unset when absent. This describes the content, not its audio quality." : {
 
@@ -1418,6 +1474,34 @@
     },
     "Apple’s AVFoundation documentation leaves the native MP4 purd syntax unspecified; store files and tools vary in practice (for example, space-separated date-time strings or ISO 8601 UTC). Conventions for text tags and native MP4 purd do not govern each other." : {
 
+    },
+    "Apple’s iTunes Store assigns a numeric identifier to each genre within a media type—for example, 21 for Rock under Music. This numeric ID is stored separately from the text Genre field." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 的 iTunes Store 会为每种媒体类型下的流派分配数字标识符，例如音乐下的摇滚（Rock）为 21。该数字 ID 独立于文本“流派”字段存储。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 的 iTunes Store 會為每種媒體類型下的流派指派數字識別碼，例如音樂下的搖滾（Rock）為 21。此數字 ID 獨立於文字「流派」欄位儲存。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 的 iTunes Store 會為每種媒體類型下的類型指派數字識別碼，例如音樂下的搖滾（Rock）為 21。此數字 ID 獨立於文字「類型」欄位儲存。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 的 iTunes Store 會為每種媒體類型下的類型指派數字識別碼，例如音樂下的搖滾（Rock）為 21。此數字 ID 獨立於文字「類型」欄位儲存。"
+          }
+        }
+      }
     },
     "Applied" : {
 
@@ -5546,9 +5630,6 @@
     "Find" : {
 
     },
-    "Find a field or storage name" : {
-
-    },
     "Find matching releases, then map the selected files to album tracks." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Context: music release metadata context. Used around: AudioMator/Features/OnlineMetadataBrowser/Views/OnlineMetadataBrowserView.swift:625.",
       "extractionState" : "stale",
@@ -5905,7 +5986,6 @@
     },
     "Genre" : {
       "comment" : "Audio metadata field label; prefer the term users expect in music tag editors. Used around: AudioMator/Domain/UIState/InspectorMetadataField.swift:35, AudioMator/Domain/UIState/MiddleListColumn.swift:43, AudioMator/Domain/MetadataExchange/MetadataExchange.swift:122, AudioMator/Domain/AudioFiles/SingleFileEditModel.swift:308.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5941,6 +6021,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "流派"
+          }
+        }
+      }
+    },
+    "Genre Catalog Unavailable" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法载入流派目录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入流派目錄"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入流派目錄"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入流派目錄"
+          }
+        }
+      }
+    },
+    "Genre ID" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流派 ID"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流派 ID"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流派 ID"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流派 ID"
           }
         }
       }
@@ -6478,6 +6614,35 @@
         }
       }
     },
+    "iTunes Genre ID" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 流派 ID"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 流派 ID"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 流派 ID"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes 流派 ID"
+          }
+        }
+      }
+    },
     "iTunes search requests send a search term, the selected storefront country, and the media, entity, and limit parameters, or a lookup by Apple album/track ID or UPC. Apple Music and iTunes links supply an ID for lookup. iTunes metadata requests include a language code when you choose a language other than the storefront default. The search term can be derived from tags, file names, and parent or grandparent folder names (title, artist, album, album artist) or typed manually. Track number, disc number, duration, iTunes artist ID, and catalog ID are not URL parameters; they are used locally for matching. No full file path, file contents, or audio bytes are sent. Artwork downloads request an Apple-returned artwork URL, so Apple may direct the app to an Apple artwork host beyond the hosts listed here." : {
       "localizations" : {
         "zh-Hans" : {
@@ -6490,6 +6655,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "iTunes 搜尋要求會傳送搜尋字詞、所選商店地區以及 media、entity 和 limit 參數。查詢會傳送 Apple 專輯或曲目 ID，或 UPC。Apple Music 和 iTunes 連結用來擷取查詢所需的 ID。選擇商店預設語言以外的語言時，iTunes 中繼資料要求也會傳送語言代碼。搜尋字詞可以手動輸入，也可以從標籤、檔案名稱、上一層或上兩層資料夾名稱取得（標題、演出者、專輯或專輯演出者）。曲目編號、光碟編號、長度、iTunes 演出者 ID 和目錄 ID 只在本機用於配對，並不會做為 URL 參數傳送。完整檔案路徑、檔案內容或音訊資料均不會傳送。下載封面時會要求 Apple 傳回的封面 URL，因此 Apple 可能會將要求轉送至此處所列主機以外的 Apple 封面主機。"
+          }
+        }
+      }
+    },
+    "iTunes Store Genre IDs" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 流派 ID"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 流派 ID"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 類型 ID"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 類型 ID"
+          }
+        }
+      }
+    },
+    "iTunes Store Media Types" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 媒体类型"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 媒體類型"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 媒體類型"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iTunes Store 媒體類型"
           }
         }
       }
@@ -11596,6 +11817,34 @@
     "Search Again" : {
 
     },
+    "Search by genre or ID" : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜索流派或 ID"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋流派或 ID"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋流派或 ID"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "搜尋流派或 ID"
+          }
+        }
+      }
+    },
     "Search Couldn’t Be Completed" : {
 
     },
@@ -11821,6 +12070,34 @@
     },
     "Select a File" : {
 
+    },
+    "Select a media type below to browse and search its genre IDs offline, then enter the numeric ID in Metadata Editor." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方选择一种媒体类型即可离线浏览和搜索其流派 ID，然后在元数据编辑器中输入相应的数字 ID。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方選擇一種媒體類型即可離線瀏覽和搜尋其流派 ID，然後在詮釋資料編輯器中輸入相應的數字 ID。"
+          }
+        },
+        "zh-HK" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方選擇一種媒體類型即可離線瀏覽和搜尋其類型 ID，然後在詮釋資料編輯器中輸入相應的數字 ID。"
+          }
+        },
+        "zh-TW" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在下方選擇一種媒體類型即可離線瀏覽和搜尋其類型 ID，然後在詮釋資料編輯器中輸入相應的數字 ID。"
+          }
+        }
+      }
     },
     "Select All" : {
       "comment" : "Button or menu command; translate as an action, usually concise. Used around: AudioMator/App/Commands/ToolbarEditCommands.swift:10.",

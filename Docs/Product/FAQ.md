@@ -58,7 +58,7 @@ Erase-all is best effort because supported tag surfaces differ by container. Som
 
 ### What is the Metadata Field Guide?
 
-It is a bundled offline Help window (Help → **Metadata Field Guide**) that explains every package metadata field plus Credits and the technical display values, and shows registered storage locations without reading or changing files. See [Metadata Field Guide](METADATA_FIELD_GUIDE.md).
+It is a bundled offline Help window (Help → **Metadata Field Guide**) that explains every package metadata field plus Credits and the technical display values, and shows registered storage locations without reading or changing files. Search the sidebar by field name, explanation, or storage key. [Metadata Field Guide](METADATA_FIELD_GUIDE.md)
 
 ## Saving and Conflicts
 

@@ -50,9 +50,40 @@ nonisolated final class MetadataFieldGuideTests: XCTestCase {
 
     @MainActor
     func testReferenceLinksMatchThePrivacyDisclosure() {
-        let domains = Set(MetadataFieldGuide.sources.compactMap { $0.url.host })
+        let domains = Set(MetadataFieldGuide.sources.compactMap(\.url.host))
         let disclosure = NetworkServiceDisclosure.allDisclosures.first { $0.id == .metadataHelpReferences }
         XCTAssertEqual(domains, Set(disclosure?.domains ?? []))
+    }
+
+    func testGenreCatalogResourceIsAbsentFromBundle() {
+        XCTAssertThrowsError(try iTunesStoreGenreCatalog.bundled()) { error in
+            XCTAssertEqual((error as? CocoaError)?.code, .fileNoSuchFile)
+        }
+    }
+
+    func testSyntheticGenreCatalogDecodesAndSearchRespectsMediaScope() throws {
+        let fixture = """
+        {
+          "snapshotDate": "2000-01-01",
+          "rows": [
+            {"id": 800300, "name": "Example Video", "category": "", "mediaID": 800300},
+            {"id": 800100, "name": "Example Audio", "category": "", "mediaID": 800100},
+            {"id": 800101, "name": "Lunar", "category": "Example Audio", "mediaID": 800100},
+            {"id": 800102, "name": "Orbit", "category": "Example Audio › Lunar", "mediaID": 800100},
+            {"id": 800301, "name": "Orbit", "category": "Example Video", "mediaID": 800300}
+          ]
+        }
+        """
+        let catalog = try JSONDecoder().decode(iTunesStoreGenreCatalog.self, from: Data(fixture.utf8))
+        XCTAssertEqual(catalog.mediaCategories.map(\.id), [800100, 800300])
+        XCTAssertEqual(catalog.rowCount(mediaID: nil), 5)
+        XCTAssertEqual(catalog.rowCount(mediaID: 800100), 3)
+        XCTAssertEqual(catalog.rowCount(mediaID: 800300), 2)
+        XCTAssertEqual(catalog.matching(" 800102 ", mediaID: 800100).map(\.name), ["Orbit"])
+        XCTAssertTrue(catalog.matching("80010", mediaID: 800100).isEmpty)
+        XCTAssertEqual(catalog.matching("lunar orbit", mediaID: 800100).map(\.id), [800102])
+        XCTAssertTrue(catalog.matching("800301", mediaID: 800100).isEmpty)
+        XCTAssertEqual(catalog.matching("orbit", mediaID: nil).map(\.id), [800102, 800301])
     }
 
     @MainActor

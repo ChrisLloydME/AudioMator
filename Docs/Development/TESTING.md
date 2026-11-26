@@ -4,14 +4,14 @@ AudioMator has two test targets and no UI automation suite. This document descri
 
 The required metadata coverage and unified release gate are specified in [Metadata test strategy](METADATA_TEST_STRATEGY.md). Use `bash scripts/validate-release.sh` for release acceptance; individual successful suites are not full Mapping conformance.
 
-The current source declares **1,097 app-hosted tests across 118 `XCTestCase` classes**, **130 SwiftPM core tests across 8 classes**, and **33 policy and crash-recovery tests** under `scripts/tests`.
+The current source declares **1,099 app-hosted tests across 118 `XCTestCase` classes**, **130 SwiftPM core tests across 8 classes**, and **33 policy and crash-recovery tests** under `scripts/tests`.
 
 ## Test Targets
 
 | Target | Kind | Root | Framework | Test functions | XCTestCase classes |
 | --- | --- | --- | --- | ---: | ---: |
 | `AudioMatorCoreLogicTests` | SwiftPM test target | `Tests/AudioMatorCoreLogicTests` | XCTest | 130 | 8 |
-| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1,097 | 118 |
+| `AudioMatorTests` | App-hosted Xcode unit-test bundle | `AudioMatorTests` | XCTest | 1,099 | 118 |
 
 - There is no Swift Testing (`import Testing`, `@Test`) usage.
 - There are 126 `XCTestCase` classes across both targets (118 app-hosted, 8 core); no custom base class. Every app-hosted class is declared `nonisolated` and opts its app-model members into `@MainActor` explicitly (see the isolation convention below).
@@ -95,10 +95,10 @@ A file in this target must stay Foundation-only and deterministic. It may use a 
 | `Integration/TagLib` | 14 | 138 | real TagLib reads/writes on temporary fixture copies, date state matrices, provider save journeys, staged-artwork save/readback, MP4 cover diagnostics |
 | `Performance` | 5 | 22 | batch concurrency, publication bounds, IO stages, online workbench work bounds, progressive Quick Import counters (decode excluded/included) |
 | `Unit/Core` | 20 | 102 | tag numbers, formatters, fuzzy matching, MuseAmp, provider helpers, version/update, network and license disclosure registries, issue log, markdown |
-| `Unit/Presentation` | 16 | 98 | artwork preview cache, inspector scroll routing/offset preservation/inline double-click handoff/Escape paired-number revert/draft scope survival/quick-edit mixed-value protection, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection |
+| `Unit/Presentation` | 16 | 100 | artwork preview cache, inspector scroll routing/offset preservation/inline double-click handoff/Escape paired-number revert/draft scope survival/quick-edit mixed-value protection, editor rows, status text, list selection (including track-list Command-A scoping), comparison builders, folder selection, field guide and genre lookup |
 | `Root` | 2 | 16 | source-policy checks for write-plan routing and sensitive logging |
 | `TestSupport` | 7 | 0 | shared test factories, Quick Import counting/synthetic adapters, and the ID3v2.3 fixture builder (no test functions) |
-| **Total** | **125** | **1,097** | |
+| **Total** | **125** | **1,099** | |
 
 Notable coverage:
 
@@ -106,7 +106,7 @@ Notable coverage:
 - Core date picker tests verify partial dates, UTC conversion, fractional-second round trips, fall-back occurrence toggling, spring-forward choices with distinct UTC previews, and the finer-precision fallback when truncation would cross a DST transition. The app-hosted date picker suite verifies exact FLAC readback from Metadata Editor Add Field and from freeform dates written via CSV, text, and filename plans. Viewport logic tests cover narrow-window bounds separately from manual sheet presentation.
 - `NativeDateTimePickerIntegrationTests` drives Inspector Save against real FLAC observations with injected writer errors. It checks file-scope reporting for wrapped filesystem failures, the single Date annotation under Prefer Disk Changes, and preservation of the original writer message for a multi-field request even when conflict resolution discards a field. Label matching is tested with adjacent ASCII and non-ASCII text.
 - `FilenameMetadataTemplateTests` distinguishes an ambiguous freeform date split from a plain non-match, checks that both rows have no write entry, and verifies that a more specific template can extract the original date text.
-- `MetadataFieldGuideTests` checks the exact ID3v2.4 reference path, rejects whitespace and control characters in the guide’s source URL paths, and checks format-specific editing guidance for Store IDs, track numbers, read-only tags, and tracker modules.
+- `MetadataFieldGuideTests` checks the exact ID3v2.4 reference path, rejects whitespace and control characters in the guide’s source URL paths, and checks format-specific editing guidance for Store IDs, track numbers, read-only tags, and tracker modules. It verifies the missing-resource error in the standard bundle and uses synthetic JSON to check catalog decoding, media grouping and counts, exact ID search, name and parent-category matching, and media filtering.
 - Xcode Canvas previews in `MetadataDatePickerPanel.swift` use sample data to show the expanded calendar, grouped date and time rows with an in-group UTC preview, the searchable time-zone dropdown, a narrow window, and a daylight saving choice. Inspect the sheet and the shared AppKit dropdown from the picker and Metadata Editor during manual UI acceptance.
 
 - `LicenseDisclosureTests` verifies that every acknowledged component has a non-empty bundled license text and that the TagLib dual-license paths and copyright markers are present.

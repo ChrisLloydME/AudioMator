@@ -38,7 +38,7 @@ The following features are implemented in the repository. Format-specific capabi
 | Save issue log | Persists non-success batch save summaries locally. | `SaveIssueLogStore` |
 | Online metadata | MusicBrainz, iTunes Search API, and LRCLIB lookup and write-back. | `Features/*Browser`, `Infrastructure/*` |
 | MuseAmp compatibility IDs | Optional generation and writing of MuseAmp album/track IDs as JSON Comment values. | `Domain/MuseAmp`, `AudioViewModel+MuseAmpIDWrite.swift` |
-| Metadata Field Guide | Offline Help window explaining fields, storage locations and references. | `Features/MetadataHelp` |
+| Metadata Field Guide | Offline Help window with searchable field explanations, storage locations, and references. [Field Guide](METADATA_FIELD_GUIDE.md) | `Features/MetadataHelp` |
 | Manual update check | Compares the GitHub Releases tag with the running version and opens the releases page. | `Infrastructure/Updates` |
 | Operation result HUD | Noninteractive success/warning/failure card for saves and batch results. | `MetadataWriteHUD`, `BatchMetadataOperationSummary`, `ContentView` |
 | Localization | String catalogs for localizable UI text; the bundle declares English localization. | `Localizable.xcstrings`, `InfoPlist.xcstrings` |

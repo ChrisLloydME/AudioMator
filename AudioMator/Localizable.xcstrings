@@ -3046,6 +3046,22 @@
         }
       }
     },
+    "Choose the iTunes storefront region used to search for album artwork." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择用于搜索专辑封面的 iTunes 商店地区。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇用於搜尋專輯封面的 iTunes 商店地區。"
+          }
+        }
+      }
+    },
     "Choose which actions appear in the main window toolbar." : {
       "comment" : "Explanatory helper text, warning, or validation copy. Used around: AudioMator/Features/Settings/Views/SettingsView.swift:616.",
       "localizations" : {
@@ -8631,8 +8647,21 @@
         }
       }
     },
-    "No artwork matches this search. Try a different album or artist name." : {
-
+    "No artwork matches this search in the %@ storefront. Try another storefront, or check the album or artist name." : {
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 %@ 商店中未找到匹配的封面。请尝试其他商店，或检查专辑或艺人名称。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 %@ 商店中找不到相符的封面。請嘗試其他商店，或檢查專輯或藝人名稱。"
+          }
+        }
+      }
     },
     "No Audio Files to Show" : {
 

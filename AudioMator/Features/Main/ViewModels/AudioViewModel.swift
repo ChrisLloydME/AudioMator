@@ -199,6 +199,7 @@ final class AudioViewModel: ObservableObject, LRCLIBLyricsWriting {
     let artworkLookupOperationTimeout: Duration
     private var metadataWriteHUDDismissTask: Task<Void, Never>?
     var artworkLookupTask: Task<Void, Never>?
+    var artworkLookupStorefront: iTunesStorefront = .us
     private var pendingMetadataWriteHUDs: [MetadataWriteHUD] = []
     // The disk snapshots the current inspector drafts were created from. Keep
     // these separate from `files`, which can be refreshed while a draft is open.

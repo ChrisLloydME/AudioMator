@@ -46,9 +46,15 @@ struct AlbumArtworkLookupSheet: View {
 
     private func header(session: ArtworkLookupSession) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Online Album Artwork")
-                .font(.title2)
-                .fontWeight(.semibold)
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                Text("Online Album Artwork")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Spacer(minLength: 16)
+
+                storefrontPicker(session: session)
+            }
 
             Text(session.selectionTitle)
                 .font(.headline)
@@ -57,6 +63,29 @@ struct AlbumArtworkLookupSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func storefrontPicker(session: ArtworkLookupSession) -> some View {
+        Picker(
+            String(localized: "Storefront"),
+            selection: storefrontBinding(for: session)
+        ) {
+            ForEach(iTunesStorefront.allCases) { storefront in
+                Text(storefront.menuTitle)
+                    .tag(storefront)
+            }
+        }
+        .pickerStyle(.menu)
+        .fixedSize()
+        .disabled(!session.canChangeStorefront)
+        .help(String(localized: "Choose the iTunes storefront region used to search for album artwork."))
+    }
+
+    private func storefrontBinding(for session: ArtworkLookupSession) -> Binding<iTunesStorefront> {
+        Binding(
+            get: { viewModel.artworkLookupSession?.storefront ?? session.storefront },
+            set: { viewModel.selectArtworkLookupStorefront($0) }
+        )
     }
 
     private func resultsPane(session: ArtworkLookupSession) -> some View {
@@ -247,6 +276,7 @@ struct AlbumArtworkLookupSheet: View {
                 viewModel.dismissArtworkLookup()
                 dismiss()
             }
+            .keyboardShortcut(.cancelAction)
 
             Spacer()
 

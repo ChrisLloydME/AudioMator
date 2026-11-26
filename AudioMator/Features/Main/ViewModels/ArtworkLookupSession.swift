@@ -121,6 +121,7 @@ struct ArtworkLookupSession: Identifiable {
     let fileIDs: [AudioFile.ID]
     let selectionTitle: String
     let request: ArtworkLookupRequestDescriptor
+    var storefront: iTunesStorefront = .us
 
     var searchAttemptID: UUID?
     var searchState: ArtworkLookupSearchState = .searching
@@ -143,6 +144,13 @@ struct ArtworkLookupSession: Identifiable {
 
     var isApplying: Bool {
         download != nil
+    }
+
+    /// Storefront changes are allowed whenever no candidate download is in flight.
+    /// Switching storefronts cancels any active search and queries the chosen region
+    /// while preserving the captured Inspector draft transfer.
+    var canChangeStorefront: Bool {
+        download == nil
     }
 
     var selectedResult: iTunesArtworkSearchResult? {

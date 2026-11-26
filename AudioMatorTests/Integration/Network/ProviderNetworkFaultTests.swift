@@ -264,6 +264,31 @@ nonisolated final class ProviderNetworkFaultTests: XCTestCase {
     }
 
     @MainActor
+    func testITunesArtworkSearchAndLookupSendSelectedStorefrontWithoutLanguage() async throws {
+        let requests = ProviderRequestRecorder()
+        ProviderFaultURLProtocol.requestHandler = { request in
+            requests.record(request)
+            let url = try XCTUnwrap(request.url)
+            let items = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems)
+            XCTAssertEqual(items.first { $0.name == "country" }?.value, "jp")
+            XCTAssertTrue(items.filter { $0.name == "lang" || $0.name == "l" }.isEmpty)
+            let response = try XCTUnwrap(HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil))
+            let data = Data(#"{"results":[]}"#.utf8)
+            return (response, data)
+        }
+
+        let service = iTunesArtworkService(session: makeSession())
+        _ = try await service.search(
+            iTunesArtworkSearchRequest(query: "Album", entity: .album, country: iTunesStorefront.jp.countryCode, limit: 10)
+        )
+        _ = try await service.search(
+            iTunesArtworkSearchRequest(query: "123456", entity: .idAlbum, country: iTunesStorefront.jp.countryCode, limit: 10)
+        )
+
+        XCTAssertEqual(requests.paths, ["/search", "/lookup"])
+    }
+
+    @MainActor
     func testITunesStaleStoredAlbumFallsBackToTextSearch() async throws {
         let requests = ProviderRequestRecorder()
         ProviderFaultURLProtocol.requestHandler = { request in
@@ -1044,6 +1069,10 @@ private final class ProviderRequestRecorder: @unchecked Sendable {
         lock.withLock { recordedRequests.compactMap(\.host) }
     }
 
+    var paths: [String] {
+        lock.withLock { recordedRequests.compactMap(\.path) }
+    }
+
     var requestCount: Int {
         lock.withLock { recordedRequests.count }
     }
@@ -1051,13 +1080,18 @@ private final class ProviderRequestRecorder: @unchecked Sendable {
     func record(_ request: URLRequest) {
         lock.withLock {
             recordedRequests.append(
-                RecordedRequest(host: request.url?.host, timeoutInterval: request.timeoutInterval)
+                RecordedRequest(
+                    host: request.url?.host,
+                    path: request.url?.path,
+                    timeoutInterval: request.timeoutInterval
+                )
             )
         }
     }
 
     private struct RecordedRequest {
         let host: String?
+        let path: String?
         let timeoutInterval: TimeInterval
     }
 }

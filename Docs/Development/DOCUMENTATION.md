@@ -69,7 +69,8 @@ Every current-state document has one owner role and one scope. Do not create a s
 
 | Change | Update |
 | --- | --- |
-| User-visible behavior, workflow, settings, menus | `README.md` if headline-worthy; `Docs/Product/USER_GUIDE.md`; `FAQ.md` and `Troubleshooting.md` when relevant |
+| User-visible behavior, workflow, settings, menus | `README.md` if headline-worthy; `Docs/Product/USER_GUIDE.md`; `FAQ.md` and `Troubleshooting.md` when relevant; `OVERVIEW.md` feature summary when the capability itself changes |
+| Public interface, protocol, type name, or module boundary | `Docs/Architecture/OVERVIEW.md`, `Docs/Architecture/DEPENDENCY_RULES.md`, the owning architecture page, and `Docs/Reference/PROJECT_STRUCTURE.md` when files or ownership move |
 | Metadata read/write behavior, conflicts, formats | `Docs/Architecture/METADATA_PIPELINE.md`, `FILE_REVISION_AND_RELOAD.md`, `Docs/Reference/DEPENDENCY_LIMITATIONS.md`, `Docs/Reference/METADATA_FIELD_MAPPING_TABLE.md` |
 | Metadata field meaning, labels, or help text | `Docs/Product/METADATA_FIELD_GUIDE.md`, `Docs/Reference/METADATA_FIELD_MAPPING_TABLE.md`, `Docs/Reference/TERMINOLOGY.md` |
 | Mapping contract or package integration | `Docs/Architecture/METADATA_MAPPING_SPEC.md`, `Docs/Reference/METADATA_FIELD_MAPPING_TABLE.md`, `Docs/Reference/DEPENDENCY_LIMITATIONS.md`, new evidence record, `Docs/Engineering/README.md` |
@@ -77,8 +78,10 @@ Every current-state document has one owner role and one scope. Do not create a s
 | Network provider, endpoint, payload, timeout | `Docs/Architecture/ONLINE_METADATA.md`, `Docs/ACKNOWLEDGEMENTS_AND_PRIVACY.md`, `NetworkServiceDisclosure.swift`, in-app privacy text |
 | Entitlement, sandbox, file access, local persistence | `Docs/Security/SECURITY_AND_DATA_INTEGRITY.md`, `Docs/Reference/CONFIGURATION.md` |
 | Build setting, toolchain, package version | `Docs/Development/BUILD.md`, `Docs/Reference/CONFIGURATION.md`, `Docs/THIRD_PARTY_NOTICES.md`, `README.md` requirements |
+| CI workflow, runner label, gate phase, or evidence path | `Docs/Development/BUILD.md`, `Docs/Development/TESTING.md`, `Docs/Reference/CONFIGURATION.md` |
 | Test target, suite, fixture, CI, coverage | `Docs/Development/TESTING.md`, `Docs/Development/METADATA_TEST_STRATEGY.md` |
-| Release process, signing, versioning, distribution | `Docs/Development/RELEASE.md`, `README.md` distribution section |
+| Release process, signing, versioning, distribution | `Docs/Development/RELEASE.md`, `Docs/Reference/CONFIGURATION.md`, `README.md` distribution section |
+| Marketing version, build number, or release-tag example | `Docs/Development/RELEASE.md`, `Docs/Reference/CONFIGURATION.md`, `Docs/Product/OVERVIEW.md`, and every current `V<version>B<build>` example in Product, Acknowledgements, and Third-Party notices |
 | Architecture boundary or decision | `Docs/Architecture/OVERVIEW.md`, `DEPENDENCY_RULES.md`, and a new ADR |
 | Repository layout, target, or script inventory | `Docs/Reference/PROJECT_STRUCTURE.md`, `README.md`, `AGENTS.md` |
 | Contribution, review, or agent process | `AGENTS.md`, `CONTRIBUTING.md`, this document |
@@ -99,6 +102,34 @@ These requirements apply throughout implementation, refactoring, bug fixing, and
 5. **Label uncertainty.** Distinguish implemented behavior from proposals, assumptions, and unverified behavior. Use the labels below.
 6. **Prefer maintaining existing canonical documents.** Extend or correct the canonical document rather than creating a new overlapping one. A new document requires a scope that no existing document owns and registration in `Docs/README.md` and the ownership table above.
 7. **Include documentation consistency in final verification.** Before reporting completion, run the verification steps below and include the documentation result in the report. A docs pass is not optional cleanup.
+8. **State a reason when there is no documentation impact.** A change that genuinely affects no documented behavior, interface, setting, dependency, test procedure, privacy statement, or release step is still reported with a one-line explanation of why no page changed. "No docs" without a reason is not a handoff.
+
+## Mandatory Documentation Workflow
+
+`AGENTS.md` repeats this checklist so every agent sees it without opening this page. The two lists must stay consistent; this page owns the map, matrix, examples, and detailed verification.
+
+1. **Identify the affected documents.** Use the ownership table and update matrix below. Read the canonical owner and every page that links to it, including summaries that duplicate a claim.
+2. **Verify each claim against the resulting implementation.** Inspect source, build settings, public interfaces, configuration, tests, and reproducible commands. Treat the existing document, adjacent comments, test names, and commit messages as unverified evidence. If documentation and behavior disagree, describe the behavior, never change functional code to preserve stale text.
+3. **Update canonical pages and cross-references in the same changeset.** Cover the affected category: user workflows; architecture, protocols, or public types; build, test, or CI procedure; dependency or license; privacy, security, or network behavior; release, version, signing, or distribution.
+4. **Remove superseded material.** Delete invalidated descriptions, abandoned plans, obsolete workflows, and duplicated detail. Link to the canonical page instead of copying it. Correct the canonical owner first, then fix affected summaries and cross-references.
+5. **Separate verified behavior from uncertainty.** Use the labels below. Do not present a proposal, intention, dated result, or unverified assumption as current behavior.
+6. **Verify documentation consistency.** Run `python3 scripts/check-doc-links.py`, then re-read the changed paths, commands, terminology, setting names, and cross-references. In the handoff, list the documents updated and the checks run. If nothing changed, give the reason required by requirement 8.
+
+### Worked examples
+
+These examples show the expected scope; the update matrix remains the authoritative routing table.
+
+| Change | Documentation work |
+| --- | --- |
+| Conflict policy changes how an overlapping edited group is reported | Update [File Revision and Reload](../Architecture/FILE_REVISION_AND_RELOAD.md) (canonical policy table), [User Guide](../Product/USER_GUIDE.md) and [FAQ](../Product/FAQ.md) if user-visible, then check every page linking to those sections. |
+| A new public protocol or type is added at a layer boundary | Update [Architecture Overview](../Architecture/OVERVIEW.md), [Dependency Rules](../Architecture/DEPENDENCY_RULES.md), and the implementation page that owns the subsystem; update [Project Structure](../Reference/PROJECT_STRUCTURE.md) only when files or ownership move. |
+| Marketing version or build number changes | Update [Release Engineering](../Development/RELEASE.md) and [Configuration](../Reference/CONFIGURATION.md), plus every current example of the update tag: [Product Overview](../Product/OVERVIEW.md), [User Guide](../Product/USER_GUIDE.md), [Troubleshooting](../Product/TROUBLESHOOTING.md), [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md), and [Third-Party Notices](../THIRD_PARTY_NOTICES.md). Then search the current-state documents for the previous version, build, and tag strings and update every match; leave dated Engineering records unchanged. |
+| `TagLibAudioMetadata` version, revision, or license changes | Update [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md), [Metadata Mapping Specification](../Architecture/METADATA_MAPPING_SPEC.md), `AGENTS.md` dependency notes, [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md), [Third-Party Notices](../THIRD_PARTY_NOTICES.md), the in-app disclosures, and the evidence index; add a dated engineering record. |
+| A provider endpoint, request field, or embedded-page rule changes | Update [Online Metadata](../Architecture/ONLINE_METADATA.md), [Acknowledgements and Privacy](../ACKNOWLEDGEMENTS_AND_PRIVACY.md), [Security and Data Integrity](../Security/SECURITY_AND_DATA_INTEGRITY.md), and `NetworkServiceDisclosure.swift` together. |
+| A test suite or fixture is added or removed | Update [Testing](../Development/TESTING.md) (counts, suite map, fixtures, gaps). Update [Metadata test strategy](../Development/METADATA_TEST_STRATEGY.md) only when required coverage or a release gate changes. |
+| Internal test-only change with no behavior, interface, setting, or coverage-inventory change | No page update. State in the handoff that the change has no documentation impact because it only adjusts an existing test's internals. |
+
+When a version, dependency, count, or command appears in more than one current document, treat every occurrence as part of the change. Prefer linking to the canonical value when the duplicate can be removed.
 
 ## Labels for Uncertainty
 
@@ -138,11 +169,14 @@ Before completing a documentation change:
 6. Confirm that dated records are labeled as evidence and are not presented as current guidance.
 7. Run documented commands where practical, or mark them unverified. Never claim a command was run when it was not.
 8. Confirm the documentation changed in the same changeset as the implementation.
+9. If no page changed, confirm the no-impact reason is accurate and include it in the handoff.
 
 ## Review Checklist for Documentation Pull Requests
 
 - [ ] Every changed fact is supported by code, configuration, script, or reproducible-command evidence.
 - [ ] Current behavior, known limitations, proposals, and unverified items are clearly separated.
+- [ ] Public interfaces, type names, and layer boundaries match the implementation and dependency rules.
+- [ ] Version, dependency, and tag examples match the project and `Package.resolved`.
 - [ ] Links and anchors resolve; `python3 scripts/check-doc-links.py` passes.
 - [ ] No duplicate source of truth was introduced; canonical documents were extended instead.
 - [ ] Obsolete, superseded, and abandoned-plan material was removed rather than retained.
@@ -152,6 +186,7 @@ Before completing a documentation change:
 - [ ] Privacy and third-party disclosures match current network and dependency behavior.
 - [ ] Bundled license resources and in-app Acknowledgements entries match the legal documents.
 - [ ] `AGENTS.md` and `CONTRIBUTING.md` remain concise and consistent with this document.
+- [ ] A no-impact change states its reason, and a docs change lists the pages updated and checks run.
 
 ## ADR Process
 

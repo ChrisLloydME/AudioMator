@@ -149,6 +149,7 @@ A behavior change is incomplete until its documentation is updated in the same c
 - Label known limitations, proposals, and unverified behavior explicitly.
 - Do not add current guidance under `Docs/Engineering` or `Docs/Engineering/HISTORY`; those are dated records.
 - Run `python3 scripts/check-doc-links.py` and confirm the documentation is internally consistent before opening a pull request.
+- If the change has no documentation impact, state the reason in the pull request or handoff.
 
 ## Pull Request Expectations
 

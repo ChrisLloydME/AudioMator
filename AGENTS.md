@@ -147,13 +147,14 @@ Every commit follows the [commit message contract](Docs/Development/COMMIT_MESSA
 
 Documentation is part of every change, not a follow-up task. A behavior, build, test, privacy, dependency, or release change is incomplete until the affected documentation is updated in the same changeset. This applies to implementation, refactoring, bug fixing, and feature development.
 
-Read [Documentation Maintenance](Docs/Development/DOCUMENTATION.md) for the document map, ownership, update matrix, labels, and verification steps. These requirements must hold even if that page is not open:
+Read [Documentation Maintenance](Docs/Development/DOCUMENTATION.md) for the document ownership map, update matrix, examples, uncertainty labels, and verification steps. These mandatory steps apply even if that page is not open:
 
-- **Identify affected documents before implementing.** Use the update matrix; check the canonical document and any page that links to it.
-- **Update documentation in the same changeset.** Never leave a known contradiction between code and current-state documentation.
-- **Verify claims against the implementation.** Treat existing docs, comments, tests, and commit messages as unverified evidence. When documentation contradicts behavior, investigate the code, then correct the document. Never change functional code merely to satisfy old documentation.
-- **Remove or rewrite invalidated descriptions.** Architectural changes, API changes, feature changes, and behavioral changes invalidate old text; delete superseded descriptions instead of layering new ones on top. Remove references to abandoned plans and obsolete workflows.
-- **Distinguish implemented behavior from proposals, assumptions, and unverified behavior.** Label gaps and limitations explicitly; do not present intentions as features.
-- **Prefer maintaining existing canonical documents.** Link to the canonical page instead of copying it. Create a new document only when no existing document owns the topic, and register it in `Docs/README.md` with a clear scope.
+1. **Identify affected documentation before editing.** Use the ownership map and update matrix; include the canonical owner and every page that links to it.
+2. **Verify every claim against the resulting implementation.** Check source, build settings, public interfaces, configuration, tests, and reproducible commands. Treat existing docs, comments, tests, and commit messages as unverified evidence. Never change functional code merely to satisfy old documentation.
+3. **Update canonical pages and affected cross-references in the same changeset.** Cover, as applicable: user-facing behavior and workflows; architecture, protocols, and public types; build, test, and CI procedures; dependencies and licenses; privacy, security, and network behavior; and release, version, signing, and distribution steps.
+4. **Remove superseded claims.** Delete invalidated descriptions, abandoned plans, obsolete workflows, and duplicated detail instead of layering new text on top. Link to the canonical page rather than copying it.
+5. **Separate verified behavior from uncertainty.** Label known limitations, proposals, and unverified behavior explicitly; do not present intentions as features.
+6. **Check documentation consistency before declaring work complete.** Run `python3 scripts/check-doc-links.py`, review changed paths, commands, terminology, and cross-references, and state which documents were updated. If a change has no documentation impact, state the brief reason in the handoff.
+
+- **Prefer maintaining existing canonical documents.** Create a new document only when no existing document owns the topic, and register it in `Docs/README.md` and the ownership table with a clear scope.
 - **Respect the evidence/authority split.** Current guidance lives in `README.md`, `CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, and `Docs/{Product,Architecture,Development,Reference,Security}`. `Docs/Engineering/` is dated evidence. `Docs/Engineering/HISTORY/` is a superseded archive: never add current guidance there, never rewrite dated results, and never present its claims as current.
-- **Include documentation consistency in final verification.** Before reporting completion, check links, cross-references, terminology, file paths, command examples, and consistency with the documents in the update matrix. Run `python3 scripts/check-doc-links.py` when documentation or its linked files changed. State which documentation you updated; do not claim a documentation review you did not perform.

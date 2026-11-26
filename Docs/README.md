@@ -94,12 +94,13 @@ When a document and the implementation disagree, investigate first, then correct
 
 ## Maintaining This Documentation
 
-Documentation is part of every change. See [Documentation Maintenance](Development/DOCUMENTATION.md) for the canonical document map, ownership, update matrix, and requirements. In short:
+Documentation is part of every change. See [Documentation Maintenance](Development/DOCUMENTATION.md) for the canonical document map, ownership, update matrix, examples, and requirements. [AGENTS.md](../AGENTS.md) carries the mandatory steps every agent must follow even when the maintenance guide is not open. In short:
 
 - identify the documents affected by a change and update them in the same changeset;
 - verify claims against the implementation rather than copying existing text;
 - remove descriptions invalidated by architecture, API, feature, or behavior changes;
 - prefer extending an existing canonical document over adding an overlapping one;
-- run `python3 scripts/check-doc-links.py` before completing the change.
+- run `python3 scripts/check-doc-links.py` before completing the change;
+- state the reason in the handoff when a change has no documentation impact.
 
 Do not add current guidance under `Docs/Engineering` or `Docs/Engineering/HISTORY/`; those folders hold dated evidence.

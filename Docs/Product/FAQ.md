@@ -112,7 +112,7 @@ Only when you explicitly start MusicBrainz, iTunes, LRCLIB, release-note, or upd
 
 ### Why did a lookup fail or return nothing?
 
-The service may be unavailable or rate-limited, the query may be too ambiguous, or the network may be blocked. Provider clients have timeouts, cancellation, and error reporting; they do not retry indefinitely.
+The service may be unavailable or rate-limited, the query may be too ambiguous, or the network may be blocked. Provider clients have timeouts, cancellation, and error reporting; they do not retry indefinitely. For online album artwork, check the **Storefront** selected in the artwork sheet; the search uses that region. See [Artwork](USER_GUIDE.md#artwork).
 
 ### Does AudioMator install updates?
 

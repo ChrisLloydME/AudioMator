@@ -127,7 +127,7 @@ Network requests occur only for features you explicitly invoke. Opening the Onli
   - `is5-ssl.mzstatic.com` and `a5.mzstatic.com` for rewritten artwork URLs,
   - the host in Apple's returned `artworkUrl100` for thumbnail/standard artwork.
 - Purpose: Apple catalog metadata search, UPC/link/store-ID lookup, selected tag writing, and artwork candidate discovery/download.
-- Data sent includes the selected storefront country and a language code when using a storefront alternative. Requests send a search term (derived from tags, file names, or parent/grandparent folder names, or typed manually) and the media/entity/limit parameters, or an iTunes album/track ID or UPC for lookup. An Apple Music or iTunes link supplies an ID for lookup. Track number, disc number, duration, iTunes artist ID, and catalog ID are used locally. No full file path or audio bytes are sent.
+- Data sent includes the selected storefront country. iTunes metadata requests also include a language code when you choose a storefront alternative; artwork lookups omit language because artwork is language-independent. Requests send a search term (derived from tags, file names, or parent/grandparent folder names, or typed manually) and the media/entity/limit parameters, or an iTunes album/track ID or UPC for lookup. An Apple Music or iTunes link supplies an ID for lookup. Track number, disc number, duration, iTunes artist ID, and catalog ID are used locally. No full file path or audio bytes are sent.
 - Data received: album and track metadata, dates, genres, explicit flags, copyright, Apple IDs, artwork URLs, and image files selected for preview.
 - The app does not restrict artwork downloads to a fixed host list; Apple-returned URLs can reference other Apple artwork hosts.
 

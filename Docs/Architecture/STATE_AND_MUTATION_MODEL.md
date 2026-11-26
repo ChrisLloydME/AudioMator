@@ -11,7 +11,7 @@ This document describes how AudioMator models application state and how it seria
 | Selection | Current visible file IDs owned exclusively by `AudioViewModel`. | Session |
 | Editing draft | `SingleFileEditModel` or `MultiFileEditModel`, plus the source snapshots it was created from. | Session; never implicit disk truth |
 | Presentation | Progress, HUDs, open sheets/windows, issue summaries. | Session |
-| Online artwork lookup | `ArtworkLookupSession`: one search attempt (`searching`/`results`/`failed`/`cancelled`), one candidate download attempt owned by session and attempt IDs, a candidate-scoped retryable download fault, the selected candidate ID, and the captured destination transfer intent (or preview-only). | Session; results, candidate faults and the transfer intent are discarded when the sheet closes |
+| Online artwork lookup | `ArtworkLookupSession`: active iTunes storefront, one search attempt (`searching`/`results`/`failed`/`cancelled`), one candidate download attempt owned by session and attempt IDs, a candidate-scoped retryable download fault, the selected candidate ID, and the captured destination transfer intent (or preview-only). | Session; results, candidate faults and the transfer intent are discarded when the sheet closes. `AudioViewModel.artworkLookupStorefront` remembers the chosen storefront for later lookup sessions during the app run and is not persisted. |
 | Source configuration | Watched-folder and file-access bookmark records. | `UserDefaults` |
 | Preferences | Sidebar/sort/columns/toolbar/inspector visibility, conflict policy, welcome state, MuseAmp toggle. | `UserDefaults` |
 | Save issue log | Non-success batch summaries. | JSON in Application Support |

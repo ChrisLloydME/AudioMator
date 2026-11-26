@@ -135,6 +135,10 @@ MusicBrainz validates the exact response shape before caching it. A successful H
 
 Try a simpler query or filename fallback. Provider matching is heuristic and may reject ambiguous results. Check the query fields shown in the UI.
 
+### Online artwork search returns no matches
+
+Album artwork search uses the **Storefront** selected in the artwork sheet. If a known album is missing, choose another storefront; switching cancels the active search and searches the new region immediately while keeping the captured Inspector draft. Artwork is language-independent, so there is no language selector. The storefront control is disabled while a candidate download runs, and **Search Again** uses the active storefront. See [Artwork](USER_GUIDE.md#artwork).
+
 ### Artwork will not apply
 
 Artwork write support depends on the container and is checked before writing. The downloaded image may also fail validation or normalization. Check the reported error and try another candidate.

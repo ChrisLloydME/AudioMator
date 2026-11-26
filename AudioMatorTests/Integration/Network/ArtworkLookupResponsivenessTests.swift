@@ -923,6 +923,239 @@ nonisolated final class ArtworkLookupResponsivenessTests: XCTestCase {
         viewModel.dismissArtworkLookup()
     }
 
+    // MARK: - Storefront selection
+
+    @MainActor
+    func testSelectingStorefrontCancelsDelayedSearchAndNeverPublishesStaleResults() async throws {
+        let usGate = ArtworkLookupGate()
+        let jpGate = ArtworkLookupGate()
+        let usResult = makeArtworkResult(id: "us-1", title: "US Cover")
+        let jpResult = makeArtworkResult(id: "jp-1", title: "JP Cover")
+        let expectedPNG = makeExpectedPNGData(seed: 0x9)
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([usResult]), .success([jpResult])],
+            expectedPNGData: expectedPNG,
+            searchGatesByCountry: ["us": usGate, "jp": jpGate]
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        await usGate.waitUntilStarted()
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .us)
+        XCTAssertTrue(viewModel.artworkLookupSession?.canChangeStorefront == true)
+
+        viewModel.selectArtworkLookupStorefront(.jp)
+        await jpGate.waitUntilStarted()
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+        XCTAssertEqual(viewModel.artworkLookupStorefront, .jp)
+        XCTAssertTrue(viewModel.artworkLookupSession?.isLoading == true)
+        XCTAssertTrue(viewModel.artworkLookupSession?.results.isEmpty == true)
+
+        // Release the superseded US search first; it must not publish into the JP session
+        // or disturb JP's loading state.
+        await usGate.release()
+        try await Task.sleep(for: .milliseconds(40))
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+        XCTAssertTrue(viewModel.artworkLookupSession?.isLoading == true)
+        XCTAssertTrue(viewModel.artworkLookupSession?.results.isEmpty == true)
+
+        await jpGate.release()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+        XCTAssertEqual(viewModel.artworkLookupSession?.results.map(\.id), [jpResult.id])
+        XCTAssertEqual(viewModel.artworkLookupSession?.selectedResultID, jpResult.id)
+
+        let requests = await service.recordedSearchRequests()
+        XCTAssertEqual(requests.map(\.country), ["us", "jp"])
+
+        // The captured Inspector draft authority survives storefront switching.
+        viewModel.applySelectedArtworkLookupResult()
+        try await waitUntil {
+            viewModel.artworkLookupSession == nil
+        }
+        try assertStagedArtwork(expectedPNG, in: viewModel)
+    }
+
+    @MainActor
+    func testStorefrontSelectionRetainsChoiceAcrossSessionsAndRetriesInActiveStorefront() async throws {
+        let usResult = makeArtworkResult(id: "us-1", title: "US Cover")
+        let jpResult = makeArtworkResult(id: "jp-1", title: "JP Cover")
+        let expectedPNG = makeExpectedPNGData(seed: 0x7)
+        let service = ControllableArtworkService(
+            searchOutcomes: [
+                .success([usResult]),
+                .failure(.searchFailed),
+                .success([jpResult]),
+                .success([jpResult])
+            ],
+            expectedPNGData: expectedPNG
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+
+        viewModel.selectArtworkLookupStorefront(.jp)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .failed(message: "The artwork search failed.")
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+        XCTAssertTrue(viewModel.artworkLookupSession?.showsSearchRetry == true)
+
+        // Retrying a failed search must keep the selected storefront.
+        viewModel.retryArtworkSearch()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+        XCTAssertEqual(viewModel.artworkLookupSession?.results.map(\.id), [jpResult.id])
+
+        viewModel.applySelectedArtworkLookupResult()
+        try await waitUntil {
+            viewModel.artworkLookupSession == nil
+        }
+        try assertStagedArtwork(expectedPNG, in: viewModel)
+
+        // Subsequent artwork lookup sessions remember the selected storefront.
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .jp)
+
+        let requests = await service.recordedSearchRequests()
+        XCTAssertEqual(requests.map(\.country), ["us", "jp", "jp", "jp"])
+    }
+
+    @MainActor
+    func testStorefrontSelectionIsBlockedWhileDownloadIsInFlight() async throws {
+        let gate = ArtworkCallGate()
+        let expectedPNG = makeExpectedPNGData(seed: 0x4)
+        let result = makeArtworkResult()
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([result])],
+            expectedPNGData: expectedPNG,
+            downloadGate: gate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        viewModel.applySelectedArtworkLookupResult()
+        await gate.waitUntilStarted(1)
+
+        XCTAssertFalse(viewModel.artworkLookupSession?.canChangeStorefront == true)
+        viewModel.selectArtworkLookupStorefront(.gb)
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .us)
+        XCTAssertEqual(viewModel.artworkLookupStorefront, .us)
+
+        await gate.releaseAll()
+        try await waitUntil {
+            viewModel.artworkLookupSession == nil
+        }
+
+        let requests = await service.recordedSearchRequests()
+        XCTAssertEqual(requests.map(\.country), ["us"])
+        try assertStagedArtwork(expectedPNG, in: viewModel)
+    }
+
+    @MainActor
+    func testStorefrontSwitchClearsCandidateDownloadFaultButPreservesTransferFault() async throws {
+        let candidateA = makeArtworkResult(id: "a", title: "Candidate A")
+        let candidateB = makeArtworkResult(id: "b", title: "Candidate B")
+        let candidateC = makeArtworkResult(id: "c", title: "Candidate C")
+        let downloadGate = ArtworkCallGate()
+        let expectedPNG = makeExpectedPNGData(seed: 0x5)
+        let service = ControllableArtworkService(
+            searchOutcomes: [.success([candidateA]), .success([candidateB]), .success([candidateC])],
+            downloadOutcomes: [.failure(.downloadFailed), .success(expectedPNG)],
+            expectedPNGData: expectedPNG,
+            downloadGate: downloadGate
+        )
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let fileA = makeArtworkFile(url: URL(fileURLWithPath: "/tmp/storefront-a.mp3"), title: "Track A")
+        let fileB = makeArtworkFile(url: URL(fileURLWithPath: "/tmp/storefront-b.mp3"), title: "Track B")
+        viewModel.mergeQuickImportFiles([fileA, fileB])
+        viewModel.setSelectedAudioIDs([fileA.id])
+
+        // 1. A candidate-scoped download failure is cleared when switching storefronts.
+        viewModel.findOnlineArtwork(for: fileA)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        viewModel.applySelectedArtworkLookupResult()
+        await downloadGate.waitUntilStarted(1)
+        await downloadGate.releaseNext()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.downloadFault != nil
+        }
+        XCTAssertTrue(viewModel.artworkLookupSession?.downloadFault?.isRetryable == true)
+
+        viewModel.selectArtworkLookupStorefront(.de)
+        XCTAssertNil(viewModel.artworkLookupSession?.downloadFault)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .de)
+        XCTAssertEqual(viewModel.artworkLookupSession?.selectedResultID, candidateB.id)
+        XCTAssertTrue(viewModel.artworkLookupSession?.canApplySelectedResult == true)
+
+        // 2. A destination-draft transfer fault is terminal and survives storefront switches.
+        viewModel.applySelectedArtworkLookupResult()
+        await downloadGate.waitUntilStarted(2)
+        viewModel.setSelectedAudioIDs([fileB.id])
+        await downloadGate.releaseNext()
+        try await waitUntil {
+            viewModel.artworkLookupSession?.downloadFault?.isTransferFault == true
+        }
+        let terminalFault = try XCTUnwrap(viewModel.artworkLookupSession?.downloadFault)
+
+        viewModel.selectArtworkLookupStorefront(.gb)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        XCTAssertEqual(viewModel.artworkLookupSession?.storefront, .gb)
+        XCTAssertEqual(viewModel.artworkLookupSession?.selectedResultID, candidateC.id)
+        XCTAssertEqual(viewModel.artworkLookupSession?.downloadFault, terminalFault)
+        XCTAssertFalse(viewModel.artworkLookupSession?.canApplySelectedResult == true)
+
+        let requests = await service.recordedSearchRequests()
+        XCTAssertEqual(requests.map(\.country), ["us", "de", "gb"])
+    }
+
+    @MainActor
+    func testSelectingSameStorefrontDoesNotRestartSearch() async throws {
+        let result = makeArtworkResult(id: "us-only", title: "US Cover")
+        let service = ControllableArtworkService(searchOutcomes: [.success([result])])
+        let viewModel = makeViewModel(service: service, timeout: .seconds(5))
+        let file = makeArtworkFile()
+        prepareLookupDraft(for: file, in: viewModel)
+
+        viewModel.findOnlineArtwork(for: file)
+        try await waitUntil {
+            viewModel.artworkLookupSession?.searchState == .results
+        }
+        let originalAttemptID = viewModel.artworkLookupSession?.searchAttemptID
+
+        viewModel.selectArtworkLookupStorefront(.us)
+        XCTAssertEqual(viewModel.artworkLookupSession?.searchAttemptID, originalAttemptID)
+        XCTAssertEqual(viewModel.artworkLookupSession?.results.map(\.id), [result.id])
+        let callCount = await service.recordedSearchCallCount()
+        XCTAssertEqual(callCount, 1)
+    }
+
     // MARK: - Helpers
 
     /// Selects the file so F3-b creates the Inspector draft that authorizes the
@@ -1053,9 +1286,10 @@ private actor ArtworkServiceScript {
     private var downloadOutcomes: [Result<Data, ArtworkServiceTestError>]
     private let expectedPNGData: Data
     private let searchGate: ArtworkLookupGate?
+    private let searchGatesByCountry: [String: ArtworkLookupGate]
     private let downloadGate: ArtworkCallGate?
 
-    private var searchCallCount = 0
+    private var searchRequests: [iTunesArtworkSearchRequest] = []
     private var downloadCandidateIDs: [String] = []
     private var completedDownloadCount = 0
 
@@ -1064,18 +1298,22 @@ private actor ArtworkServiceScript {
         downloadOutcomes: [Result<Data, ArtworkServiceTestError>],
         expectedPNGData: Data,
         searchGate: ArtworkLookupGate?,
+        searchGatesByCountry: [String: ArtworkLookupGate],
         downloadGate: ArtworkCallGate?
     ) {
         self.searchOutcomes = searchOutcomes
         self.downloadOutcomes = downloadOutcomes
         self.expectedPNGData = expectedPNGData
         self.searchGate = searchGate
+        self.searchGatesByCountry = searchGatesByCountry
         self.downloadGate = downloadGate
     }
 
-    func recordSearch() async throws -> [iTunesArtworkSearchResult] {
-        searchCallCount += 1
-        if let searchGate {
+    func recordSearch(_ request: iTunesArtworkSearchRequest) async throws -> [iTunesArtworkSearchResult] {
+        searchRequests.append(request)
+        if let countryGate = searchGatesByCountry[request.country] {
+            await countryGate.wait()
+        } else if let searchGate {
             await searchGate.wait()
         }
         let outcome = nextSearchOutcome()
@@ -1103,7 +1341,11 @@ private actor ArtworkServiceScript {
     }
 
     func recordedSearchCallCount() -> Int {
-        searchCallCount
+        searchRequests.count
+    }
+
+    func recordedSearchRequests() -> [iTunesArtworkSearchRequest] {
+        searchRequests
     }
 
     func recordedDownloadCandidateIDs() -> [String] {
@@ -1137,6 +1379,7 @@ private final class ControllableArtworkService: iTunesArtworkServicing, @uncheck
         downloadOutcomes: [Result<Data, ArtworkServiceTestError>] = [],
         expectedPNGData: Data = Data(),
         searchGate: ArtworkLookupGate? = nil,
+        searchGatesByCountry: [String: ArtworkLookupGate] = [:],
         downloadGate: ArtworkCallGate? = nil
     ) {
         self.script = ArtworkServiceScript(
@@ -1144,6 +1387,7 @@ private final class ControllableArtworkService: iTunesArtworkServicing, @uncheck
             downloadOutcomes: downloadOutcomes,
             expectedPNGData: expectedPNGData,
             searchGate: searchGate,
+            searchGatesByCountry: searchGatesByCountry,
             downloadGate: downloadGate
         )
     }
@@ -1151,7 +1395,7 @@ private final class ControllableArtworkService: iTunesArtworkServicing, @uncheck
     func search(
         _ request: iTunesArtworkSearchRequest
     ) async throws -> [iTunesArtworkSearchResult] {
-        try await script.recordSearch()
+        try await script.recordSearch(request)
     }
 
     func downloadArtworkData(
@@ -1162,6 +1406,10 @@ private final class ControllableArtworkService: iTunesArtworkServicing, @uncheck
 
     func recordedSearchCallCount() async -> Int {
         await script.recordedSearchCallCount()
+    }
+
+    func recordedSearchRequests() async -> [iTunesArtworkSearchRequest] {
+        await script.recordedSearchRequests()
     }
 
     func recordedDownloadCandidateIDs() async -> [String] {

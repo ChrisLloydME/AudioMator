@@ -141,8 +141,41 @@ extension AudioViewModel {
         artworkLookupTask = nil
     }
 
+    /// Switches the active storefront for the open artwork lookup sheet, remembers
+    /// the choice for later sessions, cancels any in-flight search, and starts a
+    /// fresh search in the newly chosen region while preserving the captured draft
+    /// transfer (and any terminal destination-draft fault).
+    func selectArtworkLookupStorefront(_ storefront: iTunesStorefront) {
+        guard var session = artworkLookupSession,
+              session.canChangeStorefront,
+              session.storefront != storefront else {
+            return
+        }
+
+        artworkLookupStorefront = storefront
+
+        let searchAttemptID = UUID()
+        session.storefront = storefront
+        session.searchAttemptID = searchAttemptID
+        session.searchState = .searching
+        session.results = []
+        session.selectedResultID = nil
+        if session.downloadFault?.isTransferFault != true {
+            session.downloadFault = nil
+        }
+        session.emptyMessage = nil
+        artworkLookupSession = session
+
+        startArtworkSearch(
+            sessionID: session.id,
+            searchAttemptID: searchAttemptID,
+            request: session.request,
+            storefront: storefront
+        )
+    }
+
     /// Search-level retry inside the same sheet session, preserving the captured
-    /// target/request context. Only a failed search is retryable.
+    /// target/request context and active storefront. Only a failed search is retryable.
     func retryArtworkSearch() {
         guard var session = artworkLookupSession,
               session.showsSearchRetry,
@@ -156,14 +189,17 @@ extension AudioViewModel {
         session.results = []
         session.selectedResultID = nil
         session.download = nil
-        session.downloadFault = nil
+        if session.downloadFault?.isTransferFault != true {
+            session.downloadFault = nil
+        }
         session.emptyMessage = nil
         artworkLookupSession = session
 
         startArtworkSearch(
             sessionID: session.id,
             searchAttemptID: searchAttemptID,
-            request: session.request
+            request: session.request,
+            storefront: session.storefront
         )
     }
 
@@ -179,11 +215,13 @@ extension AudioViewModel {
         // the visible projection passed by the caller.
         let command = beginArtworkCommand(for: fileIDs)
         let resolvedFileIDs = command?.targetIDs ?? fileIDs
+        let storefront = artworkLookupStorefront
         let searchAttemptID = UUID()
         var session = ArtworkLookupSession(
             fileIDs: resolvedFileIDs,
             selectionTitle: selectionTitle,
             request: request,
+            storefront: storefront,
             searchAttemptID: searchAttemptID
         )
         if let command {
@@ -197,14 +235,16 @@ extension AudioViewModel {
         startArtworkSearch(
             sessionID: session.id,
             searchAttemptID: searchAttemptID,
-            request: request
+            request: request,
+            storefront: storefront
         )
     }
 
     private func startArtworkSearch(
         sessionID: UUID,
         searchAttemptID: UUID,
-        request: ArtworkLookupRequestDescriptor
+        request: ArtworkLookupRequestDescriptor,
+        storefront: iTunesStorefront
     ) {
         let service = artworkLookupService
         let operationTimeout = artworkLookupOperationTimeout
@@ -215,7 +255,8 @@ extension AudioViewModel {
             do {
                 let searchRequest = iTunesArtworkSearchRequest(
                     query: request.query,
-                    entity: request.entity
+                    entity: request.entity,
+                    country: storefront.countryCode
                 )
                 let results = try await withAsyncTimeout(
                     operationTimeout,
@@ -234,7 +275,8 @@ extension AudioViewModel {
             guard let self else { return }
             guard var currentSession = self.artworkLookupSession,
                   currentSession.id == sessionID,
-                  currentSession.searchAttemptID == searchAttemptID else {
+                  currentSession.searchAttemptID == searchAttemptID,
+                  currentSession.storefront == storefront else {
                 return
             }
 
@@ -244,7 +286,7 @@ extension AudioViewModel {
                 currentSession.results = results
                 currentSession.selectedResultID = results.first?.id
                 currentSession.emptyMessage = results.isEmpty
-                    ? String(localized: "No artwork matches this search. Try a different album or artist name.")
+                    ? String(localized: "No artwork matches this search in the \(storefront.displayName) storefront. Try another storefront, or check the album or artist name.")
                     : nil
             case .failure(let error):
                 if error is CancellationError {

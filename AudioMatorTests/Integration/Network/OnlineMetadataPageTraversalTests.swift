@@ -236,6 +236,7 @@ nonisolated final class OnlineMetadataPageTraversalTests: XCTestCase {
                     entity: .album,
                     source: .album
                 ),
+                storefront: .jp,
                 searchAttemptID: UUID(),
                 searchState: .results,
                 results: [artworkResult],

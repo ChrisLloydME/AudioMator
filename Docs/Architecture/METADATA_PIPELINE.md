@@ -161,8 +161,9 @@ production source.
    is not writable),
 2. build `MetadataEditPayload` compared to the reviewed baseline snapshot,
 3. obtain the adapter-owned `MetadataWriteProjection` from the same deterministic
-   encoder the commit uses; malformed number/date text and unsupported fields are
-   rejected here, and a no-op projection never reaches a writer,
+   encoder the commit uses. Invalid track or disc number text and unsupported fields
+   are rejected here. Date text passes through without app-level format validation.
+   A no-op projection never reaches a writer,
 4. look up `AudioFormatSupport.writableMetadataFields(for:)`. Missing capability
    information marks every requested field unsupported (fail closed); an unknown
    format is never treated as permission to write,

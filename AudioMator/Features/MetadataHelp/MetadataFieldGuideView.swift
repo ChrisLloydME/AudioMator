@@ -16,6 +16,8 @@ struct MetadataFieldGuideView: View {
 
     @State private var query = ""
     @State private var selection: String? = MetadataFieldKey.title.rawValue
+    @State private var genreCatalog = try? iTunesStoreGenreCatalog.bundled()
+    @State private var genreNavigationPath: [iTunesStoreGenreCatalog.MediaCategory] = []
 
     private var results: [MetadataFieldGuide.Entry] {
         MetadataFieldGuide.entries.filter { $0.matches(query) }
@@ -32,25 +34,43 @@ struct MetadataFieldGuideView: View {
                         .tag(entry.id)
                 }
             }
+            .listStyle(.sidebar)
+            .audiomatorScrollEdgeEffect(.soft, for: .vertical)
             .overlay {
                 if results.isEmpty {
                     ContentUnavailableView.search(text: query)
                 }
             }
             .navigationSplitViewColumnWidth(min: 300, ideal: Self.preferredSidebarWidth, max: max(520, Self.preferredSidebarWidth))
-            .searchable(text: $query, prompt: Text("Find a field or storage name"))
+            .searchable(text: $query, placement: .sidebar, prompt: Text("Search"))
         } detail: {
-            if let entry = results.first(where: { $0.id == selection }) {
-                detail(entry)
-            } else {
-                ContentUnavailableView(
-                    "Choose a Field", systemImage: "text.book.closed",
-                    description: Text("Find out what a field means and where AudioMator stores it.")
-                )
+            NavigationStack(path: $genreNavigationPath) {
+                Group {
+                    if let entry = results.first(where: { $0.id == selection }) {
+                        detail(entry)
+                    } else {
+                        ContentUnavailableView(
+                            "Choose a Field", systemImage: "text.book.closed",
+                            description: Text("Find out what a field means and where AudioMator stores it.")
+                        )
+                    }
+                }
+                .navigationTitle("Metadata Field Guide")
+                .navigationDestination(for: iTunesStoreGenreCatalog.MediaCategory.self) { category in
+                    if let genreCatalog {
+                        iTunesStoreGenreMediaDetailView(catalog: genreCatalog, category: category)
+                    } else {
+                        ContentUnavailableView("Genre Catalog Unavailable", systemImage: "exclamationmark.triangle")
+                            .navigationTitle(category.name)
+                    }
+                }
             }
         }
         .onChange(of: query) { _, _ in
             if !results.contains(where: { $0.id == selection }) { selection = results.first?.id }
+        }
+        .onChange(of: selection) { _, _ in
+            genreNavigationPath.removeAll()
         }
         .frame(minWidth: 840, minHeight: 480)
     }
@@ -61,6 +81,10 @@ struct MetadataFieldGuideView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text(entry.title).font(.largeTitle).accessibilityAddTraits(.isHeader)
                     Text(entry.purpose).font(.body)
+                }
+
+                if entry.key == .itunesGenreID {
+                    iTunesStoreGenreSection(catalog: genreCatalog)
                 }
 
                 if let guidance = entry.valueGuidance {
@@ -181,6 +205,7 @@ struct MetadataFieldGuideView: View {
             .padding(28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .audiomatorScrollEdgeEffect(.soft, for: .vertical)
     }
 
     private func nativeName(_ target: MetadataNativeTarget) -> String {

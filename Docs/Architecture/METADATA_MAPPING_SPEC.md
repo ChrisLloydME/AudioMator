@@ -1,6 +1,6 @@
 # Metadata Mapping Specification
 
-Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted and implemented by published TagLibAudioMetadata 0.8.3**. Earlier application adoption and release-gate evidence are recorded in [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md); current capability restrictions and fixture limits are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). This specification remains the shared normative contract. It is not a claim that every format, tag version, or layout is writable; unsupported operations must fail safely rather than be inferred from this document. A normal failing legacy test must not be hidden to claim conformance.
+Contract ID: `AM-TLAM-MAPPING-2.2`. Decision date: 2026-11-09. Status: **accepted and implemented by published TagLibAudioMetadata 0.8.3**. Current application adoption and release-gate evidence are recorded in [Published 0.8.3 adoption](../Engineering/TAGLIB_083_ADOPTION_2026-11-25.md); the earlier [0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records the preceding pin. Current capability restrictions and fixture limits are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md). This specification remains the shared normative contract. It is not a claim that every format, tag version, or layout is writable; unsupported operations must fail safely rather than be inferred from this document. A normal failing legacy test must not be hidden to claim conformance.
 
 AudioMator and TagLibAudioMetadata maintain one shared contract, not independently editable policies. Any normative change must update both copies, increment the contract version, and state migration and test implications. The package owns native mapping/verification; AudioMator owns edit intent and presentation. Neither repository may silently override the other layer's semantics.
 
@@ -436,7 +436,7 @@ The application pins published `TagLibAudioMetadata` 0.8.3, which implements thi
 
 ## 12. Required conformance and release gates
 
-The following are contract requirements. The application-side release gate, complete named test inventory, and package acceptance are recorded in [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) and [Testing](../Development/TESTING.md).
+The following are contract requirements. The application-side release gate, complete named test inventory, and package acceptance for the current pin are recorded in the [Published 0.8.3 adoption](../Engineering/TAGLIB_083_ADOPTION_2026-11-25.md) and [Testing](../Development/TESTING.md); the earlier [0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) records the preceding pin.
 
 - Enumerate every public field and every app edit property; fail registry coverage if one lacks a mapping, explicit unsupported reason or declared display-only status. Test native atom spelling/case, freeform namespace/description and source-dialect aliases.
 - For each advertised field/family/version, test set, replace, remove, absent no-op, unrelated-edit preservation and unsupported rejection with original-byte preservation. Use an independent native inspector where possible, not only the same projection that wrote the field.
@@ -450,7 +450,7 @@ The following are contract requirements. The application-side release gate, comp
 
 ## 13. Historical 0.6.0 baseline (context for the contract decisions)
 
-> Historical record, not current behavior: this section describes the package 0.6.0 baseline that motivated contract 2.2, so the divergence decisions above can be read in context. Published 0.8.1 implemented the contract; the application-side adoption and release-gate evidence are recorded in [Published 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). Current capability restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
+> Historical record, not current behavior: this section describes the package 0.6.0 baseline that motivated contract 2.2, so the divergence decisions above can be read in context. Published 0.8.1 implemented the contract, and the current 0.8.3 pin retains it; the application-side adoption and release-gate evidence are recorded in [Published 0.8.3 adoption](../Engineering/TAGLIB_083_ADOPTION_2026-11-25.md) and the [earlier 0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md). Current capability restrictions are in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md).
 
 At the inspected package 0.6.0 revision, `.date` is labeled Recording Date and rejected for typed MP4 writes; `.releaseDate` maps to ©day; Basic year is a four-character projection. At that baseline, AudioMator mapped Year directly to `.date` and could discard the rest of DATE when that field was edited. Its then-current Inspector allowed unsupported MP4 Year intent. These are known differences from the target, not reasons to amend the target back to current behavior.
 

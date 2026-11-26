@@ -25,11 +25,11 @@ There is one CI workflow, `Validation`. It uploads test logs and `.xcresult` evi
 
 | Value | Location | Current value |
 | --- | --- | --- |
-| Marketing version | `MARKETING_VERSION` in `project.pbxproj` | `3.0` in both app configurations |
-| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `3604` in both app configurations |
-| Release tag | GitHub Releases, in the form `V<version>B<build>` | `V3.0B3604` for the current values; created manually on the release commit |
+| Marketing version | `MARKETING_VERSION` in `project.pbxproj` | `3.0.1` in both app configurations |
+| Build number | `CURRENT_PROJECT_VERSION` in `project.pbxproj` | `3605` in both app configurations |
+| Release tag | GitHub Releases, in the form `V<version>B<build>` | `V3.0.1B3605` for the current values; created manually on the release commit |
 
-Verify the project values before tagging. The current values identify the release tag `V3.0B3604`; the previous local tag `V2.7B26112` points at `9599e016` (2026-11-12). Choose new release version/build values and an unused tag before publishing, and do not reuse an existing published tag. See [Configuration](../Reference/CONFIGURATION.md).
+Verify the project values before tagging. The current values identify the release tag `V3.0.1B3605`; the previous local tag `V3.0B3604` points at `e5d9786d` (2026-11-23), before that `V2.7B26112` at `9599e016` (2026-11-12). Choose new release version/build values and an unused tag before publishing, and do not reuse an existing published tag. See [Configuration](../Reference/CONFIGURATION.md).
 
 Tag creation is manual. No repository script or CI job creates or pushes release tags.
 
@@ -40,7 +40,7 @@ The in-app update checker:
 - parses the build as an integer,
 - compares marketing segments first, padding missing segments with zero, then the build.
 
-`V2.10B100` is newer than `V2.9B999`; `V3.0B3604` equals `V3.0.0B3604`. The update check asks `api.github.com` for `/releases/latest`, which excludes drafts and prereleases.
+`V2.10B100` is newer than `V2.9B999`; `V3.0.1B3605` equals `V3.0.1.0B3605`. The update check asks `api.github.com` for `/releases/latest`, which excludes drafts and prereleases.
 
 Both Debug and Release currently share the same marketing/build values but use different bundle identifiers. A release build must use the Release bundle ID (`com.LloydME.AudioMator`); Debug is `com.TheLloydME.AudioMator.Beta`.
 
@@ -54,7 +54,7 @@ The following steps are the minimum supported procedure. The repository implemen
 4. **Sign.** Sign the app and embedded frameworks with a Developer ID identity, preserving hardened runtime and entitlements. Not automated and not configured in the repository.
 5. **Notarize and staple.** Submit to Apple's notary service and staple the ticket. Not automated and not verified in this repository.
 6. **Package.** Create the distribution format (DMG, PKG, or ZIP). No packaging script exists.
-7. **Tag and publish.** Create and push tag `V<version>B<build>` on the release commit (`V3.0B3604` for the current values), create a GitHub Release with that tag, upload the artifact, and write release notes. Manual; no automation.
+7. **Tag and publish.** Create and push tag `V<version>B<build>` on the release commit (`V3.0.1B3605` for the current values), create a GitHub Release with that tag, upload the artifact, and write release notes. Manual; no automation.
 8. **Verify the update path.** Open the published release and confirm the tag parses and the app's **Check for Updates…** reports it correctly.
 9. **Announce** through the project's channels.
 
@@ -173,4 +173,4 @@ Because updates are manual:
 - [Configuration](../Reference/CONFIGURATION.md)
 - [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md)
 
-Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See [current published-pin acceptance](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) and the [2026-11-18 cleanup acceptance](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md); the earlier [state-coverage evidence](../Engineering/HISTORY/METADATA_STATE_COVERAGE_2026-11-11.md) describes a local candidate and remains historical.
+Local package candidates may be validated with the explicit `--local-package` option documented in [Build](BUILD.md#local-package-candidate-gate). Candidate acceptance does not authorize publication or establish that the current published dependency is repaired. Source-declared core/app test inventories and critical save journeys are mandatory evidence; missing named tests or skipped/expected-failure results block the gate. See the [published 0.8.3 adoption](../Engineering/TAGLIB_083_ADOPTION_2026-11-25.md) for the current pin, the [0.8.1 Debug adoption](../Engineering/TAGLIB_081_DEBUG_ADOPTION_2026-11-17.md) for an earlier pin, and the [2026-11-18 cleanup acceptance](../Engineering/AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md); the earlier [state-coverage evidence](../Engineering/HISTORY/METADATA_STATE_COVERAGE_2026-11-11.md) describes a local candidate and remains historical.

@@ -1,6 +1,6 @@
 # Published TagLibAudioMetadata 0.8.1 Debug adoption — 2026-11-17
 
-> Dated evidence — current behavior is documented in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md) and the [Metadata Mapping Specification](../Architecture/METADATA_MAPPING_SPEC.md). This remains the Debug-adoption evidence for the unchanged published 0.8.1 pin; the 596-test app-hosted inventory below is historical and the later [2026-11-18 cleanup acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) records the current 629-test gate. Release, Archive and interactive UI were excluded.
+> Dated evidence — current behavior is documented in [Dependency Limitations](../Reference/DEPENDENCY_LIMITATIONS.md) and the [Metadata Mapping Specification](../Architecture/METADATA_MAPPING_SPEC.md). This remains the Debug-adoption evidence for the unchanged published 0.8.1 pin; the 596-test app-hosted inventory below is historical and the later [2026-11-18 cleanup acceptance](AUDIOMATOR_LEGACY_CLEANUP_ACCEPTANCE_2026-11-18.md) records the 629-test gate for that baseline. The current pin and release-gate record are in [Published 0.8.3 adoption](TAGLIB_083_ADOPTION_2026-11-25.md). Release, Archive and interactive UI were excluded.
 
 Branch: `codex/adopt-taglib-081`, based on main `a0230a00`.
 
